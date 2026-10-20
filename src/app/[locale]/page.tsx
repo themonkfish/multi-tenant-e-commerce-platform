@@ -109,6 +109,12 @@ export default async function HomePage({ params }: HomePageProps) {
               >
                 {settings.locale.defaultLocale}
               </span>
+              <Link
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
+                href={`/${locale}/account`}
+              >
+                Account
+              </Link>
               <StorefrontCartButton locale={locale} />
             </div>
           </header>

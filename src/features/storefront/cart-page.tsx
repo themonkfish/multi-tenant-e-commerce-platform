@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { useCartStore } from "@/features/storefront/cart-store";
+import { useOrderStore } from "@/features/storefront/order-store";
 
 export function StorefrontCartPage({ locale }: { locale: string }) {
+  const router = useRouter();
   const items = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const clear = useCartStore((state) => state.clear);
-  const [checkedOut, setCheckedOut] = useState(false);
+  const placeOrder = useOrderStore((state) => state.placeOrder);
 
   const subtotal = useMemo(
     () =>
@@ -19,30 +22,22 @@ export function StorefrontCartPage({ locale }: { locale: string }) {
     [items],
   );
 
-  async function onCheckout() {
-    setCheckedOut(true);
+  function onCheckout() {
+    const placedOrder = placeOrder(items);
+    if (!placedOrder) {
+      return;
+    }
+
     clear();
+    router.push(`/${locale}/checkout/success`);
   }
 
-  if (items.length === 0 && !checkedOut) {
+  if (items.length === 0) {
     return (
       <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
         <h2 className="text-2xl font-semibold text-slate-900">Your cart is empty</h2>
         <p className="mt-2 text-sm text-slate-600">
           Add a few products to preview the storefront checkout flow.
-        </p>
-      </section>
-    );
-  }
-
-  if (checkedOut) {
-    return (
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
-        <h2 className="text-2xl font-semibold text-emerald-900">
-          Your order is placed
-        </h2>
-        <p className="mt-2 text-sm text-emerald-800">
-          This demo checkout is complete. The cart has been cleared for a new shopping session.
         </p>
       </section>
     );
@@ -109,7 +104,7 @@ export function StorefrontCartPage({ locale }: { locale: string }) {
 
         <button
           className="mt-6 w-full rounded-md bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800"
-          onClick={() => void onCheckout()}
+          onClick={onCheckout}
           type="button"
         >
           Proceed to checkout

@@ -64,9 +64,13 @@ Status snapshot as of 2026-10-21:
       are available from the tenant backend while the full commerce experience
       remains intentionally unavailable.
 - [x] Tenant storefront cart and checkout preview: persisted cart state,
-      add-to-cart actions, a focused cart page, and a checkout completion
-      placeholder are now wired into the storefront catalog and product detail
-      flows while the underlying commerce runtime remains future work.
+      add-to-cart actions, a focused cart page, and a checkout confirmation
+      flow are now wired into the storefront catalog and product detail flows
+      while the underlying commerce runtime remains future work.
+- [x] Customer order confirmation and account preview: recent orders persist
+      locally in the storefront and are visible on dedicated confirmation and
+      account pages, completing the next frontend commerce milestone before the
+      full backend checkout/runtime is implemented.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.

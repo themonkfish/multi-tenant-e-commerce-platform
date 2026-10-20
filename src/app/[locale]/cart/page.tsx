@@ -63,6 +63,12 @@ export default async function CartPage({ params }: CartPageProps) {
         <div className="flex flex-wrap gap-3">
           <Link
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            href={`/${locale}/account`}
+          >
+            My account
+          </Link>
+          <Link
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}/products`}
           >
             Continue shopping
