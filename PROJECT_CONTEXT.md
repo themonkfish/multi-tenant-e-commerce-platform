@@ -246,6 +246,32 @@ The Super Admin owns the frontend deployment, so there is no parent to create th
 - Rate-limit and audit all setup and Super Admin auth endpoints.
 - Store password hashes with Argon2id/bcrypt; encrypt 2FA secrets and platform secrets with `PLATFORM_SECRET_KEY`.
 
+### 6.0.2 Platform Supabase via Environment Variables (Super Admin / core settings)
+
+**Decision:** the platform's own data (hosts, plans, limits, platform settings, super-admin users, audit logs, encrypted secret vault) lives in **one fixed Supabase project configured through server-side env vars**. All Super Admin and core-settings operations run through **narrow, server-only handlers** that use this project. This is the recommended setup.
+
+```
+PLATFORM_STORE=supabase
+PLATFORM_SUPABASE_URL=                 # server-only
+PLATFORM_SUPABASE_SERVICE_KEY=         # server-only, NEVER prefix with NEXT_PUBLIC_
+PLATFORM_SECRET_KEY=                   # app-level encryption key for secrets stored in the DB
+# Optional, only if the Super Admin signs in through Supabase Auth in the browser:
+NEXT_PUBLIC_PLATFORM_SUPABASE_URL=
+NEXT_PUBLIC_PLATFORM_SUPABASE_ANON_KEY=
+```
+
+**Rules**
+- **Separate projects:** the platform Supabase project is never reused as a tenant's data project. Use different projects (and keys) for dev, staging and production.
+- **Server-only access:** the service key is used only in modules with `import "server-only"`. It must never be bundled to the client, logged, returned in API responses, or shown in the dashboard.
+- **No generic endpoint.** Do not build one `/api/admin` route that accepts a table name, filter or raw query. Expose **explicit actions** (`createHost`, `suspendHost`, `updateHostLimits`, `updatePlatformSettings`, `inviteSuperAdmin`, ...), each with Zod validation, an authorization check, and an audit log entry.
+- **Authorize every call:** verify session + role `super_admin` + 2FA state server-side on each request, plus CSRF/origin checks and rate limiting. Optional extra: IP allow-list or VPN for `admin.<domain>`.
+- **Default-deny RLS on all platform tables** with *no* anon/authenticated policies. Even if the anon key leaks, nothing is readable. The service key bypasses RLS, so authorization lives in the server handlers.
+- **Reduce blast radius:** the service key can read everything, so prefer a dedicated least-privilege Postgres role/API key for the app where possible, rotate keys regularly, and keep key access limited to the deployment platform's secret store (mark as sensitive; never commit `.env`).
+- **Secrets in the DB are encrypted at the app level** (AES-256-GCM with `PLATFORM_SECRET_KEY`, or Supabase Vault/KMS). Tenant DB URIs, payment keys and OAuth tokens are never stored as plaintext columns.
+- **Env vars are static:** changing the project or keys needs a redeploy. That is acceptable for the platform store, since `/setup` only creates the first Super Admin and runs migrations (it no longer asks for store credentials in this mode).
+- **Performance:** `middleware.ts` resolves host/tenant on every request, so do **not** query Supabase each time. Cache domain → host/tenant lookups (Edge Config/KV or Next.js cache with tag revalidation) and invalidate on change.
+- **Migrations:** keep platform schema in `supabase/migrations/` (versioned, reviewed). Run them in CI/CD, not from the browser.
+
 ### 6.1 Host Dashboard (`/host`)
 *Scope: only tenants where `tenant.hostId === currentHost.id`.*
 - Tenant list: create, edit, suspend, delete, impersonate (audited), within host limits
@@ -569,7 +595,7 @@ TENANT_CONFIG_SOURCE=file|kv|api
 TENANT_CONFIG_SECRET_KEY=            # encryption key for stored tenant secrets (server only)
 SESSION_SECRET=
 SETUP_TOKEN=                         # one-time token for /setup, remove/rotate after first run
-PLATFORM_STORE=file|kv|sql|api       # persistence for hosts, tenants, users, audit
+PLATFORM_STORE=file|kv|sql|supabase|mongodb|api   # persistence for hosts, tenants, users, audit (see 6.0.2 for Supabase vars)
 PLATFORM_STORE_URL=                  # connection string / endpoint for the chosen store
 PLATFORM_SECRET_KEY=                 # encrypts platform secrets and 2FA seeds (server only)
 ```
