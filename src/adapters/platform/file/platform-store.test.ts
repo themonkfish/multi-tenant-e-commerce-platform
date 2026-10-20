@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { HostConfig } from "@/core/domain/host-config";
-import type {
-  HostOwnerInvite,
-  TenantOwnerInvite,
-  TenantRecord,
+import {
+  TenantStoreSettingsSchema,
+  type HostOwnerInvite,
+  type TenantOwnerInvite,
+  type TenantRecord,
+  type TenantStoreSettings,
 } from "@/core/domain/host-portal";
 import type { AuditEvent, BootstrapInput } from "@/core/ports/platform-store";
 import { hashToken } from "@/lib/server/crypto";
@@ -515,5 +517,134 @@ describe("FilePlatformStore", () => {
         },
       }),
     ).resolves.toBeNull();
+  });
+
+  it("persists tenant brand and locale settings only within active tenant scope", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active" });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ status: "active" });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+    const defaults = await store.getTenantStoreSettings(
+      tenant.id,
+      host.id,
+      tenant.name,
+    );
+    expect(defaults.branding.name).toBe(tenant.name);
+
+    const settings: TenantStoreSettings = {
+      branding: {
+        name: "My Shop",
+        description: "A small storefront",
+        logoUrl: "https://cdn.example.com/logo.png",
+        primaryColor: "#123456",
+        accentColor: "#654321",
+      },
+      locale: {
+        defaultLocale: "en-GB",
+        locales: ["en-GB", "fr-CA"],
+        currency: "GBP",
+        currencies: ["GBP", "EUR"],
+      },
+    };
+    await expect(
+      store.updateTenantStoreSettings({
+        tenantId: tenant.id,
+        hostId: "550e8400-e29b-41d4-a716-446655440099",
+        settings,
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.settings.updated",
+          "tenant_settings",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.updateTenantStoreSettings({
+        tenantId: tenant.id,
+        hostId: host.id,
+        settings,
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.settings.updated",
+          "tenant_settings",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toEqual(settings);
+    await expect(
+      store.getTenantStoreSettings(tenant.id, host.id, tenant.name),
+    ).resolves.toEqual(settings);
+    expect(
+      TenantStoreSettingsSchema.safeParse({
+        ...settings,
+        branding: {
+          ...settings.branding,
+          logoUrl: "http://insecure.example.com/logo.png",
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      TenantStoreSettingsSchema.safeParse({
+        ...settings,
+        locale: {
+          ...settings.locale,
+          currency: "USD",
+          currencies: ["GBP", "EUR"],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("persists REST connection settings only for an active tenant in its host", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active" });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ status: "active" });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+    const config = {
+      type: "rest" as const,
+      baseUrl: "https://api.example.com",
+      apiVersion: "v1",
+      authMode: "apiKey" as const,
+      apiKeyRef: randomUUID(),
+    };
+
+    await expect(
+      store.updateTenantRestConnection({
+        tenantId: tenant.id,
+        hostId: "550e8400-e29b-41d4-a716-446655440099",
+        config,
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.rest_connection.updated",
+          "tenant_rest_connection",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.updateTenantRestConnection({
+        tenantId: tenant.id,
+        hostId: host.id,
+        config,
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.rest_connection.updated",
+          "tenant_rest_connection",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toEqual(config);
+    await expect(
+      store.getTenantRestConnection(tenant.id, host.id),
+    ).resolves.toEqual(config);
   });
 });

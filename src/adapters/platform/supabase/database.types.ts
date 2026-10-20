@@ -283,6 +283,56 @@ export type PlatformDatabase = {
         Update: never;
         Relationships: [];
       };
+      platform_tenant_settings: {
+        Row: {
+          tenant_id: string;
+          host_id: string;
+          branding: Json;
+          locale: Json;
+          updated_at: string;
+        };
+        Insert: {
+          tenant_id: string;
+          host_id: string;
+          branding: Json;
+          locale: Json;
+          updated_at: string;
+        };
+        Update: {
+          branding?: Json;
+          locale?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      platform_tenant_rest_connections: {
+        Row: {
+          tenant_id: string;
+          host_id: string;
+          base_url: string;
+          api_version: string;
+          auth_mode: "apiKey";
+          api_key_ref: string;
+          updated_at: string;
+        };
+        Insert: {
+          tenant_id: string;
+          host_id: string;
+          base_url: string;
+          api_version: string;
+          auth_mode?: "apiKey";
+          api_key_ref: string;
+          updated_at: string;
+        };
+        Update: {
+          base_url?: string;
+          api_version?: string;
+          auth_mode?: "apiKey";
+          api_key_ref?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -450,6 +500,37 @@ export type PlatformDatabase = {
           p_audit_created_at: string;
         };
         Returns: Json;
+      };
+      update_platform_tenant_settings: {
+        Args: {
+          p_tenant_id: string;
+          p_host_id: string;
+          p_branding: Json;
+          p_locale: Json;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      update_platform_tenant_rest_connection: {
+        Args: {
+          p_tenant_id: string;
+          p_host_id: string;
+          p_base_url: string;
+          p_api_version: string;
+          p_api_key_ref: string;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
       };
     };
     Enums: Record<string, never>;

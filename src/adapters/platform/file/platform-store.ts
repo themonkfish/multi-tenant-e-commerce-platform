@@ -14,13 +14,20 @@ import {
   TenantOwnerInviteSchema,
   TenantOwnerSchema,
   TenantRecordSchema,
+  TenantStoreSettingsSchema,
+  createDefaultTenantStoreSettings,
   type HostOwner,
   type HostOwnerInvite,
   type TenantOwner,
   type TenantOwnerInvite,
   type TenantRecord,
+  type TenantStoreSettings,
   type TenantStatus,
 } from "@/core/domain/host-portal";
+import {
+  TenantRestDataProviderConfigSchema,
+  type TenantRestDataProviderConfig,
+} from "@/core/domain/tenant-config";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -76,6 +83,26 @@ const FileStateSchema = z.object({
   tenantOwnerInvites: z.array(TenantOwnerInviteSchema).default([]),
   tenantOwners: z.array(TenantOwnerSchema).default([]),
   tenants: z.array(TenantRecordSchema).default([]),
+  tenantStoreSettings: z
+    .array(
+      z.object({
+        tenantId: z.uuid(),
+        hostId: z.uuid(),
+        settings: TenantStoreSettingsSchema,
+        updatedAt: z.iso.datetime(),
+      }),
+    )
+    .default([]),
+  tenantRestConnections: z
+    .array(
+      z.object({
+        tenantId: z.uuid(),
+        hostId: z.uuid(),
+        config: TenantRestDataProviderConfigSchema,
+        updatedAt: z.iso.datetime(),
+      }),
+    )
+    .default([]),
   auditEvents: z.array(AuditEventSchema),
   secrets: z.array(SecretRecordSchema),
   rateLimits: z.record(
@@ -98,6 +125,8 @@ const EMPTY_STATE: FileState = {
   tenantOwnerInvites: [],
   tenantOwners: [],
   tenants: [],
+  tenantStoreSettings: [],
+  tenantRestConnections: [],
   auditEvents: [],
   secrets: [],
   rateLimits: {},
@@ -521,6 +550,136 @@ export class FilePlatformStore implements PlatformStore {
         candidate.id === ownerId && candidate.tenantId === tenantId,
     );
     return owner ?? null;
+  }
+
+  async getTenantStoreSettings(
+    tenantId: string,
+    hostId: string,
+    tenantName: string,
+  ): Promise<TenantStoreSettings> {
+    const state = await this.readState();
+    const tenant = state.tenants.find(
+      (candidate) => candidate.id === tenantId && candidate.hostId === hostId,
+    );
+    if (!tenant) {
+      throw new Error("Tenant not found in requested host scope");
+    }
+    const record = state.tenantStoreSettings.find(
+      (candidate) =>
+        candidate.tenantId === tenantId && candidate.hostId === hostId,
+    );
+    return record?.settings ?? createDefaultTenantStoreSettings(tenantName);
+  }
+
+  async updateTenantStoreSettings(input: {
+    tenantId: string;
+    hostId: string;
+    settings: TenantStoreSettings;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantStoreSettings | null> {
+    const settings = TenantStoreSettingsSchema.parse(input.settings);
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId &&
+          candidate.hostId === input.hostId &&
+          candidate.status === "active",
+      );
+      const host = state.hosts.find(
+        (candidate) =>
+          candidate.id === input.hostId && candidate.status === "active",
+      );
+      if (!tenant || !host) {
+        return null;
+      }
+
+      const settingsIndex = state.tenantStoreSettings.findIndex(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.hostId === input.hostId,
+      );
+      const record = {
+        tenantId: input.tenantId,
+        hostId: input.hostId,
+        settings,
+        updatedAt: input.updatedAt,
+      };
+      if (settingsIndex === -1) {
+        state.tenantStoreSettings.push(record);
+      } else {
+        state.tenantStoreSettings[settingsIndex] = record;
+      }
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return settings;
+    });
+  }
+
+  async getTenantRestConnection(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantRestDataProviderConfig | null> {
+    const state = await this.readState();
+    const tenant = state.tenants.find(
+      (candidate) => candidate.id === tenantId && candidate.hostId === hostId,
+    );
+    if (!tenant) {
+      throw new Error("Tenant not found in requested host scope");
+    }
+    return (
+      state.tenantRestConnections.find(
+        (candidate) =>
+          candidate.tenantId === tenantId && candidate.hostId === hostId,
+      )?.config ?? null
+    );
+  }
+
+  async updateTenantRestConnection(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantRestDataProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRestDataProviderConfig | null> {
+    const config = TenantRestDataProviderConfigSchema.parse(input.config);
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId &&
+          candidate.hostId === input.hostId &&
+          candidate.status === "active",
+      );
+      const host = state.hosts.find(
+        (candidate) =>
+          candidate.id === input.hostId && candidate.status === "active",
+      );
+      if (!tenant || !host) {
+        return null;
+      }
+
+      const configIndex = state.tenantRestConnections.findIndex(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.hostId === input.hostId,
+      );
+      const record = {
+        tenantId: input.tenantId,
+        hostId: input.hostId,
+        config,
+        updatedAt: input.updatedAt,
+      };
+      if (configIndex === -1) {
+        state.tenantRestConnections.push(record);
+      } else {
+        state.tenantRestConnections[configIndex] = record;
+      }
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return config;
+    });
   }
 
   async listTenantsForHost(hostId: string): Promise<TenantRecord[]> {

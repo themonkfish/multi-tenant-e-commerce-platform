@@ -6,8 +6,10 @@ import type {
   TenantOwner,
   TenantOwnerInvite,
   TenantRecord,
+  TenantStoreSettings,
   TenantStatus,
 } from "@/core/domain/host-portal";
+import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
 
 export type PlatformSetupState = {
   initialized: boolean;
@@ -108,6 +110,29 @@ export interface PlatformStore {
     ownerId: string,
     tenantId: string,
   ): Promise<TenantOwner | null>;
+  getTenantStoreSettings(
+    tenantId: string,
+    hostId: string,
+    tenantName: string,
+  ): Promise<TenantStoreSettings>;
+  updateTenantStoreSettings(input: {
+    tenantId: string;
+    hostId: string;
+    settings: TenantStoreSettings;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantStoreSettings | null>;
+  getTenantRestConnection(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantRestDataProviderConfig | null>;
+  updateTenantRestConnection(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantRestDataProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRestDataProviderConfig | null>;
   listTenantsForHost(hostId: string): Promise<TenantRecord[]>;
   createTenantForHost(
     tenant: TenantRecord,

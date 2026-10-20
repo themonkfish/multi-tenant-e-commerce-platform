@@ -2,13 +2,63 @@ import { z } from "zod";
 
 const SecretRefSchema = z.string().min(1);
 
+const restBaseFields = {
+  type: z.literal("rest"),
+  baseUrl: z.url({ protocol: /^https$/ }),
+  apiVersion: z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+};
+
+export const RestDataProviderConfigSchema = z.object({
+  ...restBaseFields,
+  authMode: z.enum(["apiKey", "oauth2", "jwt"]),
+  apiKeyRef: SecretRefSchema.optional(),
+});
+
+export const TenantRestDataProviderConfigSchema = z.object({
+  ...restBaseFields,
+  authMode: z.literal("apiKey"),
+  apiKeyRef: SecretRefSchema,
+});
+
+export const TenantRestConnectionInputSchema = z.object({
+  baseUrl: z.url({ protocol: /^https$/ }),
+  apiVersion: z
+    .string()
+    .min(1)
+    .max(32)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+  apiKey: z
+    .string()
+    .max(2048)
+    .refine(
+      (value) => !/[\r\n]/.test(value),
+      "API key contains invalid characters",
+    )
+    .optional(),
+});
+
+export const TenantRestConnectionViewSchema = z.object({
+  baseUrl: z.string(),
+  apiVersion: z.string(),
+  apiKeyConfigured: z.boolean(),
+});
+
+export const RestHealthCheckResultSchema = z.object({
+  status: z.enum(["healthy", "unhealthy"]),
+  latencyMs: z.number().int().nonnegative(),
+  missing: z.array(z.string()),
+  schemaVersion: z.string().optional(),
+  error: z
+    .enum(["blocked_target", "unreachable", "timeout", "invalid_response"])
+    .optional(),
+});
+
 export const DataProviderConfigSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("rest"),
-    baseUrl: z.url(),
-    apiVersion: z.string().min(1),
-    authMode: z.enum(["apiKey", "oauth2", "jwt"]),
-  }),
+  RestDataProviderConfigSchema,
   z.object({
     type: z.literal("supabase"),
     projectUrl: z.url(),
@@ -101,5 +151,15 @@ export const TenantConfigSchema = z.object({
 });
 
 export type DataProviderConfig = z.infer<typeof DataProviderConfigSchema>;
+export type RestDataProviderConfig = z.infer<
+  typeof RestDataProviderConfigSchema
+>;
+export type TenantRestDataProviderConfig = z.infer<
+  typeof TenantRestDataProviderConfigSchema
+>;
+export type TenantRestConnectionInput = z.infer<
+  typeof TenantRestConnectionInputSchema
+>;
+export type RestHealthCheckResult = z.infer<typeof RestHealthCheckResultSchema>;
 export type StorageProviderConfig = z.infer<typeof StorageProviderConfigSchema>;
 export type TenantConfig = z.infer<typeof TenantConfigSchema>;

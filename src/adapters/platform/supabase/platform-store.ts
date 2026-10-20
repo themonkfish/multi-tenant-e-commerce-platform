@@ -11,13 +11,20 @@ import {
   TenantOwnerInviteSchema,
   TenantOwnerSchema,
   TenantRecordSchema,
+  TenantStoreSettingsSchema,
+  createDefaultTenantStoreSettings,
   type HostOwner,
   type HostOwnerInvite,
   type TenantOwner,
   type TenantOwnerInvite,
   type TenantRecord,
+  type TenantStoreSettings,
   type TenantStatus,
 } from "@/core/domain/host-portal";
+import {
+  TenantRestDataProviderConfigSchema,
+  type TenantRestDataProviderConfig,
+} from "@/core/domain/tenant-config";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -564,6 +571,118 @@ export class SupabasePlatformStore implements PlatformStore {
           createdAt: data.created_at,
         })
       : null;
+  }
+
+  async getTenantStoreSettings(
+    tenantId: string,
+    hostId: string,
+    tenantName: string,
+  ): Promise<TenantStoreSettings> {
+    const { data, error } = await this.client
+      .from("platform_tenant_settings")
+      .select("branding, locale")
+      .eq("tenant_id", tenantId)
+      .eq("host_id", hostId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load tenant store settings: ${error.message}`);
+    }
+    if (!data) {
+      return createDefaultTenantStoreSettings(tenantName);
+    }
+    return TenantStoreSettingsSchema.parse({
+      branding: data.branding,
+      locale: data.locale,
+    });
+  }
+
+  async updateTenantStoreSettings(input: {
+    tenantId: string;
+    hostId: string;
+    settings: TenantStoreSettings;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantStoreSettings | null> {
+    const settings = TenantStoreSettingsSchema.parse(input.settings);
+    const { data, error } = await this.client.rpc(
+      "update_platform_tenant_settings",
+      {
+        p_tenant_id: input.tenantId,
+        p_host_id: input.hostId,
+        p_branding: settings.branding,
+        p_locale: settings.locale,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_resource_id: input.auditEvent.resourceId ?? null,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not update tenant store settings: ${error.message}`,
+      );
+    }
+    return data ? settings : null;
+  }
+
+  async getTenantRestConnection(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantRestDataProviderConfig | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_rest_connections")
+      .select("base_url, api_version, auth_mode, api_key_ref")
+      .eq("tenant_id", tenantId)
+      .eq("host_id", hostId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not load tenant REST connection: ${error.message}`,
+      );
+    }
+    return data
+      ? TenantRestDataProviderConfigSchema.parse({
+          type: "rest",
+          baseUrl: data.base_url,
+          apiVersion: data.api_version,
+          authMode: data.auth_mode,
+          apiKeyRef: data.api_key_ref,
+        })
+      : null;
+  }
+
+  async updateTenantRestConnection(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantRestDataProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRestDataProviderConfig | null> {
+    const config = TenantRestDataProviderConfigSchema.parse(input.config);
+    const { data, error } = await this.client.rpc(
+      "update_platform_tenant_rest_connection",
+      {
+        p_tenant_id: input.tenantId,
+        p_host_id: input.hostId,
+        p_base_url: config.baseUrl,
+        p_api_version: config.apiVersion,
+        p_api_key_ref: config.apiKeyRef,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_resource_id: input.auditEvent.resourceId ?? null,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not update tenant REST connection: ${error.message}`,
+      );
+    }
+    return data ? config : null;
   }
 
   async listTenantsForHost(hostId: string): Promise<TenantRecord[]> {

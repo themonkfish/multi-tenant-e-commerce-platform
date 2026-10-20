@@ -71,3 +71,65 @@ export const CreateTenantInputSchema = z.object({
 
 export const TenantStatusSchema = TenantRecordSchema.shape.status;
 export type TenantStatus = z.infer<typeof TenantStatusSchema>;
+
+const LocaleTagSchema = z
+  .string()
+  .min(2)
+  .max(35)
+  .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/);
+
+const CurrencyCodeSchema = z.string().regex(/^[A-Z]{3}$/);
+
+export const TenantStoreSettingsSchema = z
+  .object({
+    branding: z.object({
+      name: z.string().trim().min(1).max(120),
+      description: z.string().trim().max(500),
+      logoUrl: z.url({ protocol: /^https$/ }).optional(),
+      primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+      accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+    }),
+    locale: z.object({
+      defaultLocale: LocaleTagSchema,
+      locales: z.array(LocaleTagSchema).min(1).max(20),
+      currency: CurrencyCodeSchema,
+      currencies: z.array(CurrencyCodeSchema).min(1).max(20),
+    }),
+  })
+  .superRefine((settings, context) => {
+    if (!settings.locale.locales.includes(settings.locale.defaultLocale)) {
+      context.addIssue({
+        code: "custom",
+        path: ["locale", "defaultLocale"],
+        message: "Default locale must be included in supported locales",
+      });
+    }
+    if (!settings.locale.currencies.includes(settings.locale.currency)) {
+      context.addIssue({
+        code: "custom",
+        path: ["locale", "currency"],
+        message: "Default currency must be included in supported currencies",
+      });
+    }
+  });
+
+export type TenantStoreSettings = z.infer<typeof TenantStoreSettingsSchema>;
+
+export function createDefaultTenantStoreSettings(
+  tenantName: string,
+): TenantStoreSettings {
+  return {
+    branding: {
+      name: tenantName,
+      description: "",
+      primaryColor: "#4338CA",
+      accentColor: "#0F766E",
+    },
+    locale: {
+      defaultLocale: "en",
+      locales: ["en"],
+      currency: "USD",
+      currencies: ["USD"],
+    },
+  };
+}

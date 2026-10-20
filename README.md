@@ -58,10 +58,18 @@ invitations and a host-scoped tenant management portal are available:
 4. Use `/en/host` to create, activate, or suspend tenants within the host's
    configured limits.
 5. From an active tenant’s row, invite its Tenant Owner and securely share the
-   one-time link. The owner sets a password and signs in at `/en/tenant`.
+   one-time link. The owner sets a password and signs in at `/en/tenant`, where
+   they can edit the store display name, description, logo URL, brand colors,
+   supported locales, and currencies.
+6. Tenant Owners can configure an HTTPS REST backend from Store setup. Enter
+   the versioned API base URL and API key, save, then test the saved connection.
+   The first slice sends `X-API-Key` to `/{apiVersion}/health`, rejects private
+   and internal DNS targets, pins the resolved public address for the HTTPS
+   request, and never returns the key to the browser.
 
-The initial tenant portal shows store metadata and assigned domains. Tenant
-backend connections, storefront provisioning, products, payments, storage, and
+Tenant settings are platform metadata only and do not yet apply a live
+storefront theme. REST connection setup and health testing are implemented, but
+catalog operations, storefront provisioning, payments, storage, and
 custom-domain routing are not yet implemented. Email delivery is not configured
 for either invitation flow, so links must be shared manually.
 

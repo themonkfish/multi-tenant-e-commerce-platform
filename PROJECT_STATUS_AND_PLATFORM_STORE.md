@@ -36,8 +36,18 @@ automatically implemented just because they are listed there.
       acceptance, Argon2id passwords, scoped sessions, and status checks.
 - [x] Initial Tenant Owner portal with scoped store metadata, assigned domains,
       and a clear notice that backend/storefront provisioning is not available.
+- [x] Tenant Owner brand and locale settings with validated HTTPS logo URLs,
+      color tokens, locale/currency codes, tenant-scoped persistence, and audit
+      events.
+- [x] Tenant Owner REST backend connection setup with HTTPS URL/version
+      validation, encrypted write-only API-key storage, tenant-scoped
+      persistence, and audit events.
+- [x] REST health test using `X-API-Key`, private/internal DNS rejection,
+      pinned public DNS address, no redirects, response-size/time limits, and
+      per-account rate limiting.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
-      Owner/tenant portal, plus Tenant Owner accounts and invitations.
+      Owner/tenant portal, Tenant Owner accounts/invitations, and tenant
+      settings.
 - [x] Data and storage port/factory contracts. These are extension points, not
       complete tenant provider implementations.
 
@@ -54,7 +64,8 @@ automatically implemented just because they are listed there.
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, domain-based routing,
       storefront provisioning, tenant backends, products, staff roles, and
-      expanded RBAC remain.
+      expanded RBAC remain. Branding/locale settings are stored but not yet
+      applied to a routed storefront.
 - [ ] **i18n:** routing infrastructure exists, but only English is configured.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
@@ -72,7 +83,7 @@ automatically implemented just because they are listed there.
 - [ ] Complete server-enforced RBAC and scoped access checks for platform,
       host, tenant, staff, and customer roles.
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
-      portal with backend, storage, payment, theme, catalog, and staff settings.
+      portal with backend, storage, payment, catalog, and staff settings.
 - [ ] Complete the setup wizard's connection check, reserved-domain
       configuration, email provider, theme/legal settings, and optional
       first-host steps.
@@ -80,10 +91,12 @@ automatically implemented just because they are listed there.
 
 #### Tenant data and integrations
 
-- [ ] Implement the versioned REST adapter and local mock backend/MSW coverage.
+- [ ] Implement the versioned REST catalog adapter and local mock backend/MSW
+      coverage. Initial connection settings and health testing are implemented.
 - [ ] Implement tenant Supabase and MongoDB data adapters, reference schemas,
       provider setup, test-connection, and schema initialization.
-- [ ] Add SSRF-safe connection testing and credential rotation workflows.
+- [ ] Add connection testing for other providers and full credential rotation
+      workflows. REST API-key replacement is supported; OAuth/JWT are not.
 - [ ] Implement payment adapters (initial targets: Stripe, a regional gateway,
       and Cash on Delivery), server-side payment verification, and webhook
       handling.
@@ -186,10 +199,22 @@ features are implemented.
 8. Activate a tenant, invite its owner from that tenant's row, and securely
    share the generated link. The owner sets a password of at least 14
    characters and signs in at `http://localhost:3000/en/tenant`.
+9. Tenant Owners can save the store display name, description, HTTPS logo URL,
+   brand colors, locales, and currencies from Brand and localization.
+10. In Store setup, configure the REST backend's HTTPS base URL, API version
+    (for example `v1`), and API key. Save, then use **Test saved connection**.
+    The tenant backend must expose `GET /{apiVersion}/health` and return JSON
+    with a non-empty `status` plus `db` and `storage` set to `up` or `down`.
+    Authentication is sent as `X-API-Key`. Leave API key blank to retain it;
+    entering a new value rotates it. The value is write-only.
 
-Host and tenant portals currently manage platform metadata and account access
-only. Tenant creation does not provision storefronts, databases, products, or
-working custom-domain routes.
+The tenant portal saves branding and locale metadata but does not yet apply it
+to a live storefront. The saved REST connection is not yet used for catalog
+operations. Tenant creation does not provision storefronts, databases, products,
+or working custom-domain routes. Health tests reject private/internal DNS
+answers (including mixed public/private answers), use a pinned public address,
+do not follow redirects, and are limited to five attempts per account per
+15-minute window.
 
 The file adapter creates `.local/` as needed. That directory is Git-ignored
 and contains platform credentials/state: keep it private and backed up if the
@@ -228,8 +253,10 @@ Before deploying the app:
    server-only service key.
 2. Apply every migration in `supabase/migrations/` **in order**, including
    `0001_platform_store.sql`, `0002_platform_hosts.sql`, and
-   `0003_host_portal.sql`, and `0004_tenant_owner_portal.sql`. Review each SQL
-   file and run it in that project's Supabase SQL Editor or through your
+   `0003_host_portal.sql`, `0004_tenant_owner_portal.sql`,
+   `0005_tenant_store_settings.sql`, and `0006_tenant_rest_connections.sql`.
+   Review each SQL file and run it in that
+   project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or
    expose the service key to the client.
 3. Set the production environment variables above. Production startup requires

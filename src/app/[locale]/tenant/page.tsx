@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-settings-form";
+import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-connection-form";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantOwnerSession } from "@/lib/server/session";
 
@@ -33,13 +35,19 @@ export default async function TenantDashboardPage({
   if (!tenant || !hostRecord) {
     redirect(`/${locale}/tenant/login`);
   }
+  const [settings, restConnection] = await Promise.all([
+    store.getTenantStoreSettings(tenant.id, hostId, tenant.name),
+    store.getTenantRestConnection(tenant.id, hostId),
+  ]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-indigo-700">Store portal</p>
-          <h1 className="mt-1 text-2xl font-semibold">{tenant.name}</h1>
+          <h1 className="mt-1 text-2xl font-semibold">
+            {settings.branding.name}
+          </h1>
           <p className="mt-1 text-sm text-slate-600">
             Signed in as {session.userId}
           </p>
@@ -70,16 +78,32 @@ export default async function TenantDashboardPage({
       </section>
 
       <section className="space-y-4 pb-10">
-        <h2 className="text-xl font-semibold">Store setup</h2>
+        <h2 className="text-xl font-semibold">Brand and localization</h2>
+        <p className="text-sm text-slate-600">
+          Configure your store identity and supported display locales. These
+          settings are saved within your tenant scope.
+        </p>
+        <TenantStoreSettingsForm initialSettings={settings} />
+        <h2 className="pt-4 text-xl font-semibold">Store setup</h2>
+        <div>
+          <h3 className="mb-2 font-semibold">REST backend connection</h3>
+          <p className="mb-4 text-sm text-slate-600">
+            Connect an HTTPS API that implements the platform REST contract.
+            Connection tests are rate-limited and block private or internal IP
+            addresses. Catalog operations are not wired to this backend yet.
+          </p>
+          <TenantRestConnectionForm
+            initialConnection={{
+              baseUrl: restConnection?.baseUrl ?? "",
+              apiVersion: restConnection?.apiVersion ?? "v1",
+              apiKeyConfigured: Boolean(restConnection),
+            }}
+          />
+        </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
-          <h3 className="font-semibold text-amber-950">
-            Storefront provisioning is the next platform step
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-amber-900">
-            This portal currently shows your store record and access status.
-            Backend connection, catalog, payments, storage, storefront themes,
-            and domain setup are not available yet. No tenant backend
-            credentials are stored or requested here.
+          <p className="text-sm leading-6 text-amber-900">
+            Payments, storage, storefront rendering, and custom-domain routing
+            are not available yet.
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
