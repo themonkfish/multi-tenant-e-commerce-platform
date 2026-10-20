@@ -1,0 +1,156 @@
+export type PlatformDatabase = {
+  public: {
+    Tables: {
+      platform_state: {
+        Row: {
+          id: number;
+          initialized: boolean;
+          setup_token_hash: string | null;
+          platform_domain: string | null;
+          reserved_subdomains: string[];
+        };
+        Insert: {
+          id?: number;
+          initialized?: boolean;
+          setup_token_hash?: string | null;
+          platform_domain?: string | null;
+          reserved_subdomains?: string[];
+        };
+        Update: {
+          initialized?: boolean;
+          setup_token_hash?: string | null;
+          platform_domain?: string | null;
+          reserved_subdomains?: string[];
+        };
+        Relationships: [];
+      };
+      platform_super_admins: {
+        Row: {
+          id: string;
+          email: string;
+          password_hash: string;
+          totp_secret_ciphertext: string;
+          recovery_code_hashes: string[];
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          email: string;
+          password_hash: string;
+          totp_secret_ciphertext: string;
+          recovery_code_hashes?: string[];
+          created_at: string;
+        };
+        Update: {
+          recovery_code_hashes?: string[];
+        };
+        Relationships: [];
+      };
+      platform_audit_log: {
+        Row: {
+          id: string;
+          actor_id: string;
+          scope: unknown;
+          action: string;
+          resource_type: string;
+          resource_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          actor_id: string;
+          scope: unknown;
+          action: string;
+          resource_type: string;
+          resource_id?: string | null;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      platform_secret_vault: {
+        Row: {
+          ref: string;
+          tenant_id: string | null;
+          name: string;
+          encrypted_value: string;
+          created_at: string;
+        };
+        Insert: {
+          ref: string;
+          tenant_id?: string | null;
+          name: string;
+          encrypted_value: string;
+          created_at: string;
+        };
+        Update: {
+          tenant_id?: string | null;
+          name?: string;
+          encrypted_value?: string;
+        };
+        Relationships: [];
+      };
+      platform_rate_limits: {
+        Row: {
+          key_hash: string;
+          count: number;
+          reset_at: string;
+        };
+        Insert: {
+          key_hash: string;
+          count: number;
+          reset_at: string;
+        };
+        Update: {
+          count?: number;
+          reset_at?: string;
+        };
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: {
+      claim_platform_bootstrap: {
+        Args: {
+          p_setup_token_hash: string;
+          p_platform_domain: string;
+          p_reserved_subdomains: string[];
+          p_admin_id: string;
+          p_admin_email: string;
+          p_password_hash: string;
+          p_totp_secret_ciphertext: string;
+          p_created_at: string;
+        };
+        Returns: boolean;
+      };
+      finalize_platform_bootstrap: {
+        Args: {
+          p_setup_token_hash: string;
+          p_admin_id: string;
+          p_recovery_code_hashes: string[];
+          p_audit_id: string;
+          p_audit_actor_id: string;
+          p_audit_action: string;
+          p_audit_resource_type: string;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      consume_platform_rate_limit: {
+        Args: {
+          p_key_hash: string;
+          p_limit: number;
+          p_window_ms: number;
+          p_now: string;
+        };
+        Returns: boolean;
+      };
+      consume_platform_recovery_code: {
+        Args: { p_admin_id: string; p_code_hash: string };
+        Returns: boolean;
+      };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};

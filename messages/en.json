@@ -1,0 +1,16 @@
+{
+  "Home": {
+    "platformName": "Commerce Workspace",
+    "phase": "Phase 1 · Foundation",
+    "eyebrow": "Multi-tenant commerce",
+    "headline": "One platform. Independent storefronts.",
+    "description": "A backend-agnostic workspace for hosts and tenants to build, manage, and grow their own commerce experiences.",
+    "storefrontTitle": "Tenant storefronts",
+    "storefrontDescription": "Branded shopping experiences resolved for each tenant.",
+    "tenantTitle": "Tenant workspace",
+    "tenantDescription": "A dedicated place to manage products, orders, and integrations.",
+    "hostTitle": "Host workspace",
+    "hostDescription": "Manage tenants within each host's own scope.",
+    "footer": "Frontend foundation · Backend and tenant configuration are not connected yet."
+  }
+}
