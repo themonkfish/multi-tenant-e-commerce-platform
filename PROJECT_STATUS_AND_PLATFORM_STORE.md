@@ -58,8 +58,10 @@ Status snapshot as of 2026-10-21:
       color tokens, locale/currency codes, tenant-scoped persistence, and audit
       events.
 - [x] Tenant storefront landing page uses saved branding and locale metadata
-      when resolving a tenant domain, rendering a branded preview shell while
-      the commerce experience remains intentionally unavailable.
+      when resolving a tenant domain, rendering a branded preview shell and
+      public catalog cards with linked product detail pages when active products
+      are available from the tenant backend while the full commerce experience
+      remains intentionally unavailable.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
@@ -98,12 +100,13 @@ Status snapshot as of 2026-10-21:
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, tenant storefront
       routing and provisioning, tenant backends, products, staff roles, and
-      expanded RBAC remain. Branding/locale settings are now applied to the
-      tenant-domain landing preview, while the full customer storefront,
-      custom domain routing, and commerce runtime remain future work.
-      Resolved domain scopes apply to all localized pages and authenticated
-      portal requests. Tenant-aware cache invalidation remains future work; no
-      tenant data is currently cached.
+      expanded RBAC remain. Branding/locale settings now flow into the tenant
+      domain landing preview, the catalog listing, and product detail pages when
+      a backend is configured; the full customer storefront, custom domain
+      routing, and commerce runtime remain future work. Resolved domain scopes
+      apply to all localized pages and authenticated portal requests.
+      Tenant-aware cache invalidation remains future work; no tenant data is
+      currently cached.
 - [ ] **i18n:** routing infrastructure exists, but only English is configured.
       The tenant storefront preview uses the saved default locale metadata but
       does not yet expand the public storefront to localized customer pages.

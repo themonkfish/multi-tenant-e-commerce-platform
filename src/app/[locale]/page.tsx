@@ -1,10 +1,16 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
 
-export default async function HomePage() {
+type HomePageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function HomePage({ params }: HomePageProps) {
+  const { locale } = await params;
   const t = await getTranslations("Home");
   const requestScope = await getRequestDomainScope();
 
@@ -19,6 +25,32 @@ export default async function HomePage() {
       requestScope.tenant.name,
     );
 
+    let catalogProducts: Array<{
+      id: string;
+      title: string;
+      slug: string;
+      status: "draft" | "active" | "archived";
+      price: { amount: number; currency: string };
+      sku?: string;
+    }> = [];
+
+    try {
+      const catalog = await createTenantCatalogAdapter(
+        requestScope.tenant.id,
+        requestScope.host.id,
+      );
+      const page = await catalog.listProducts({
+        tenantId: requestScope.tenant.id,
+        page: 1,
+        limit: 6,
+      });
+      catalogProducts = page.data.filter(
+        (product) => product.status === "active",
+      );
+    } catch {
+      catalogProducts = [];
+    }
+
     return (
       <main
         className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-8 sm:px-10"
@@ -27,7 +59,7 @@ export default async function HomePage() {
         }}
       >
         <div
-          className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60"
+          className="mx-auto w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60"
           style={{
             borderColor: `${settings.branding.primaryColor}33`,
           }}
@@ -86,11 +118,15 @@ export default async function HomePage() {
                 Storefront preview
               </p>
               <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
-                {t("storefrontUnavailable")}
+                {catalogProducts.length > 0
+                  ? "Featured catalog"
+                  : t("storefrontUnavailable")}
               </h2>
               <p className="mt-4 max-w-xl text-lg leading-8 text-slate-600">
-                {settings.branding.description ||
-                  "This tenant storefront is configured and ready for future catalog, cart, and checkout flows."}
+                {catalogProducts.length > 0
+                  ? `A live catalog preview is available for ${settings.branding.name}.`
+                  : settings.branding.description ||
+                    "This tenant storefront is configured and ready for future catalog, cart, and checkout flows."}
               </p>
             </div>
 
@@ -118,14 +154,87 @@ export default async function HomePage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-slate-500">Supported locales</dt>
+                  <dt className="font-medium text-slate-500">
+                    Supported locales
+                  </dt>
                   <dd className="mt-1 text-slate-900">
                     {settings.locale.locales.join(", ")}
                   </dd>
                 </div>
               </dl>
+              <Link
+                className="mt-5 inline-flex rounded-md px-3 py-2 text-sm font-medium text-white"
+                href={`/${locale}/products`}
+                style={{ backgroundColor: settings.branding.primaryColor }}
+              >
+                Browse catalog
+              </Link>
             </aside>
           </section>
+
+          {catalogProducts.length > 0 && (
+            <section className="border-t border-slate-200 bg-slate-50 px-6 py-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Featured products
+                </h3>
+                <span className="text-sm text-slate-500">
+                  {catalogProducts.length} items
+                </span>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {catalogProducts.map((product) => (
+                  <article
+                    className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                    key={product.id}
+                  >
+                    <div
+                      className="mb-4 flex h-28 items-center justify-center rounded-lg text-lg font-semibold text-white"
+                      style={{
+                        backgroundColor: settings.branding.primaryColor,
+                      }}
+                    >
+                      {product.title.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="font-semibold text-slate-900">
+                          {product.title}
+                        </h4>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+                          {product.slug}
+                        </p>
+                      </div>
+                      <span
+                        className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                        style={{
+                          backgroundColor: `${settings.branding.accentColor}14`,
+                          color: settings.branding.accentColor,
+                        }}
+                      >
+                        {product.status}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-2 text-sm text-slate-700">
+                      <span>
+                        {product.price.amount} {product.price.currency}
+                      </span>
+                      {product.sku && <span>SKU: {product.sku}</span>}
+                    </div>
+                    <Link
+                      className="mt-4 inline-flex rounded-md px-3 py-2 text-sm font-medium text-white"
+                      href={`/${locale}/products/${product.slug}`}
+                      style={{
+                        backgroundColor: settings.branding.primaryColor,
+                      }}
+                    >
+                      View item
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </main>
     );
