@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { HostManagement } from "@/features/hosts/host-management";
+import { getPlatformStore } from "@/lib/server/platform";
 import { getSuperAdminSession } from "@/lib/server/session";
 
 type DashboardPageProps = {
@@ -15,6 +17,8 @@ export default async function SuperAdminDashboardPage({
   if (!session) {
     redirect(`/${locale}/super-admin/login`);
   }
+
+  const hosts = await getPlatformStore().listHosts();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -35,12 +39,7 @@ export default async function SuperAdminDashboardPage({
         </form>
       </header>
       <section className="py-10">
-        <h2 className="text-xl font-semibold">Platform foundation</h2>
-        <p className="mt-2 max-w-2xl leading-7 text-slate-600">
-          The platform store and bootstrap authentication are connected. Host,
-          tenant, and audit management will be added in subsequent feature
-          slices.
-        </p>
+        <HostManagement initialHosts={hosts} />
       </section>
     </main>
   );

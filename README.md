@@ -6,10 +6,21 @@ platform workspace.
 
 ## Requirements
 
-- Node.js 20.19 or later (required by the selected Next.js and tooling versions)
+- Node.js 20.19.0 or later (Node.js 22 LTS or later recommended)
 - npm
 
 ## Getting started
+
+Check the active Node.js version before installing dependencies:
+
+```bash
+node --version
+```
+
+If npm reports `EBADENGINE`, update Node.js to a supported version and reopen
+the terminal so `node --version` shows the new version. For example, the
+`entities@8` dependency requires Node.js 20.19.0 or later; do not suppress the
+warning or downgrade the dependency to work around an outdated Node.js runtime.
 
 ```bash
 npm install
@@ -34,6 +45,10 @@ The local JSON PlatformStore is development-only and writes to `.local/`, which
 is ignored by Git. Open `/en/setup` (or `/setup`, which redirects there) to
 create the first Super Admin and enroll TOTP. Save the recovery codes when
 shown.
+
+After signing in at `/en/super-admin`, you can create host workspaces, set
+their initial plan and limits, and activate or suspend them. Host-owner
+invitations and tenant management are not implemented yet.
 
 For a deployment, set `PLATFORM_STORE=supabase`, configure
 `PLATFORM_SUPABASE_URL` and `PLATFORM_SUPABASE_SERVICE_KEY` as server-only
@@ -69,4 +84,7 @@ npm run build
 Tenant configuration and authorization must be resolved on the server. Do not
 put tenant secrets in client code or call tenant backends directly from the
 browser. See [PROJECT_CONTEXT.md](./PROJECT_CONTEXT.md) for the full project
-requirements and security boundaries.
+requirements and security boundaries. See
+[PROJECT_STATUS_AND_PLATFORM_STORE.md](./PROJECT_STATUS_AND_PLATFORM_STORE.md)
+for the completed/pending task list and detailed file/Supabase configuration
+guide.

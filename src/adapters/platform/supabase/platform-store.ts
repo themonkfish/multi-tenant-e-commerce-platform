@@ -1,4 +1,9 @@
 import "server-only";
+import {
+  HostConfigSchema,
+  type HostConfig,
+  type HostStatus,
+} from "@/core/domain/host-config";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -159,6 +164,99 @@ export class SupabasePlatformStore implements PlatformStore {
     if (error) {
       throw new Error(`Could not append audit event: ${error.message}`);
     }
+  }
+
+  async listHosts(): Promise<HostConfig[]> {
+    const [hostsResult, domainsResult] = await Promise.all([
+      this.client.from("platform_hosts").select("*").order("name"),
+      this.client.from("platform_host_domains").select("host_id, domain"),
+    ]);
+    if (hostsResult.error || domainsResult.error) {
+      throw new Error(
+        `Could not load hosts: ${hostsResult.error?.message ?? domainsResult.error?.message}`,
+      );
+    }
+
+    const domainsByHost = new Map<string, string[]>();
+    for (const row of domainsResult.data) {
+      const domains = domainsByHost.get(row.host_id) ?? [];
+      domains.push(row.domain);
+      domainsByHost.set(row.host_id, domains);
+    }
+
+    return hostsResult.data.map((row) =>
+      HostConfigSchema.parse({
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        status: row.status,
+        plan: row.plan,
+        limits: row.limits,
+        branding: row.branding,
+        domains: domainsByHost.get(row.id) ?? [],
+        ...(row.support_contact ? { supportContact: row.support_contact } : {}),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }),
+    );
+  }
+
+  async createHost(host: HostConfig, auditEvent: AuditEvent): Promise<void> {
+    const validatedHost = HostConfigSchema.parse(host);
+    const { data, error } = await this.client.rpc("create_platform_host", {
+      p_host_id: validatedHost.id,
+      p_slug: validatedHost.slug,
+      p_name: validatedHost.name,
+      p_status: validatedHost.status,
+      p_plan: validatedHost.plan,
+      p_limits: validatedHost.limits,
+      p_branding: validatedHost.branding,
+      p_domains: validatedHost.domains,
+      p_support_contact: validatedHost.supportContact ?? null,
+      p_created_at: validatedHost.createdAt,
+      p_actor_id: auditEvent.actorId,
+      p_audit_id: auditEvent.id,
+      p_audit_action: auditEvent.action,
+      p_audit_resource_type: auditEvent.resourceType,
+      p_audit_resource_id: auditEvent.resourceId ?? null,
+      p_audit_created_at: auditEvent.createdAt,
+    });
+    if (error) {
+      throw new Error(`Could not create host: ${error.message}`);
+    }
+    if (!data) {
+      throw new Error("A host with this slug or domain already exists");
+    }
+  }
+
+  async updateHostStatus(
+    id: string,
+    status: HostStatus,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<HostConfig | null> {
+    const { data, error } = await this.client.rpc(
+      "update_platform_host_status",
+      {
+        p_host_id: id,
+        p_status: status,
+        p_updated_at: updatedAt,
+        p_actor_id: auditEvent.actorId,
+        p_audit_id: auditEvent.id,
+        p_audit_action: auditEvent.action,
+        p_audit_resource_type: auditEvent.resourceType,
+        p_audit_resource_id: auditEvent.resourceId ?? null,
+        p_audit_created_at: auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(`Could not update host status: ${error.message}`);
+    }
+    if (!data) {
+      return null;
+    }
+
+    return (await this.listHosts()).find((host) => host.id === id) ?? null;
   }
 
   async putSecretRecord(record: SecretRecord): Promise<void> {

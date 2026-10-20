@@ -1,3 +1,11 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
 export type PlatformDatabase = {
   public: {
     Tables: {
@@ -107,6 +115,51 @@ export type PlatformDatabase = {
         };
         Relationships: [];
       };
+      platform_hosts: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          status: "pending" | "active" | "suspended";
+          plan: string;
+          limits: Json;
+          branding: Json;
+          support_contact: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          slug: string;
+          name: string;
+          status: "pending" | "active" | "suspended";
+          plan: string;
+          limits: Json;
+          branding: Json;
+          support_contact?: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Update: {
+          status?: "pending" | "active" | "suspended";
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      platform_host_domains: {
+        Row: {
+          domain: string;
+          host_id: string;
+          created_at: string;
+        };
+        Insert: {
+          domain: string;
+          host_id: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -147,6 +200,41 @@ export type PlatformDatabase = {
       };
       consume_platform_recovery_code: {
         Args: { p_admin_id: string; p_code_hash: string };
+        Returns: boolean;
+      };
+      create_platform_host: {
+        Args: {
+          p_host_id: string;
+          p_slug: string;
+          p_name: string;
+          p_status: string;
+          p_plan: string;
+          p_limits: Json;
+          p_branding: Json;
+          p_domains: string[];
+          p_support_contact: string | null;
+          p_created_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_type: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      update_platform_host_status: {
+        Args: {
+          p_host_id: string;
+          p_status: string;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_type: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
         Returns: boolean;
       };
     };

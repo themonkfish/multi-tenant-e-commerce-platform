@@ -451,7 +451,7 @@ Tenants choose where their files (product images, videos, documents, invoices) l
 
 | Category | Providers | Auth | Upload path | Good for storefront images? |
 |----------|-----------|------|-------------|------------------------------|
-| **S3-compatible object storage** | AWS S3, Cloudflare R2, DigitalOcean Spaces, Backblaze B2, MinIO, Wasabi | Access key + secret | Pre-signed URL (browser → storage) | Yes (use with a CDN) |
+| **S3-compatible object storage** | AWS S3, Cloudflare R2, DigitalOcean Spaces, Backblaze B2, Wasabi, self-hosted SeaweedFS (MinIO community edition is AGPL-3.0 and its repo is archived; do not choose it for new setups) | Access key + secret | Pre-signed URL (browser → storage) | Yes (use with a CDN) |
 | **Cloud provider storage** | Google Cloud Storage, Azure Blob Storage, Firebase Storage | Service account / SAS / connection string | Signed URL / SAS | Yes |
 | **Media platforms** | Cloudinary, ImageKit, UploadThing, Bunny.net | API key / signed upload | Signed direct upload | Best (built-in CDN + transforms) |
 | **Backend-bundled** | Supabase Storage | Anon / service key | Signed upload URL | Yes |
@@ -488,6 +488,23 @@ Drive-style services are **file sync/sharing tools, not CDNs**. They are support
 - **Health & test:** `healthCheck()` + "Test upload" (uploads, reads back, deletes a small file) shown in tenant dashboard and in host/super-admin health views. Block private/internal endpoint hosts for custom/S3-endpoint fields (SSRF).
 - **Switching providers:** changing storage does not rewrite old URLs silently. Store file records `{ key, providerId, url }`; offer an optional "migrate files" job.
 - **Cost/abuse control:** per-tenant storage quota and upload rate limits (limits cascade from host plan).
+
+### 9.4 Free-tier storage options (verified Oct 2026; free tiers change, re-check before relying on them)
+
+| Provider | Free allowance | Fit for this project |
+|----------|----------------|----------------------|
+| **Cloudflare R2** | 10 GB storage, 1M write-type and 10M read-type operations per month, free egress | **Default recommendation.** S3-compatible, so the existing `s3` adapter works; good for public product images with its CDN |
+| **Backblaze B2** | First 10 GB free; downloads free up to 3x stored data (then $0.01/GB); free egress through partner CDNs such as Cloudflare | Second choice; S3-compatible; put Cloudflare in front for free delivery |
+| **Supabase Storage** | 1 GB per project, 5 GB egress; free projects pause after 7 days of inactivity | Good for dev/staging or tenants already on Supabase; not for a live store on the free plan |
+| **Cloudinary** | 25 credits/month shared across storage, bandwidth and transformations (1 credit = 1 GB storage or 1 GB bandwidth or 1,000 transformations) | Best when automatic image resizing/optimization is needed; small stores only |
+| **Tigris** | 5 GB storage, free egress | Optional S3-compatible alternative |
+| **Google Drive / Dropbox (free accounts)** | Consumer quotas shared with the owner's other files | Prototype only; see 9.2 limitations |
+
+**Rules**
+- Each tenant brings their **own** account, so every tenant gets its own free allowance. If the platform hosts one shared bucket, quotas are shared; enforce per-tenant quotas (limits cascade from host plan).
+- Default dev/staging setup: Cloudflare R2 (or Supabase Storage) behind `StoragePort`; no code outside the adapter may depend on the provider.
+- Show usage vs free limit in the tenant dashboard and warn at 80% to avoid surprise bills or blocked uploads.
+- Check each provider's terms for commercial use and whether a payment method is required at signup.
 
 ---
 
@@ -681,7 +698,7 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 ### Important for production
 - [ ] **Observability:** error tracking (Sentry), structured logs with `hostId`/`tenantId`, uptime checks, per-tenant metrics, alerting; status page.
 - [ ] **Theming/white-label engine:** design tokens as CSS variables per tenant, theme presets, section/page builder scope, custom CSS policy (sanitized).
-- [ ] **Search:** catalog search and filters (Postgres FTS, Meilisearch, Algolia, Typesense) behind a `SearchPort`.
+- [ ] **Search:** catalog search and filters (Postgres FTS first; Meilisearch or Typesense later as separate services; Algolia is paid) behind a `SearchPort`.
 - [ ] **Billing & plans:** Stripe Billing/Razorpay subscriptions for hosts/tenants, trials, dunning, usage metering, suspension rules.
 - [ ] **Abuse protection:** rate limiting, bot/captcha on login/checkout, WAF, fraud signals, per-tenant resource quotas (noisy-neighbor control).
 - [ ] **Backups & offboarding:** backup/restore guidance per provider, tenant data export, tenant deletion lifecycle (soft delete, grace period, purge).
@@ -703,3 +720,73 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 - One or two payment gateways (e.g. Stripe + one regional gateway) plus Cash on Delivery.
 - S3-compatible storage + Cloudinary (or Supabase Storage); cloud drives later.
 - Super Admin, Host and Tenant dashboards with core CRUD only; advanced features behind feature flags.
+
+---
+
+## 18. Packages & Licensing Policy (free for commercial use)
+
+**Goal:** build the platform only with packages that are **free to use in a commercial product** and can be used without paying fees or open-sourcing this codebase. This is engineering guidance, not legal advice; verify each package's `LICENSE` when adding it, because licenses can change.
+
+### 18.1 License rules
+| Status | Licenses | Rule |
+|--------|----------|------|
+| **Allowed** | MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, MIT-0, Unlicense, CC0, OFL (fonts) | Use freely; keep license notices |
+| **Allowed with care** | MPL-2.0, LGPL (dynamic/unmodified use) | OK if not modified or if changes to those files are shared |
+| **Not allowed in the app bundle/code** | GPL, AGPL, SSPL, BUSL/BSL, Elastic License, FSL, Commons Clause, "free for non-commercial", unlicensed | Do not import or link. Running as a **separate, unmodified service** is possible only after review |
+| **Watch for "open-core"** | Libraries with a free core and paid "Pro/Enterprise" parts | Use only the free-licensed packages; never copy paid/pro code |
+
+Note the difference: an **open-source license** (free forever, self-hostable) is not the same as a **SaaS free tier** (can change or end). Prefer open-source packages; treat free tiers as replaceable adapters.
+
+### 18.2 Recommended stack (all permissive licenses, verify before adding)
+| Need | Package | License |
+|------|---------|---------|
+| Framework | Next.js, React | MIT |
+| Language/tooling | TypeScript, ESLint, Prettier | Apache-2.0 / MIT |
+| Styling & UI | Tailwind CSS, shadcn/ui (Radix UI), lucide-react | MIT / ISC |
+| Forms & validation | React Hook Form, Zod | MIT |
+| Server data | TanStack Query, TanStack Table | MIT |
+| Client state | Zustand | MIT |
+| i18n | next-intl | MIT |
+| Auth | Auth.js (NextAuth) or Better Auth; `jose` for JWT | ISC / MIT |
+| Password & 2FA | `argon2` (node-argon2), `otplib` | MIT |
+| DB clients/ORM | `@supabase/supabase-js`, official `mongodb` driver, Drizzle ORM or Prisma | MIT / Apache-2.0 |
+| Storage SDKs | AWS SDK v3, `@google-cloud/storage`, `@azure/storage-blob`, `cloudinary`, `googleapis`, `dropbox` | Apache-2.0 / MIT |
+| Payments SDKs | `stripe`, `razorpay`, PayPal server SDK | MIT / Apache-2.0 |
+| Email | Nodemailer, React Email, Resend SDK (service has a free tier) | MIT-0 / MIT |
+| Rich text editor | Lexical, or Tiptap core only (no Pro extensions) | MIT |
+| Charts | Recharts | MIT |
+| Drag & drop | dnd-kit | MIT |
+| Dates / CSV | date-fns, PapaParse | MIT |
+| PDF invoices | `@react-pdf/renderer`, `pdf-lib` | MIT |
+| Images | `sharp` | Apache-2.0 |
+| Sanitizing | DOMPurify | Apache-2.0 / MPL-2.0 |
+| Rate limiting | `@upstash/ratelimit` or in-memory/Redis-compatible limiter | MIT |
+| Background jobs | Inngest SDK, Trigger.dev SDK (Apache-2.0; hosted free tiers) or BullMQ (MIT, needs Redis-compatible store, e.g. Valkey) | Apache-2.0 / MIT |
+| Search | Postgres full-text search first; Meilisearch (community edition) or Typesense as separate services | check at adoption |
+| Page builder (optional) | Puck, Craft.js, GrapesJS | MIT / BSD-3 |
+| Feature flags | OpenFeature SDK, GrowthBook or Unleash (self-hosted OSS edition) | Apache-2.0 / MIT |
+| Logging | Pino | MIT |
+| Error tracking | Sentry SDK (hosted free tier) | MIT |
+| Testing | Vitest, React Testing Library, Playwright, MSW | MIT / Apache-2.0 |
+| Analytics (optional) | Umami (self-hosted) | MIT |
+
+### 18.3 Packages to avoid or handle with caution
+- **MinIO (self-hosted object storage):** AGPL-3.0 and the community repo is archived. Prefer Cloudflare R2, Backblaze B2, Supabase Storage, or self-hosted SeaweedFS.
+- **Redis server (newer versions)** has had license changes. Prefer **Valkey** (BSD) or a managed service (Upstash) and talk to it via standard clients.
+- **MongoDB server** is SSPL. Using it as a database for your own app is fine; **do not** offer MongoDB itself as a hosted service. Tenants bring their own Atlas/self-hosted instance, and our driver is Apache-2.0.
+- **Paid UI components:** MUI X Pro/Premium, AG Grid Enterprise, Tiptap Pro, Syncfusion, DevExtreme, KendoReact, many "premium" templates/themes: avoid.
+- **Source-available platforms:** self-hosted Sentry (FSL), HashiCorp tools (BSL), Elasticsearch (Elastic License/AGPL options): review before use.
+- **Icons/fonts/images:** use licensed sets only (lucide, Heroicons, Google Fonts under OFL, Unsplash/own assets). No "free for personal use" assets.
+
+### 18.4 Enforcing the policy
+- Add a **license gate to CI** (e.g. `license-checker-rseidelsohn` or `pnpm licenses list` with an allow-list) that fails on any license outside 18.1.
+- Generate an **SBOM** (CycloneDX) and a `THIRD_PARTY_NOTICES.md` on each release.
+- Run `npm audit`/Dependabot/Renovate for security updates; pin versions via lockfile.
+- Review transitive dependencies, not only direct ones.
+- Re-check licenses when upgrading major versions.
+
+### 18.5 Rules for the AI assistant
+- Before adding a dependency, state its license and confirm it is in the **Allowed** list; if unsure, ask.
+- Prefer existing approved packages (18.2) over new ones; prefer small, well-maintained libraries; no unmaintained or archived packages.
+- Never copy code from GPL/AGPL/unlicensed sources or from paid component libraries.
+- Keep every external service behind a port/adapter so a free tier or vendor can be swapped without UI changes.

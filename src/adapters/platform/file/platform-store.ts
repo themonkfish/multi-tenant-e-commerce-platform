@@ -3,6 +3,20 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
+import {
+  HostConfigSchema,
+  type HostConfig,
+  type HostStatus,
+} from "@/core/domain/host-config";
+import {
+  HostOwnerInviteSchema,
+  HostOwnerSchema,
+  TenantRecordSchema,
+  type HostOwner,
+  type HostOwnerInvite,
+  type TenantRecord,
+  type TenantStatus,
+} from "@/core/domain/host-portal";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -52,6 +66,10 @@ const FileStateSchema = z.object({
   platformDomain: z.string().nullable(),
   reservedSubdomains: z.array(z.string()),
   superAdmins: z.array(SuperAdminSchema),
+  hosts: z.array(HostConfigSchema).default([]),
+  hostOwnerInvites: z.array(HostOwnerInviteSchema).default([]),
+  hostOwners: z.array(HostOwnerSchema).default([]),
+  tenants: z.array(TenantRecordSchema).default([]),
   auditEvents: z.array(AuditEventSchema),
   secrets: z.array(SecretRecordSchema),
   rateLimits: z.record(
@@ -68,6 +86,10 @@ const EMPTY_STATE: FileState = {
   platformDomain: null,
   reservedSubdomains: [],
   superAdmins: [],
+  hosts: [],
+  hostOwnerInvites: [],
+  hostOwners: [],
+  tenants: [],
   auditEvents: [],
   secrets: [],
   rateLimits: {},
@@ -199,6 +221,239 @@ export class FilePlatformStore implements PlatformStore {
       const state = await this.readState();
       state.auditEvents.push(event);
       await this.writeState(state);
+    });
+  }
+
+  async listHosts(): Promise<HostConfig[]> {
+    return (await this.readState()).hosts.sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
+  }
+
+  async createHost(host: HostConfig, auditEvent: AuditEvent): Promise<void> {
+    const validatedHost = HostConfigSchema.parse(host);
+    await this.withLock(async () => {
+      const state = await this.readState();
+      if (state.hosts.some((candidate) => candidate.slug === host.slug)) {
+        throw new Error("A host with this slug already exists");
+      }
+      const existingDomains = new Set(
+        state.hosts.flatMap((candidate) => candidate.domains),
+      );
+      if (host.domains.some((domain) => existingDomains.has(domain))) {
+        throw new Error("A host with one of these domains already exists");
+      }
+
+      state.hosts.push(validatedHost);
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+    });
+  }
+
+  async updateHostStatus(
+    id: string,
+    status: HostStatus,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<HostConfig | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const host = state.hosts.find((candidate) => candidate.id === id);
+      if (!host) {
+        return null;
+      }
+
+      host.status = status;
+      host.updatedAt = updatedAt;
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+      return host;
+    });
+  }
+
+  async createHostOwnerInvite(
+    invite: HostOwnerInvite,
+    auditEvent: AuditEvent,
+  ): Promise<void> {
+    const validatedInvite = HostOwnerInviteSchema.parse(invite);
+    await this.withLock(async () => {
+      const state = await this.readState();
+      const host = state.hosts.find(
+        (candidate) => candidate.id === validatedInvite.hostId,
+      );
+      if (!host || host.status !== "active") {
+        throw new Error("Only active hosts can receive owner invitations");
+      }
+      if (
+        state.hostOwners.some(
+          (owner) => owner.email === validatedInvite.email,
+        )
+      ) {
+        throw new Error("This email already owns a host account");
+      }
+      state.hostOwnerInvites = state.hostOwnerInvites.filter(
+        (existing) =>
+          existing.hostId !== validatedInvite.hostId ||
+          existing.email !== validatedInvite.email,
+      );
+      state.hostOwnerInvites.push(validatedInvite);
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+    });
+  }
+
+  async getHostOwnerInvite(
+    tokenHash: string,
+    now: string,
+  ): Promise<HostOwnerInvite | null> {
+    const state = await this.readState();
+    const invite = state.hostOwnerInvites.find(
+      (candidate) =>
+        candidate.tokenHash === tokenHash && candidate.expiresAt > now,
+    );
+    if (!invite) {
+      return null;
+    }
+    const host = state.hosts.find(
+      (candidate) => candidate.id === invite.hostId,
+    );
+    return host?.status === "active" ? invite : null;
+  }
+
+  async acceptHostOwnerInvite(input: {
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+    auditEvent: AuditEvent;
+  }): Promise<HostOwner | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const inviteIndex = state.hostOwnerInvites.findIndex(
+        (candidate) =>
+          candidate.tokenHash === input.tokenHash &&
+          candidate.expiresAt > input.now,
+      );
+      if (inviteIndex === -1) {
+        return null;
+      }
+      const invite = state.hostOwnerInvites[inviteIndex];
+      const host = state.hosts.find(
+        (candidate) => candidate.id === invite.hostId,
+      );
+      if (
+        !host ||
+        host.status !== "active" ||
+        state.hostOwners.some((owner) => owner.email === invite.email)
+      ) {
+        return null;
+      }
+
+      const owner = HostOwnerSchema.parse({
+        id: randomUUID(),
+        hostId: invite.hostId,
+        email: invite.email,
+        passwordHash: input.passwordHash,
+        createdAt: input.now,
+      });
+      state.hostOwners.push(owner);
+      state.hostOwnerInvites.splice(inviteIndex, 1);
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return owner;
+    });
+  }
+
+  async getHostOwnerByEmail(email: string): Promise<HostOwner | null> {
+    const owner = (await this.readState()).hostOwners.find(
+      (candidate) => candidate.email === email.trim().toLowerCase(),
+    );
+    return owner ?? null;
+  }
+
+  async listTenantsForHost(hostId: string): Promise<TenantRecord[]> {
+    return (await this.readState()).tenants
+      .filter((tenant) => tenant.hostId === hostId)
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  async createTenantForHost(
+    tenant: TenantRecord,
+    auditEvent: AuditEvent,
+  ): Promise<void> {
+    const validatedTenant = TenantRecordSchema.parse(tenant);
+    await this.withLock(async () => {
+      const state = await this.readState();
+      const host = state.hosts.find(
+        (candidate) => candidate.id === validatedTenant.hostId,
+      );
+      if (!host || host.status !== "active") {
+        throw new Error("Host is unavailable");
+      }
+      if (
+        state.tenants.some(
+          (candidate) =>
+            candidate.hostId === host.id &&
+            candidate.slug === validatedTenant.slug,
+        )
+      ) {
+        throw new Error("A tenant with this slug already exists for the host");
+      }
+      if (
+        state.tenants.some((candidate) =>
+          candidate.domains.some((domain) =>
+            validatedTenant.domains.includes(domain),
+          ),
+        ) ||
+        host.domains.some((domain) => validatedTenant.domains.includes(domain))
+      ) {
+        throw new Error("A tenant with one of these domains already exists");
+      }
+      if (
+        state.tenants.filter((candidate) => candidate.hostId === host.id)
+          .length >= host.limits.maxTenants
+      ) {
+        throw new Error("Host tenant limit reached");
+      }
+      const assignedDomains =
+        host.domains.length +
+        state.tenants
+          .filter((candidate) => candidate.hostId === host.id)
+          .reduce((count, candidate) => count + candidate.domains.length, 0);
+      if (
+        assignedDomains + validatedTenant.domains.length >
+        host.limits.maxCustomDomains
+      ) {
+        throw new Error("Host custom-domain limit reached");
+      }
+
+      state.tenants.push(validatedTenant);
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+    });
+  }
+
+  async updateTenantStatus(input: {
+    hostId: string;
+    tenantId: string;
+    status: TenantStatus;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId && candidate.hostId === input.hostId,
+      );
+      if (!tenant) {
+        return null;
+      }
+
+      tenant.status = input.status;
+      tenant.updatedAt = input.updatedAt;
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return tenant;
     });
   }
 

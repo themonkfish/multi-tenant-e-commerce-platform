@@ -1,4 +1,11 @@
 import type { AccessScope } from "@/core/tenancy/scope";
+import type { HostConfig, HostStatus } from "@/core/domain/host-config";
+import type {
+  HostOwner,
+  HostOwnerInvite,
+  TenantRecord,
+  TenantStatus,
+} from "@/core/domain/host-portal";
 
 export type PlatformSetupState = {
   initialized: boolean;
@@ -56,6 +63,41 @@ export interface PlatformStore {
     auditEvent: AuditEvent;
   }): Promise<void>;
   appendAuditEvent(event: AuditEvent): Promise<void>;
+  listHosts(): Promise<HostConfig[]>;
+  createHost(host: HostConfig, auditEvent: AuditEvent): Promise<void>;
+  updateHostStatus(
+    id: string,
+    status: HostStatus,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<HostConfig | null>;
+  createHostOwnerInvite(
+    invite: HostOwnerInvite,
+    auditEvent: AuditEvent,
+  ): Promise<void>;
+  getHostOwnerInvite(
+    tokenHash: string,
+    now: string,
+  ): Promise<HostOwnerInvite | null>;
+  acceptHostOwnerInvite(input: {
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+    auditEvent: AuditEvent;
+  }): Promise<HostOwner | null>;
+  getHostOwnerByEmail(email: string): Promise<HostOwner | null>;
+  listTenantsForHost(hostId: string): Promise<TenantRecord[]>;
+  createTenantForHost(
+    tenant: TenantRecord,
+    auditEvent: AuditEvent,
+  ): Promise<void>;
+  updateTenantStatus(input: {
+    hostId: string;
+    tenantId: string;
+    status: TenantStatus;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null>;
   putSecretRecord(record: SecretRecord): Promise<void>;
   getSecretRecord(ref: string): Promise<SecretRecord | null>;
   deleteSecretRecord(ref: string): Promise<void>;
