@@ -2,9 +2,11 @@ import "server-only";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { isScopeAllowedOnRequestDomain } from "@/core/tenancy/request-scope";
 import type { Principal } from "@/core/tenancy/scope";
 import { getPlatformStore } from "./platform";
 import { getServerEnv } from "./env";
+import { getRequestDomainScope } from "./request-scope";
 
 const ISSUER = "multi-tenant-e-commerce-platform";
 const AUDIENCE = "super-admin";
@@ -114,6 +116,15 @@ export async function getSuperAdminSession(): Promise<Principal | null> {
       return null;
     }
 
+    if (
+      !isScopeAllowedOnRequestDomain(
+        await getRequestDomainScope(),
+        claims.data.scope,
+      )
+    ) {
+      return null;
+    }
+
     return {
       userId: claims.data.sub,
       scope: claims.data.scope,
@@ -152,6 +163,15 @@ export async function getHostOwnerSession(): Promise<Principal | null> {
     })
     .safeParse(payload);
   if (!claims.success) {
+    return null;
+  }
+
+  if (
+    !isScopeAllowedOnRequestDomain(
+      await getRequestDomainScope(),
+      claims.data.scope,
+    )
+  ) {
     return null;
   }
 
@@ -198,6 +218,15 @@ export async function getTenantOwnerSession(): Promise<Principal | null> {
     })
     .safeParse(payload);
   if (!claims.success) {
+    return null;
+  }
+
+  if (
+    !isScopeAllowedOnRequestDomain(
+      await getRequestDomainScope(),
+      claims.data.scope,
+    )
+  ) {
     return null;
   }
 

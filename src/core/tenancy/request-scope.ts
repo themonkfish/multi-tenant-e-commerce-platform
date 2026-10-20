@@ -33,6 +33,31 @@ export type ResolvedRequestScope =
       domain: string;
     };
 
+export function isScopeAllowedOnRequestDomain(
+  requestScope: ResolvedRequestScope | null,
+  accessScope: AccessScope,
+): boolean {
+  if (!requestScope || requestScope.kind === "platform") {
+    return true;
+  }
+
+  if (requestScope.kind === "unavailable") {
+    return false;
+  }
+
+  if (requestScope.kind === "host") {
+    return (
+      accessScope.kind === "host" && accessScope.id === requestScope.host.id
+    );
+  }
+
+  return (
+    accessScope.kind === "tenant" &&
+    accessScope.id === requestScope.tenant.id &&
+    accessScope.hostId === requestScope.host.id
+  );
+}
+
 export function normalizeRequestDomain(
   hostHeader: string | null,
 ): string | null {

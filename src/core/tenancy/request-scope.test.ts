@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { HostConfig } from "@/core/domain/host-config";
 import type { TenantRecord } from "@/core/domain/host-portal";
 import type { PlatformStore } from "@/core/ports/platform-store";
-import { normalizeRequestDomain, resolveRequestScope } from "./request-scope";
+import {
+  isScopeAllowedOnRequestDomain,
+  normalizeRequestDomain,
+  resolveRequestScope,
+} from "./request-scope";
 
 const host: HostConfig = {
   id: "550e8400-e29b-41d4-a716-446655440000",
@@ -127,6 +131,84 @@ describe("resolveRequestScope", () => {
     ).resolves.toEqual({
       kind: "unavailable",
       domain: "store.example.com",
+    });
+  });
+
+  describe("isScopeAllowedOnRequestDomain", () => {
+    it("allows unresolved and platform domains to serve existing portals", async () => {
+      const platformScope = await resolveRequestScope(
+        "platform.example.com",
+        createStore(),
+      );
+
+      expect(
+        isScopeAllowedOnRequestDomain(null, { kind: "host", id: host.id }),
+      ).toBe(true);
+      expect(
+        isScopeAllowedOnRequestDomain(platformScope, {
+          kind: "tenant",
+          id: tenant.id,
+          hostId: host.id,
+        }),
+      ).toBe(true);
+    });
+
+    it("restricts host and tenant domains to their matching access scopes", async () => {
+      const store = createStore();
+      const hostScope = await resolveRequestScope("host.example.com", store);
+      const tenantScope = await resolveRequestScope("store.example.com", store);
+
+      expect(
+        isScopeAllowedOnRequestDomain(hostScope, { kind: "host", id: host.id }),
+      ).toBe(true);
+      expect(
+        isScopeAllowedOnRequestDomain(hostScope, {
+          kind: "host",
+          id: "different-host",
+        }),
+      ).toBe(false);
+      expect(
+        isScopeAllowedOnRequestDomain(hostScope, {
+          kind: "tenant",
+          id: tenant.id,
+          hostId: host.id,
+        }),
+      ).toBe(false);
+      expect(
+        isScopeAllowedOnRequestDomain(tenantScope, {
+          kind: "tenant",
+          id: tenant.id,
+          hostId: host.id,
+        }),
+      ).toBe(true);
+      expect(
+        isScopeAllowedOnRequestDomain(tenantScope, {
+          kind: "tenant",
+          id: "different-tenant",
+          hostId: host.id,
+        }),
+      ).toBe(false);
+      expect(
+        isScopeAllowedOnRequestDomain(tenantScope, {
+          kind: "host",
+          id: host.id,
+        }),
+      ).toBe(false);
+      expect(
+        isScopeAllowedOnRequestDomain(tenantScope, {
+          kind: "platform",
+          id: "platform",
+        }),
+      ).toBe(false);
+    });
+
+    it("denies access on inactive domains", () => {
+      expect(
+        isScopeAllowedOnRequestDomain(
+          { kind: "unavailable", domain: "store.example.com" },
+          { kind: "tenant", id: tenant.id, hostId: host.id },
+        ),
+      ).toBe(false);
     });
   });
 

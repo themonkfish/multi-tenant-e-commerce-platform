@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { routing } from "@/i18n/routing";
+import { getRequestDomainScope } from "@/lib/server/request-scope";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -27,6 +28,11 @@ export default async function LocaleLayout({
   const { locale } = await params;
 
   if (!hasLocale(routing.locales, locale)) {
+    notFound();
+  }
+
+  const requestScope = await getRequestDomainScope();
+  if (requestScope?.kind === "unavailable") {
     notFound();
   }
 
