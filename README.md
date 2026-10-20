@@ -69,9 +69,31 @@ invitations and a host-scoped tenant management portal are available:
 
 Tenant settings are platform metadata only and do not yet apply a live
 storefront theme. REST connection setup and health testing are implemented, but
-catalog operations, storefront provisioning, payments, storage, and
-custom-domain routing are not yet implemented. Email delivery is not configured
-for either invitation flow, so links must be shared manually.
+tenant-scoped REST catalog operations are available through the authenticated
+`/api/tenant/products` API. A product-management screen, storefront
+provisioning, payments, storage, and custom-domain routing are not yet
+implemented. Email delivery is not configured for either invitation flow, so
+links must be shared manually.
+
+The tenant product API supports `GET`/`POST /api/tenant/products` and
+`GET`/`PATCH`/`DELETE /api/tenant/products/:productId`. It proxies to the
+configured tenant backend's `/{apiVersion}/products` endpoint through the
+server-side catalog adapter; requests require a Tenant Owner session. The
+backend URL is resolved and pinned to public IPs for each request, redirects are
+not followed, response sizes/time are bounded, and product IDs and returned
+tenant scopes are validated.
+
+To try the product API locally, sign in as a Tenant Owner, connect a reachable
+REST backend in Store setup, then run this in the browser's developer console:
+
+```js
+const response = await fetch("/api/tenant/products?page=1&limit=20");
+console.log(response.status, await response.json());
+```
+
+The catalog request uses the saved backend key server-side. `localhost` can
+host the platform app, but the backend connection itself must have a public
+HTTPS hostname because private/internal targets are blocked.
 
 For a deployment, set `PLATFORM_STORE=supabase`, configure
 `PLATFORM_SUPABASE_URL` and `PLATFORM_SUPABASE_SERVICE_KEY` as server-only

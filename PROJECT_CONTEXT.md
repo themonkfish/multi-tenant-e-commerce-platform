@@ -398,6 +398,14 @@ GET    /customers ...
 POST   /auth/login | /auth/refresh | /auth/logout
 ```
 
+The initial REST catalog adapter implements product list/read/create/update/delete.
+List responses use `{ data: Product[], meta: { page, limit, total } }`; product
+responses use the `Product` fields defined in `src/core/ports/data.ts`. Product
+mutations must preserve the tenant identifier supplied in the body and enforce
+tenant isolation in the tenant backend. The platform exposes these operations
+to authenticated Tenant Owners at `/api/tenant/products` and
+`/api/tenant/products/:productId`; the browser never receives the API key.
+
 The initial Tenant Owner connection setup supports `authMode: "apiKey"` only.
 The health probe sends the key in the `X-API-Key` header to
 `GET /{apiVersion}/health`; do not put credentials in URLs. The probe requires

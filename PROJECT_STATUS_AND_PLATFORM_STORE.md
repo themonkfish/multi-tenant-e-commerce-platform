@@ -45,6 +45,9 @@ automatically implemented just because they are listed there.
 - [x] REST health test using `X-API-Key`, private/internal DNS rejection,
       pinned public DNS address, no redirects, response-size/time limits, and
       per-account rate limiting.
+- [x] Versioned REST catalog adapter for product list/read/create/update/delete
+      with server-only API-key access, tenant-scoped BFF routes, contract
+      validation, and mutation rate limits.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
       Owner/tenant portal, Tenant Owner accounts/invitations, and tenant
       settings.
@@ -91,8 +94,9 @@ automatically implemented just because they are listed there.
 
 #### Tenant data and integrations
 
-- [ ] Implement the versioned REST catalog adapter and local mock backend/MSW
-      coverage. Initial connection settings and health testing are implemented.
+- [ ] Add local mock service/MSW end-to-end coverage and a product-management
+      screen. REST connection, health testing, catalog adapter, and authenticated
+      product API routes are implemented.
 - [ ] Implement tenant Supabase and MongoDB data adapters, reference schemas,
       provider setup, test-connection, and schema initialization.
 - [ ] Add connection testing for other providers and full credential rotation
@@ -207,11 +211,17 @@ features are implemented.
     with a non-empty `status` plus `db` and `storage` set to `up` or `down`.
     Authentication is sent as `X-API-Key`. Leave API key blank to retain it;
     entering a new value rotates it. The value is write-only.
+11. A Tenant Owner session can also exercise the catalog API:
+    `GET /api/tenant/products?page=1&limit=20`,
+    `POST /api/tenant/products`, and
+    `GET`/`PATCH`/`DELETE /api/tenant/products/{productId}`. These routes
+    proxy product operations to the connected backend. There is not yet a
+    product-management UI.
 
 The tenant portal saves branding and locale metadata but does not yet apply it
-to a live storefront. The saved REST connection is not yet used for catalog
-operations. Tenant creation does not provision storefronts, databases, products,
-or working custom-domain routes. Health tests reject private/internal DNS
+to a live storefront. REST catalog requests use the saved connection, but
+tenant creation does not provision storefronts, databases, or working
+custom-domain routes. Health tests and catalog requests reject private/internal DNS
 answers (including mixed public/private answers), use a pinned public address,
 do not follow redirects, and are limited to five attempts per account per
 15-minute window.

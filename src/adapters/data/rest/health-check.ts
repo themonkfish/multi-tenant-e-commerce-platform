@@ -133,7 +133,7 @@ export function buildHealthCheckUrl(config: TenantRestDataProviderConfig): URL {
   return new URL(`${config.apiVersion}/health`, `${baseUrl.origin}/`);
 }
 
-async function resolvePublicAddress(
+export async function resolvePublicAddress(
   hostname: string,
 ): Promise<{ address: string; family: 4 | 6 } | null> {
   if (isIP(hostname)) {

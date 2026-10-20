@@ -35,7 +35,7 @@ export const TenantRestConnectionInputSchema = z.object({
     .string()
     .max(2048)
     .refine(
-      (value) => !/[\r\n]/.test(value),
+      (value) => !/[\x00-\x1f\x7f]/.test(value),
       "API key contains invalid characters",
     )
     .optional(),
