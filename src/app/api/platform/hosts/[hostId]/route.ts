@@ -39,7 +39,7 @@ export async function PATCH(request: Request, { params }: HostRouteProps) {
 
   const store = getPlatformStore();
   const allowed = await store.consumeRateLimit({
-    key: createRateLimitKey(request, "platform-host-update"),
+    key: createRateLimitKey(request, "platform-host-update", session.userId),
     limit: 20,
     windowMs: 15 * 60 * 1000,
     now: Date.now(),

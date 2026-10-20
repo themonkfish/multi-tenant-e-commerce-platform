@@ -24,8 +24,16 @@ automatically implemented just because they are listed there.
       plan and tenant/domain limits, and activate or suspend hosts.
 - [x] Host API authorization, same-origin checks, rate limits, input
       validation, duplicate slug/domain checks, and audit logging.
-- [x] Supabase platform schema migration for bootstrap and a second migration
-      for hosts.
+- [x] Authenticated host/Super Admin mutation throttles use per-account
+      buckets in addition to client-address scoping; invalid host/tenant create
+      requests do not consume the valid-change quota.
+- [x] Host Owner invitation and authentication with single-use, expiring
+      invitations, Argon2id passwords, host-scoped sessions, and host
+      suspension checks.
+- [x] Host portal tenant metadata management with host-scoped reads and writes,
+      status changes, audit events, and tenant/domain limit enforcement.
+- [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
+      Owner/tenant portal.
 - [x] Data and storage port/factory contracts. These are extension points, not
       complete tenant provider implementations.
 
@@ -38,15 +46,16 @@ automatically implemented just because they are listed there.
 - [ ] **Super Admin dashboard:** host creation/status management works;
       editing host details, deletion, invitations, staff/roles, settings, health,
       analytics, domains, billing, and audit-log views remain.
-- [ ] **Host and tenant architecture:** host records exist in the platform
-      store, but Host Owner authentication, host/tenant config stores, tenant
-      creation, dashboard authorization scopes, and host/domain-based tenant
-      resolution are not yet implemented.
+- [ ] **Host and tenant architecture:** basic Host Owner authentication and
+      tenant metadata management are implemented. Tenant-specific configuration
+      stores, domain-based routing, storefront provisioning, tenant backends,
+      products, staff roles, and expanded RBAC remain.
 - [ ] **i18n:** routing infrastructure exists, but only English is configured.
 - [ ] **Security/operations:** authentication and mutation protections exist
-      for current flows; production monitoring, shared distributed rate limiting,
-      automated migration deployment, backup/restore, and full security headers
-      still need work.
+      for current flows. Rate limits use the configured PlatformStore and
+      mutation limits are per-account; production monitoring, a shared
+      distributed rate-limit service, automated migration deployment,
+      backup/restore, and full security headers still need work.
 
 ### Pending roadmap
 
@@ -57,8 +66,7 @@ automatically implemented just because they are listed there.
       tenant scope; add cache invalidation and prevent cross-tenant cache reuse.
 - [ ] Complete server-enforced RBAC and scoped access checks for platform,
       host, tenant, staff, and customer roles.
-- [ ] Add Host Owner invitation/authentication and host dashboard.
-- [ ] Add tenant onboarding and tenant dashboard.
+- [ ] Add tenant storefront provisioning and a tenant dashboard.
 - [ ] Complete the setup wizard's connection check, reserved-domain
       configuration, email provider, theme/legal settings, and optional
       first-host steps.
@@ -164,8 +172,15 @@ features are implemented.
 5. Open `http://localhost:3000/en/setup`, enter the value of `SETUP_TOKEN`,
    create the first Super Admin, and enroll an authenticator. Save the
    recovery codes. After setup, remove `SETUP_TOKEN` from `.env.local`.
-6. Sign in at `http://localhost:3000/en/super-admin`. Host creation is
-   available in the dashboard.
+6. Sign in at `http://localhost:3000/en/super-admin`, create a host, and
+   activate it.
+7. Invite its owner and securely share the generated URL; email delivery is
+   not configured. Open the link, set a password of at least 14 characters,
+   then use `http://localhost:3000/en/host` to manage tenants.
+
+Host and tenant records in this milestone are platform metadata only. Tenant
+creation does not provision storefronts, databases, products, or working
+custom-domain routes.
 
 The file adapter creates `.local/` as needed. That directory is Git-ignored
 and contains platform credentials/state: keep it private and backed up if the
@@ -173,6 +188,9 @@ local environment matters. Do not delete or replace
 `.local/platform-store.json` to troubleshoot; doing so resets the local
 platform and may lock you out. The file adapter uses a lock file and fails
 fast when another writer holds the lock; run a single local app instance.
+Authenticated mutation limits are tracked separately per account and action.
+If an endpoint returns `rate_limited`, wait for its 15-minute window to expire;
+restarting the app does not clear persisted counters.
 
 ## Production/deployment with Supabase
 
@@ -200,8 +218,9 @@ Before deploying the app:
 1. Create the platform Supabase project and obtain its project URL and
    server-only service key.
 2. Apply every migration in `supabase/migrations/` **in order**, including
-   `0001_platform_store.sql` and `0002_platform_hosts.sql`. For the current
-   workflow, review each SQL file and run it in that project's Supabase SQL
+   `0001_platform_store.sql`, `0002_platform_hosts.sql`, and
+   `0003_host_portal.sql`. For the current workflow, review each SQL file and
+   run it in that project's Supabase SQL
    Editor or through your reviewed migration pipeline. Do not run migrations
    from the browser or expose the service key to the client.
 3. Set the production environment variables above. Production startup requires
@@ -212,7 +231,8 @@ Before deploying the app:
 5. Remove `SETUP_TOKEN` from the production environment and redeploy/refresh
    the runtime configuration. The app does not currently rotate or remove the
    hosting provider's environment variable automatically.
-6. Sign in at `/en/super-admin` and create hosts as needed.
+6. Sign in at `/en/super-admin`, create and activate hosts, then invite Host
+   Owners. Share invitation URLs manually until an email provider is configured.
 
 If production setup fails, check server logs for missing environment
 configuration and confirm migrations completed. Do not solve setup errors by

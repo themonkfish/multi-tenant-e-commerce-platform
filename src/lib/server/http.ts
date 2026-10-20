@@ -14,12 +14,18 @@ export function isSameOrigin(request: Request): boolean {
   }
 }
 
-export function createRateLimitKey(request: Request, action: string): string {
+export function createRateLimitKey(
+  request: Request,
+  action: string,
+  subject?: string,
+): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
   const clientAddress =
     request.headers.get("x-real-ip") ??
     forwardedFor?.split(",")[0]?.trim() ??
     "unknown";
 
-  return hashToken(`${action}:${clientAddress}`);
+  return hashToken(
+    [action, clientAddress, ...(subject ? [subject] : [])].join(":"),
+  );
 }

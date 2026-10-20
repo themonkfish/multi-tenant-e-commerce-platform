@@ -1,9 +1,19 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import {
   HostConfigSchema,
   type HostConfig,
   type HostStatus,
 } from "@/core/domain/host-config";
+import {
+  HostOwnerInviteSchema,
+  HostOwnerSchema,
+  TenantRecordSchema,
+  type HostOwner,
+  type HostOwnerInvite,
+  type TenantRecord,
+  type TenantStatus,
+} from "@/core/domain/host-portal";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -257,6 +267,232 @@ export class SupabasePlatformStore implements PlatformStore {
     }
 
     return (await this.listHosts()).find((host) => host.id === id) ?? null;
+  }
+
+  async createHostOwnerInvite(
+    invite: HostOwnerInvite,
+    auditEvent: AuditEvent,
+  ): Promise<void> {
+    const validatedInvite = HostOwnerInviteSchema.parse(invite);
+    const { data, error } = await this.client.rpc(
+      "create_platform_host_owner_invite",
+      {
+        p_invite_id: validatedInvite.id,
+        p_host_id: validatedInvite.hostId,
+        p_email: validatedInvite.email,
+        p_token_hash: validatedInvite.tokenHash,
+        p_expires_at: validatedInvite.expiresAt,
+        p_created_at: validatedInvite.createdAt,
+        p_actor_id: auditEvent.actorId,
+        p_audit_id: auditEvent.id,
+        p_audit_action: auditEvent.action,
+        p_audit_resource_id: auditEvent.resourceId ?? null,
+        p_audit_created_at: auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not create host owner invitation: ${error.message}`,
+      );
+    }
+    if (!data) {
+      const owner = await this.getHostOwnerByEmail(validatedInvite.email);
+      if (owner) {
+        throw new Error("This email already owns a host account");
+      }
+      throw new Error("Only active hosts can receive owner invitations");
+    }
+  }
+
+  async getHostOwnerInvite(
+    tokenHash: string,
+    now: string,
+  ): Promise<HostOwnerInvite | null> {
+    const { data, error } = await this.client
+      .from("platform_host_owner_invites")
+      .select("*")
+      .eq("token_hash", tokenHash)
+      .gt("expires_at", now)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load host owner invitation: ${error.message}`);
+    }
+    if (!data) {
+      return null;
+    }
+    const host = (await this.listHosts()).find(
+      (candidate) => candidate.id === data.host_id,
+    );
+    if (!host || host.status !== "active") {
+      return null;
+    }
+    return HostOwnerInviteSchema.parse({
+      id: data.id,
+      hostId: data.host_id,
+      email: data.email,
+      tokenHash: data.token_hash,
+      expiresAt: data.expires_at,
+      createdAt: data.created_at,
+    });
+  }
+
+  async acceptHostOwnerInvite(input: {
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+    auditEvent: AuditEvent;
+  }): Promise<HostOwner | null> {
+    const { data, error } = await this.client.rpc(
+      "accept_platform_host_owner_invite",
+      {
+        p_token_hash: input.tokenHash,
+        p_owner_id: randomUUID(),
+        p_password_hash: input.passwordHash,
+        p_now: input.now,
+        p_audit_id: input.auditEvent.id,
+        p_audit_actor_id: input.auditEvent.actorId,
+        p_audit_action: input.auditEvent.action,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not accept host owner invitation: ${error.message}`,
+      );
+    }
+    if (data === null) {
+      return null;
+    }
+    return HostOwnerSchema.parse(data);
+  }
+
+  async getHostOwnerByEmail(email: string): Promise<HostOwner | null> {
+    const { data, error } = await this.client
+      .from("platform_host_owners")
+      .select("*")
+      .eq("email", email.trim().toLowerCase())
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load host owner: ${error.message}`);
+    }
+    return data
+      ? HostOwnerSchema.parse({
+          id: data.id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async listTenantsForHost(hostId: string): Promise<TenantRecord[]> {
+    const [tenantResult, domainResult] = await Promise.all([
+      this.client
+        .from("platform_tenants")
+        .select("*")
+        .eq("host_id", hostId)
+        .order("name"),
+      this.client
+        .from("platform_tenant_domains")
+        .select("tenant_id, domain")
+        .eq("host_id", hostId),
+    ]);
+    if (tenantResult.error || domainResult.error) {
+      throw new Error(
+        `Could not load host tenants: ${tenantResult.error?.message ?? domainResult.error?.message}`,
+      );
+    }
+    const domainsByTenant = new Map<string, string[]>();
+    for (const row of domainResult.data) {
+      const domains = domainsByTenant.get(row.tenant_id) ?? [];
+      domains.push(row.domain);
+      domainsByTenant.set(row.tenant_id, domains);
+    }
+    return tenantResult.data.map((row) =>
+      TenantRecordSchema.parse({
+        id: row.id,
+        hostId: row.host_id,
+        slug: row.slug,
+        name: row.name,
+        status: row.status,
+        plan: row.plan,
+        domains: domainsByTenant.get(row.id) ?? [],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }),
+    );
+  }
+
+  async createTenantForHost(
+    tenant: TenantRecord,
+    auditEvent: AuditEvent,
+  ): Promise<void> {
+    const validatedTenant = TenantRecordSchema.parse(tenant);
+    const { data, error } = await this.client.rpc("create_platform_tenant", {
+      p_tenant_id: validatedTenant.id,
+      p_host_id: validatedTenant.hostId,
+      p_slug: validatedTenant.slug,
+      p_name: validatedTenant.name,
+      p_status: validatedTenant.status,
+      p_plan: validatedTenant.plan,
+      p_domains: validatedTenant.domains,
+      p_created_at: validatedTenant.createdAt,
+      p_actor_id: auditEvent.actorId,
+      p_audit_id: auditEvent.id,
+      p_audit_action: auditEvent.action,
+      p_audit_resource_id: auditEvent.resourceId ?? null,
+      p_audit_created_at: auditEvent.createdAt,
+    });
+    if (error) {
+      throw new Error(`Could not create tenant: ${error.message}`);
+    }
+    if (data !== "created") {
+      const failureMessages: Record<string, string> = {
+        host_unavailable: "Host is unavailable",
+        tenant_limit_reached: "Host tenant limit reached",
+        custom_domain_limit_reached: "Host custom-domain limit reached",
+        tenant_slug_or_domain_in_use:
+          "A tenant with this slug or domain already exists",
+      };
+      throw new Error(
+        failureMessages[data] ?? `Tenant creation failed: ${data}`,
+      );
+    }
+  }
+
+  async updateTenantStatus(input: {
+    hostId: string;
+    tenantId: string;
+    status: TenantStatus;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null> {
+    const { data, error } = await this.client.rpc(
+      "update_platform_tenant_status",
+      {
+        p_host_id: input.hostId,
+        p_tenant_id: input.tenantId,
+        p_status: input.status,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_resource_id: input.auditEvent.resourceId ?? null,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(`Could not update tenant status: ${error.message}`);
+    }
+    if (!data) {
+      return null;
+    }
+    return (
+      (await this.listTenantsForHost(input.hostId)).find(
+        (tenant) => tenant.id === input.tenantId,
+      ) ?? null
+    );
   }
 
   async putSecretRecord(record: SecretRecord): Promise<void> {

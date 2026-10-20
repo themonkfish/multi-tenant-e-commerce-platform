@@ -48,7 +48,18 @@ shown.
 
 After signing in at `/en/super-admin`, you can create host workspaces, set
 their initial plan and limits, and activate or suspend them. Host-owner
-invitations and tenant management are not implemented yet.
+invitations and a host-scoped tenant management portal are available:
+
+1. Activate a host in the Super Admin dashboard.
+2. Invite its owner and securely share the one-time invitation URL. Email
+   delivery is not configured, so the link must be sent manually.
+3. Open the link, choose a password of at least 14 characters, and sign in at
+   `/en/host/login` (acceptance also signs the owner in).
+4. Use `/en/host` to create, activate, or suspend tenants within the host's
+   configured limits.
+
+This milestone manages tenant metadata only. It does not yet provision a
+storefront, tenant database, products, or custom-domain routing.
 
 For a deployment, set `PLATFORM_STORE=supabase`, configure
 `PLATFORM_SUPABASE_URL` and `PLATFORM_SUPABASE_SERVICE_KEY` as server-only

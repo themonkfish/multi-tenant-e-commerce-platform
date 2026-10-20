@@ -38,6 +38,120 @@ function getErrorCode(body: unknown): unknown {
     : undefined;
 }
 
+function HostOwnerInviteForm({ host }: { host: HostConfig }) {
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function createInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setBusy(true);
+    setError("");
+    setInviteUrl("");
+    setCopied(false);
+    try {
+      const response = await fetch(`/api/platform/hosts/${host.id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.get("ownerEmail") }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        const code = getErrorCode(body);
+        setError(
+          code === "host_owner_already_exists"
+            ? "This email already has a host-owner account."
+            : code === "host_must_be_active"
+              ? "Activate this host before inviting its owner."
+              : describeHostError(code),
+        );
+        return;
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("inviteUrl" in body) ||
+        typeof body.inviteUrl !== "string"
+      ) {
+        setError("The server returned an invalid invitation.");
+        return;
+      }
+      setInviteUrl(body.inviteUrl);
+      formElement.reset();
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyInviteUrl() {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setError("");
+    } catch {
+      setError("Copy was blocked. Select the link and copy it manually.");
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <form className="flex flex-wrap gap-2" onSubmit={createInvite}>
+        <label className="sr-only" htmlFor={`owner-email-${host.id}`}>
+          Host owner email
+        </label>
+        <input
+          className="min-w-48 rounded-md border border-slate-300 px-3 py-2 text-sm"
+          id={`owner-email-${host.id}`}
+          name="ownerEmail"
+          type="email"
+          autoComplete="email"
+          placeholder="owner@example.com"
+          required
+        />
+        <button
+          className="rounded-md border border-indigo-300 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"
+          disabled={busy}
+          type="submit"
+        >
+          {busy ? "Creating invite…" : "Invite owner"}
+        </button>
+      </form>
+      {error && (
+        <p className="text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      )}
+      {inviteUrl && (
+        <div className="space-y-1 rounded-md bg-indigo-50 p-3">
+          <p className="text-sm font-medium text-indigo-950">
+            Invitation link — send it securely. Expires in 24 hours and can be
+            used once.
+          </p>
+          <input
+            aria-label="One-time host owner invitation link"
+            className="w-full rounded border border-indigo-200 bg-white px-2 py-1 font-mono text-xs"
+            readOnly
+            value={inviteUrl}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+          <button
+            className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-800 hover:bg-indigo-100"
+            onClick={() => void copyInviteUrl()}
+            type="button"
+          >
+            {copied ? "Copied" : "Copy invite link"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function HostManagement({
   initialHosts,
 }: {
@@ -164,6 +278,9 @@ export function HostManagement({
                     <p className="mt-1 break-all text-sm text-slate-500">
                       {host.domains.join(", ")}
                     </p>
+                  )}
+                  {host.status === "active" && (
+                    <HostOwnerInviteForm host={host} />
                   )}
                 </div>
                 <button

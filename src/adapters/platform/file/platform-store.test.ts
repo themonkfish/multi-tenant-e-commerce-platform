@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { HostConfig } from "@/core/domain/host-config";
+import type { HostOwnerInvite, TenantRecord } from "@/core/domain/host-portal";
 import type { AuditEvent, BootstrapInput } from "@/core/ports/platform-store";
 import { hashToken } from "@/lib/server/crypto";
 import { FilePlatformStore } from "./platform-store";
@@ -62,6 +63,38 @@ function hostAudit(action = "host.created"): AuditEvent {
     resourceType: "host",
     resourceId: "550e8400-e29b-41d4-a716-446655440000",
     createdAt: new Date().toISOString(),
+  };
+}
+
+function hostScopedAudit(
+  action: string,
+  resourceType: string,
+  resourceId: string,
+): AuditEvent {
+  return {
+    id: randomUUID(),
+    actorId: "host-owner",
+    scope: { kind: "host", id: "550e8400-e29b-41d4-a716-446655440000" },
+    action,
+    resourceType,
+    resourceId,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function tenantRecord(overrides: Partial<TenantRecord> = {}): TenantRecord {
+  const now = new Date().toISOString();
+  return {
+    id: randomUUID(),
+    hostId: "550e8400-e29b-41d4-a716-446655440000",
+    slug: `tenant-${randomUUID().slice(0, 8)}`,
+    name: "Sample Tenant",
+    status: "pending",
+    plan: "starter",
+    domains: [],
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
   };
 }
 
@@ -232,5 +265,118 @@ describe("FilePlatformStore", () => {
       initialized: true,
       platformDomain: "platform.example.com",
     });
+  });
+
+  it("accepts a host-owner invitation once and rejects it after expiration", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active" });
+    await store.createHost(host, hostAudit());
+    const now = new Date();
+    const invite: HostOwnerInvite = {
+      id: randomUUID(),
+      hostId: host.id,
+      email: "owner@example.com",
+      tokenHash: hashToken("one-time-invitation-token"),
+      expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+      createdAt: now.toISOString(),
+    };
+    await store.createHostOwnerInvite(invite, hostAudit("host.owner_invited"));
+
+    expect(
+      await store.getHostOwnerInvite(invite.tokenHash, now.toISOString()),
+    ).toEqual(invite);
+    const accepted = await store.acceptHostOwnerInvite({
+      tokenHash: invite.tokenHash,
+      passwordHash: "argon2id-hash",
+      now: now.toISOString(),
+      auditEvent: hostScopedAudit(
+        "host.owner_invite.accepted",
+        "host_owner",
+        invite.id,
+      ),
+    });
+    expect(accepted).toMatchObject({
+      hostId: host.id,
+      email: invite.email,
+      passwordHash: "argon2id-hash",
+    });
+    await expect(
+      store.acceptHostOwnerInvite({
+        tokenHash: invite.tokenHash,
+        passwordHash: "another-hash",
+        now: now.toISOString(),
+        auditEvent: hostScopedAudit(
+          "host.owner_invite.accepted",
+          "host_owner",
+          invite.id,
+        ),
+      }),
+    ).resolves.toBeNull();
+
+    const expiredInvite = {
+      ...invite,
+      id: randomUUID(),
+      email: "expired@example.com",
+      tokenHash: hashToken("expired-invitation-token"),
+      expiresAt: new Date(now.getTime() - 1).toISOString(),
+    };
+    await store.createHostOwnerInvite(
+      expiredInvite,
+      hostAudit("host.owner_invited"),
+    );
+    expect(
+      await store.getHostOwnerInvite(
+        expiredInvite.tokenHash,
+        now.toISOString(),
+      ),
+    ).toBeNull();
+  });
+
+  it("enforces host tenant/domain limits and tenant ownership on status changes", async () => {
+    const store = await createStore();
+    const host = hostConfig({
+      status: "active",
+      limits: {
+        maxTenants: 10,
+        maxCustomDomains: 2,
+        features: {},
+      },
+    });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ domains: ["store.example.net"] });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+
+    const overDomainLimit = tenantRecord({
+      domains: ["second.example.net"],
+    });
+    await expect(
+      store.createTenantForHost(
+        overDomainLimit,
+        hostScopedAudit("tenant.created", "tenant", overDomainLimit.id),
+      ),
+    ).rejects.toThrow("Host custom-domain limit reached");
+    const duplicateHostDomain = tenantRecord({
+      domains: [host.domains[0]],
+    });
+    await expect(
+      store.createTenantForHost(
+        duplicateHostDomain,
+        hostScopedAudit("tenant.created", "tenant", duplicateHostDomain.id),
+      ),
+    ).rejects.toThrow("A tenant with one of these domains already exists");
+
+    await expect(
+      store.updateTenantStatus({
+        hostId: "550e8400-e29b-41d4-a716-446655440099",
+        tenantId: tenant.id,
+        status: "active",
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit("tenant.activated", "tenant", tenant.id),
+      }),
+    ).resolves.toBeNull();
+    await expect(store.listTenantsForHost(host.id)).resolves.toEqual([tenant]);
   });
 });

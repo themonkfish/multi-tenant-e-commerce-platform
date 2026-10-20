@@ -285,9 +285,7 @@ export class FilePlatformStore implements PlatformStore {
         throw new Error("Only active hosts can receive owner invitations");
       }
       if (
-        state.hostOwners.some(
-          (owner) => owner.email === validatedInvite.email,
-        )
+        state.hostOwners.some((owner) => owner.email === validatedInvite.email)
       ) {
         throw new Error("This email already owns a host account");
       }
@@ -404,7 +402,11 @@ export class FilePlatformStore implements PlatformStore {
             validatedTenant.domains.includes(domain),
           ),
         ) ||
-        host.domains.some((domain) => validatedTenant.domains.includes(domain))
+        state.hosts.some((candidate) =>
+          candidate.domains.some((domain) =>
+            validatedTenant.domains.includes(domain),
+          ),
+        )
       ) {
         throw new Error("A tenant with one of these domains already exists");
       }

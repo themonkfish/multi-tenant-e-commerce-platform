@@ -19,16 +19,6 @@ export async function POST(request: Request) {
   }
 
   const store = getPlatformStore();
-  const allowed = await store.consumeRateLimit({
-    key: createRateLimitKey(request, "platform-host-create"),
-    limit: 10,
-    windowMs: 15 * 60 * 1000,
-    now: Date.now(),
-  });
-  if (!allowed) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-  }
-
   let rawBody: unknown;
   try {
     rawBody = await request.json();
@@ -41,6 +31,16 @@ export async function POST(request: Request) {
       { error: "invalid_input", details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
+  }
+
+  const allowed = await store.consumeRateLimit({
+    key: createRateLimitKey(request, "platform-host-create", session.userId),
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+    now: Date.now(),
+  });
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const domains = parsed.data.domains.map(normalizeHostDomain);

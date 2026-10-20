@@ -160,6 +160,87 @@ export type PlatformDatabase = {
         Update: never;
         Relationships: [];
       };
+      platform_host_owners: {
+        Row: {
+          id: string;
+          host_id: string;
+          email: string;
+          password_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          host_id: string;
+          email: string;
+          password_hash: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      platform_host_owner_invites: {
+        Row: {
+          id: string;
+          host_id: string;
+          email: string;
+          token_hash: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          host_id: string;
+          email: string;
+          token_hash: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      platform_tenants: {
+        Row: {
+          id: string;
+          host_id: string;
+          slug: string;
+          name: string;
+          status: "pending" | "active" | "suspended";
+          plan: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          host_id: string;
+          slug: string;
+          name: string;
+          status: "pending" | "active" | "suspended";
+          plan: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Update: {
+          status?: "pending" | "active" | "suspended";
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      platform_tenant_domains: {
+        Row: {
+          domain: string;
+          tenant_id: string;
+          host_id: string;
+          created_at: string;
+        };
+        Insert: {
+          domain: string;
+          tenant_id: string;
+          host_id: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -232,6 +313,67 @@ export type PlatformDatabase = {
           p_audit_id: string;
           p_audit_action: string;
           p_audit_resource_type: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      create_platform_host_owner_invite: {
+        Args: {
+          p_invite_id: string;
+          p_host_id: string;
+          p_email: string;
+          p_token_hash: string;
+          p_expires_at: string;
+          p_created_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      accept_platform_host_owner_invite: {
+        Args: {
+          p_token_hash: string;
+          p_owner_id: string;
+          p_password_hash: string;
+          p_now: string;
+          p_audit_id: string;
+          p_audit_actor_id: string;
+          p_audit_action: string;
+          p_audit_created_at: string;
+        };
+        Returns: Json;
+      };
+      create_platform_tenant: {
+        Args: {
+          p_tenant_id: string;
+          p_host_id: string;
+          p_slug: string;
+          p_name: string;
+          p_status: string;
+          p_plan: string;
+          p_domains: string[];
+          p_created_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: string;
+      };
+      update_platform_tenant_status: {
+        Args: {
+          p_host_id: string;
+          p_tenant_id: string;
+          p_status: string;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
           p_audit_resource_id: string | null;
           p_audit_created_at: string;
         };
