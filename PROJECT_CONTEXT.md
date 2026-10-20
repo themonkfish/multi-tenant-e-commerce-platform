@@ -35,7 +35,7 @@ Super Admin (platform owner)
 6. Everything is swappable: backend, storage provider, payment gateway.
 
 ### Non-goals (for now)
-- Building the backend, database schema or migrations.
+- Building a full custom backend for tenants. (We *do* ship optional reference schemas/migrations for the supported data providers, see section 7.1.)
 - Running a shared database for all tenants.
 - Handling raw card data (never; always use gateway-hosted fields/redirects).
 
@@ -93,8 +93,13 @@ Next.js (this repo)
    ├─ Super Admin dashboard (/super-admin)
    └─ Server layer (Route Handlers / Server Actions = BFF)
          │
-         ├─ Backend Adapter   ──► Tenant's backend API (their server + DB)
-         ├─ Storage Adapter   ──► Tenant's file/cloud storage (S3, GCS, Azure, Cloudinary, ...)
+         ├─ Data Adapter      ──► Tenant's data provider, one of:
+         │                          • REST backend (their own server + DB)
+         │                          • Supabase (Postgres)
+         │                          • MongoDB (Atlas / self-hosted)
+         │                          • others later (Firebase, PlanetScale, Appwrite...)
+         ├─ Storage Adapter   ──► Tenant's file/cloud storage (S3-compatible, GCS, Azure, Cloudinary,
+         │                          Supabase Storage, Google Drive, Dropbox, OneDrive, ...)
          └─ Payment Adapter   ──► Gateway (Stripe, Razorpay, PayPal, ...)
 ```
 
@@ -121,9 +126,22 @@ export interface PaymentGateway {
 
 // core/ports/storage.ts
 export interface StoragePort {
-  getUploadUrl(file: FileMeta): Promise<{ url: string; fields?: Record<string,string>; publicUrl: string }>;
+  capabilities: StorageCapabilities;
+  // Direct-upload providers return a pre-signed target; others upload via the server.
+  prepareUpload(file: FileMeta): Promise<UploadTarget>;          // { mode: "presigned" | "server-proxy", url?, fields?, key }
+  upload?(key: string, data: ReadableStream | Buffer, meta: FileMeta): Promise<StoredFile>; // for server-proxy mode
+  getPublicUrl(key: string, opts?: { width?: number; format?: string }): string;
   delete(key: string): Promise<void>;
+  list?(prefix: string, cursor?: string): Promise<Paginated<StoredFile>>;
+  healthCheck(): Promise<{ ok: boolean; latencyMs: number; details?: string }>;
 }
+
+type StorageCapabilities = {
+  presignedUploads: boolean;
+  publicCdn: boolean;          // suitable for serving storefront images directly
+  imageTransforms: boolean;    // resize/format on the fly
+  oauth: boolean;              // connected via user authorization instead of API keys
+};
 ```
 
 ---
@@ -161,11 +179,19 @@ type TenantConfig = {
   plan: string;
   branding: { name: string; logoUrl?: string; colors: ThemeTokens; fonts?: string };
   locale: { defaultLocale: string; locales: string[]; currency: string; currencies: string[] };
-  backend: { baseUrl: string; apiVersion: string; authMode: "apiKey" | "oauth2" | "jwt" };
-  storage: { provider: "s3" | "gcs" | "azure" | "cloudinary" | "custom"; publicBaseUrl: string };
+  data: DataProviderConfig; // see below
+  storage: StorageProviderConfig; // see section 9
   payments: PaymentGatewayConfig[];
   features: Record<string, boolean>; // feature flags per plan
 };
+```
+
+```ts
+type DataProviderConfig =
+  | { type: "rest";     baseUrl: string; apiVersion: string; authMode: "apiKey" | "oauth2" | "jwt" }
+  | { type: "supabase"; projectUrl: string; anonKeyRef?: string; serviceKeyRef: string; schema?: string; tenancyMode: "dedicated-project" | "shared-rls" }
+  | { type: "mongodb";  connectionRef: string; dbName: string; tenancyMode: "dedicated-db" | "shared-collection-tenantId" };
+// "*Ref" fields are IDs of encrypted secrets in the platform secret vault, never raw secrets in config objects.
 ```
 
 - **Where config lives (for now):** behind `HostConfigStore` and `TenantConfigStore` interfaces. Start with a Super-Admin-managed JSON/KV source; swap for a real store later.
@@ -186,6 +212,40 @@ type TenantConfig = {
 - Super Admin staff and roles; global audit log
 - Billing for hosts (if the platform charges hosts)
 
+### 6.0.1 Super Admin Setup & Bootstrap
+
+The Super Admin owns the frontend deployment, so there is no parent to create them. The first Super Admin is created by a **one-time, locked-after-use bootstrap**. Do not hard-code credentials and do not leave an open sign-up.
+
+**Platform Store (required before anything else).** Hosts, tenants, plans, users and audit logs need persistence even though tenants bring their own backends. Define a `PlatformStore` port (see `core/tenancy/`) with swappable adapters:
+
+| Adapter | Use |
+|---------|-----|
+| `file` (JSON/SQLite) | Local dev only |
+| `kv` (Upstash Redis, Vercel KV, Cloudflare KV) | Small/serverless deployments |
+| `supabase` | Platform data on Supabase (Postgres + RLS + Auth) |
+| `mongodb` | Platform data on MongoDB Atlas/self-hosted |
+| `sql` (Postgres via Prisma/Drizzle) | Recommended for production |
+| `api` | Super Admin's own platform API |
+
+**First-run flow (`/setup`):**
+1. On deploy, the operator sets `SETUP_TOKEN` (random, single use) and the store connection env vars.
+2. `middleware.ts` checks `platform.initialized`. If `false`, all routes redirect to `/setup`. If `true`, `/setup` returns 404.
+3. Wizard steps: (a) enter `SETUP_TOKEN`, (b) create Super Admin account (email, password with strong policy, mandatory 2FA/TOTP enrollment, recovery codes), (c) verify Platform Store connection, (d) platform domain and reserved subdomains (`admin`, `www`, `api`, ...), (e) email provider for invites/reset, (f) default theme and legal pages, (g) optionally create the first Host.
+4. On finish, write `platform.initialized = true`, invalidate `SETUP_TOKEN`, log an audit event.
+
+**After setup:**
+- Super Admin signs in at `admin.<platform-domain>` (or `/super-admin`) using a separate session audience.
+- Additional Super Admins are invited from the dashboard (email invite, expiring link, 2FA required). Keep at least 2 active Super Admins when possible.
+- Host Owners are invited by the Super Admin; tenant owners by hosts. No public registration for these roles.
+- Alternative auth: SSO/OIDC (Auth.js) with an allow-list of Super Admin emails, instead of local passwords.
+
+**Recovery:** a server-side CLI script (`pnpm superadmin:reset`) that requires deploy/shell access and `SETUP_TOKEN`-style proof. There is no "forgot password" path that bypasses 2FA for Super Admin.
+
+**Rules for the AI assistant:**
+- Never ship default/seed credentials. Never expose `/setup` once `platform.initialized` is true.
+- Rate-limit and audit all setup and Super Admin auth endpoints.
+- Store password hashes with Argon2id/bcrypt; encrypt 2FA secrets and platform secrets with `PLATFORM_SECRET_KEY`.
+
 ### 6.1 Host Dashboard (`/host`)
 *Scope: only tenants where `tenant.hostId === currentHost.id`.*
 - Tenant list: create, edit, suspend, delete, impersonate (audited), within host limits
@@ -200,9 +260,8 @@ type TenantConfig = {
 
 ### 6.2 Tenant Dashboard (`/dashboard`)
 **Integrations / Setup (core requirement)**
-- **Backend setup:** base URL, API version, auth method/credentials, "Test connection" button, health status
-- **Database:** configured *through the tenant's backend*. The frontend only shows connection status exposed by the backend health endpoint. It must never connect to a DB directly.
-- **File/Cloud storage setup:** provider, bucket/container, region, public base URL, "Test upload" button
+- **Backend / Database setup:** tenant picks a **data provider**: *Custom REST backend*, *Supabase*, or *MongoDB* (more later). Provider-specific form (REST: base URL, API version, auth; Supabase: project URL, anon key, service-role key, schema; MongoDB: connection string, database name), tenancy mode, "Test connection" button, "Initialize schema/collections" button (runs reference migration), health status, and a "Disconnect/Rotate credentials" action. Secrets are write-only and masked after save.
+- **File/Cloud storage setup:** pick a provider (S3-compatible, GCS, Azure, Cloudinary, Supabase Storage, Google Drive, Dropbox, OneDrive, ...), provider-specific form or "Connect account" (OAuth) button, folder/bucket, public base URL, "Test upload" button, usage/health status, "Disconnect" and credential rotation. Secrets are write-only and masked.
 - **Payment gateways:** enable/disable multiple gateways, set priority, per-gateway credentials (publishable key in config; secrets are held by tenant backend/BFF), test mode toggle, supported currencies/countries, webhook URL display
 - **Domains & branding:** custom domain, logo, colors, fonts, favicon
 
@@ -271,6 +330,69 @@ If a tenant's backend differs, write a **mapping adapter** in `adapters/backend/
 
 ---
 
+### 7.1 Data Providers (REST, Supabase, MongoDB)
+
+Tenants choose how their data is stored. All providers implement the **same ports** (`CatalogPort`, `OrdersPort`, `CustomersPort`, `AuthPort`), so UI code never knows which one is active. A `DataAdapterFactory` returns the right adapter from `tenant.data.type`.
+
+| Provider | How it is accessed | Notes |
+|----------|--------------------|-------|
+| **REST** | Via BFF to tenant's API per the contract in section 7 | Tenant keeps all DB secrets on their server |
+| **Supabase** | `@supabase/supabase-js` | Storefront public reads may use the **anon key + Row Level Security**. Dashboard writes use the **service-role key on the server only**. Supabase Storage can back `StoragePort`. |
+| **MongoDB** | Official Node driver, **server-side only** | A Mongo connection string must **never** reach the browser. Cache one client per tenant (bounded pool) to avoid exhausting connections in serverless. Atlas Data API is not assumed. |
+
+**Two credential modes (important):**
+- **Mode A: tenant-hosted (REST).** DB secrets stay on the tenant's server. The frontend platform stores only the base URL and an API credential.
+- **Mode B: platform-proxied (Supabase/MongoDB direct).** The Next.js server layer needs the DB credentials, so they are saved **encrypted in a secret vault** (AES-256-GCM with `PLATFORM_SECRET_KEY`, or a KMS), decrypted only inside server handlers, write-only in the UI, and never logged or sent to the client. Prefer least-privilege DB users (a dedicated app user/role, not an admin/owner account).
+
+**Tenant data isolation:**
+- *Dedicated* (recommended): one Supabase project or one Mongo database per tenant.
+- *Shared*: one project/database with a `tenant_id` column/field on **every** record. Supabase: enforce with RLS policies. MongoDB: enforce in a mandatory query wrapper (never raw collection access) plus compound indexes starting with `tenantId`.
+
+**Reference schema:** the repo provides `adapters/data/supabase/migrations/*.sql` and `adapters/data/mongodb/schema/*.ts` (collections, indexes, validators) for: tenants' products, variants, categories, orders, customers, discounts, settings. "Initialize schema" in the dashboard runs these idempotently; migrations are versioned and the dashboard shows the current schema version and pending upgrades.
+
+**Provider connection test:** validates credentials, reachability and required tables/collections, then reports `{ status, latency, schemaVersion, missing[] }`. Rate-limit it and block private/internal hosts (SSRF) except where the operator explicitly allow-lists them.
+
+**Files:** Supabase tenants can pick Supabase Storage; MongoDB tenants must choose a separate file/cloud storage provider (GridFS is not recommended for product images).
+
+**Rules for the AI assistant:**
+- Add a new provider by creating `adapters/data/<name>/` that implements the ports and registering it in `DataAdapterFactory`. Do not branch on `tenant.data.type` anywhere else.
+- No direct Supabase/Mongo calls inside components or route handlers; go through ports.
+- Mongo/Supabase service credentials: server-only modules (`import "server-only"`).
+- Contract tests: run one shared test suite against every adapter (REST mock, Supabase local, MongoDB memory server).
+
+### 7.2 Access Policy: when may the browser talk to Supabase directly?
+
+**Rule of thumb:** the browser may use Supabase directly only with the **anon key + the signed-in user's JWT, under tested RLS policies**, and only for low-risk, user-scoped data. Anything privileged, cross-scope, or secret goes through the Next.js server layer.
+
+| Action | Where it runs |
+|--------|---------------|
+| Public storefront catalog reads | Server Components / ISR with anon key + RLS (browser direct only for live search/filters) |
+| Customer sign-in, own profile/addresses/orders | Supabase Auth (cookie sessions via `@supabase/ssr`) + RLS on `auth.uid()` |
+| Cart, price/total calculation, stock decrement, coupon validation, order creation | **Server only** (never trust client-sent prices) |
+| Tenant dashboard CRUD (products, orders, etc.) | Server actions through the data port (Zod validation + scope guard), using the user's JWT/RLS or service role |
+| Host dashboard and Super Admin dashboard | **Server only**: service role + scope guards + audit log |
+| Tenant provisioning, schema init, impersonation, plan/limit changes | **Server only** |
+| Secrets: payment keys, DB URIs, service-role key, OAuth tokens | **Server only**, encrypted vault, never selectable from the client |
+| Payment verification and webhooks | **Server only** |
+| File uploads | Browser → storage via short-lived signed URL issued by the server |
+
+**Why not "browser to Supabase for everyone":**
+- **RLS is the only wall.** The anon key is public, so one wrong policy exposes data. Cross-tenant rules like "Super Admin sees all, Host sees only its tenants, Tenant staff see their own" are complex to express in SQL policies, and a mistake leaks across all tenants.
+- **Business rules can't live in the browser.** Pricing, stock, discounts and payment status must be enforced server-side.
+- **Secrets and privileged operations** (impersonation, provisioning, audit, rate limiting, SSRF-checked "test connection") need a trusted server.
+- **Providers are pluggable.** Tenants may use MongoDB or a REST backend. UI code that calls Supabase directly would break the ports/adapters design. The browser should only ever talk to our ports/server layer.
+- **Platform vs tenant Supabase:** the platform's own Supabase project and each tenant's project are different credentials and trust domains. A tenant's service key must never be sent to the browser.
+
+**If you use Supabase Auth with RLS:**
+- Put `role`, `scope`, `hostId`, `tenantId` in **`app_metadata`** (set server-side only). **Never use `user_metadata`**, which users can edit.
+- Enable RLS on every table; default-deny; write policy tests (pgTAP or integration tests) that assert cross-tenant and cross-host access fails.
+- Keep Super Admin and Host operations off RLS entirely (server + service role) so policies stay simple.
+- Rotate keys, use a dedicated least-privilege role where possible, and never import service-role clients in client code (`import "server-only"`).
+
+**Rule for the AI assistant:** do not call `supabase.from(...)` in client components for dashboards or any write involving money, stock, roles or secrets. Use data ports via Server Actions/Route Handlers. Direct client use is allowed only for the cases marked "browser" in the table above.
+
+---
+
 ## 8. Payments
 
 - Gateways are plugins: `adapters/payment/<gateway>/` implementing `PaymentGateway`.
@@ -296,16 +418,57 @@ type PaymentGatewayConfig = {
 
 ## 9. File / Cloud Storage
 
-- Providers behind `StoragePort`: S3-compatible (AWS, R2, MinIO, Spaces), GCS, Azure Blob, Cloudinary, custom.
-- Uploads go **browser → storage via pre-signed URL** obtained from tenant backend; files do not stream through Next.js.
-- Validate type/size client-side and server-side; generate image variants/thumbnails via provider or `next/image` loader.
-- Store paths as `tenants/{tenantId}/products/{productId}/{filename}`.
+Tenants choose where their files (product images, videos, documents, invoices) live. Every provider implements `StoragePort`; UI code never imports a provider SDK. A `StorageAdapterFactory` returns the adapter from `tenant.storage.type`.
+
+### 9.1 Supported providers
+
+| Category | Providers | Auth | Upload path | Good for storefront images? |
+|----------|-----------|------|-------------|------------------------------|
+| **S3-compatible object storage** | AWS S3, Cloudflare R2, DigitalOcean Spaces, Backblaze B2, MinIO, Wasabi | Access key + secret | Pre-signed URL (browser → storage) | Yes (use with a CDN) |
+| **Cloud provider storage** | Google Cloud Storage, Azure Blob Storage, Firebase Storage | Service account / SAS / connection string | Signed URL / SAS | Yes |
+| **Media platforms** | Cloudinary, ImageKit, UploadThing, Bunny.net | API key / signed upload | Signed direct upload | Best (built-in CDN + transforms) |
+| **Backend-bundled** | Supabase Storage | Anon / service key | Signed upload URL | Yes |
+| **Personal/team cloud drives** | **Google Drive, Dropbox, OneDrive/SharePoint** | **OAuth 2.0** (tenant clicks "Connect") | Server-proxied upload | **Limited, see 9.2** |
+| **Custom** | Tenant's own REST upload endpoint, SFTP/FTP (server-side only) | Per contract | Server-proxied or signed | Depends |
+
+```ts
+type StorageProviderConfig =
+  | { type: "s3";         endpoint?: string; region: string; bucket: string; credentialsRef: string; publicBaseUrl: string; pathStyle?: boolean }
+  | { type: "gcs";        bucket: string; credentialsRef: string; publicBaseUrl: string }
+  | { type: "azure";      container: string; credentialsRef: string; publicBaseUrl: string }
+  | { type: "cloudinary"; cloudName: string; credentialsRef: string }
+  | { type: "supabase";   bucket: string; credentialsRef: string }
+  | { type: "gdrive" | "dropbox" | "onedrive"; folderId: string; oauthTokenRef: string; accountEmail: string }
+  | { type: "custom";     uploadUrl: string; credentialsRef: string; publicBaseUrl?: string };
+// "*Ref" = ID of an encrypted secret in the platform secret vault.
+```
+
+### 9.2 Cloud drives (Google Drive, Dropbox, OneDrive): honest limitations
+Drive-style services are **file sync/sharing tools, not CDNs**. They are supported because tenants ask for them, but they need extra handling:
+- **Do not hotlink** Drive share links on the storefront: they can rate-limit, change, expire, or return viewer pages instead of the raw file, and they are slow for catalog traffic.
+- Serve files through a **Next.js media proxy** (`/api/media/[tenantId]/[fileId]`) that streams the file with strong `Cache-Control`, ETag and CDN caching (ISR/edge cache), and resizes via `next/image` or a transform step.
+- Prefer copying product media into a CDN-backed store when possible, and show a dashboard warning ("Drive storage is not recommended for high-traffic stores").
+- Use **least-privilege OAuth scopes** (e.g. Google `drive.file` limited to files the app creates, not the whole Drive; Dropbox app-folder access; OneDrive `Files.ReadWrite.AppFolder`).
+- OAuth tokens are stored encrypted, refreshed server-side, and the UI shows "reconnect needed" if a refresh fails or access is revoked. Handle quota-exceeded and API rate-limit errors gracefully.
+- Capabilities for these adapters: `presignedUploads: false`, `publicCdn: false`, `imageTransforms: false`, `oauth: true`.
+
+### 9.3 Rules
+- **Direct upload when possible:** for providers with presigned/signed uploads, files go **browser → storage** with a short-lived URL obtained via the server layer; large files do not stream through Next.js. For `server-proxy` providers (cloud drives, SFTP), upload through a route handler with size limits and streaming.
+- **Key layout:** `tenants/{tenantId}/products/{productId}/{uuid}-{filename}` (for drives: a per-tenant folder created on connect). Never trust client-supplied file names/paths; sanitize and generate keys server-side.
+- **Validation (client and server):** allow-list MIME types (verify magic bytes, not only extension), max size per type, image dimension limits, strip EXIF/GPS metadata, optional virus scan hook for documents.
+- **Images:** generate responsive variants/thumbnails (provider transforms or `next/image` loader), store `alt`, `width`, `height`, blurhash/placeholder.
+- **Public vs private:** product media is public; invoices, customer uploads and exports are **private** and served via short-lived signed URLs after an auth check.
+- **Health & test:** `healthCheck()` + "Test upload" (uploads, reads back, deletes a small file) shown in tenant dashboard and in host/super-admin health views. Block private/internal endpoint hosts for custom/S3-endpoint fields (SSRF).
+- **Switching providers:** changing storage does not rewrite old URLs silently. Store file records `{ key, providerId, url }`; offer an optional "migrate files" job.
+- **Cost/abuse control:** per-tenant storage quota and upload rate limits (limits cascade from host plan).
 
 ---
 
 ## 10. Security Requirements
 
 - **Secrets never reach the browser.** Only publishable/public config is sent to the client.
+- Direct-DB modes (Supabase/MongoDB): use least-privilege credentials, enforce tenant isolation (RLS or mandatory tenant-scoped query wrapper), and never expose the Supabase service-role key or Mongo URI to client code or to Super Admin/Host impersonation views.
+- OAuth integrations (Drive/Dropbox/OneDrive): use state + PKCE, validate redirect URIs, store refresh tokens encrypted, request minimal scopes, and support revocation.
 - Tenant-provided secrets (if the frontend must store any) are encrypted at rest server-side and never logged or returned after save (write-only fields, show masked).
 - All calls to tenant backends go through the Next.js server layer (BFF) with server-held credentials. Browser uses httpOnly, SameSite cookies for sessions.
 - Validate and allow-list tenant `baseUrl` values (HTTPS only; block private IP ranges to prevent **SSRF** from "Test connection").
@@ -344,9 +507,13 @@ src/
 │  ├─ domain/                  # types, Zod schemas (Product, Order, Tenant...)
 │  └─ tenancy/                 # scope context (platform/host/tenant), config store interfaces, scope guards
 ├─ adapters/
-│  ├─ backend/                 # default REST adapter + custom mappers
+│  ├─ data/                    # data provider adapters implementing the core ports
+│  │  ├─ rest/                 # default REST adapter + custom mappers
+│  │  ├─ supabase/             # supabase-js server client, RLS-aware queries, reference SQL migrations
+│  │  └─ mongodb/              # official driver, cached clients, reference collections/indexes
 │  ├─ payment/                 # stripe/ razorpay/ paypal/ cod/
-│  └─ storage/                 # s3/ gcs/ azure/ cloudinary/
+│  └─ storage/                 # s3/ gcs/ azure/ cloudinary/ supabase/ gdrive/ dropbox/ onedrive/ custom/
+│                                #   + media proxy helpers, OAuth connect handlers
 ├─ features/                   # feature modules: components + hooks + services
 │  ├─ catalog/ orders/ cart/ checkout/ customers/ integrations/ tenants/ hosts/
 ├─ components/                 # shared UI (ui/, layout/, forms/, data-table/)
@@ -401,7 +568,10 @@ NEXT_PUBLIC_PLATFORM_DOMAIN=platform.com
 TENANT_CONFIG_SOURCE=file|kv|api
 TENANT_CONFIG_SECRET_KEY=            # encryption key for stored tenant secrets (server only)
 SESSION_SECRET=
-SUPER_ADMIN_BOOTSTRAP_EMAIL=         # first Super Admin account, used once at setup
+SETUP_TOKEN=                         # one-time token for /setup, remove/rotate after first run
+PLATFORM_STORE=file|kv|sql|api       # persistence for hosts, tenants, users, audit
+PLATFORM_STORE_URL=                  # connection string / endpoint for the chosen store
+PLATFORM_SECRET_KEY=                 # encrypts platform secrets and 2FA seeds (server only)
 ```
 Tenant-specific values (backend URL, storage, gateways) are **configured in the dashboard, not in `.env`**.
 
@@ -410,10 +580,15 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 ## 14. Development Roadmap
 
 **Phase 1 — Foundation**
+- `PlatformStore` port + adapters, `/setup` bootstrap wizard, Super Admin auth with 2FA
 - Project setup, design system, auth, scoped RBAC (platform/host/tenant), host + tenant resolution middleware, i18n
-- Port/adapter scaffolding, default REST backend adapter, mock backend (MSW) for local dev
+- Port/adapter scaffolding, `DataAdapterFactory`, REST adapter, mock backend (MSW) for local dev
+- Secret vault (encrypted tenant credentials + OAuth tokens)
+- `StoragePort`, `StorageAdapterFactory`, S3-compatible adapter, upload validation pipeline
 
 **Phase 2 — Tenant Dashboard core**
+- Supabase and MongoDB adapters + reference schemas + provider setup UI with test/initialize
+- Storage adapters: GCS, Azure, Cloudinary, Supabase Storage; Google Drive/Dropbox/OneDrive via OAuth + media proxy
 - Integrations: backend, storage, payments (with test-connection)
 - Product CRUD with variants and image upload
 - Categories, orders list/detail
@@ -447,10 +622,18 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 
 ## 16. Open Questions (decide before building the related area)
 
+- Do tenant staff dashboards use the user's JWT + RLS or the server service role? (default: server layer with scope guards)
+- Which `PlatformStore` is the production default (SQL vs KV)? Is SSO/OIDC required for Super Admin login?
 - Where are host and tenant configuration persisted (KV, hosted DB, or API)? Who owns that store?
 - Does the Super Admin bill hosts, and do hosts bill their tenants (two-level billing)?
 - Can a host fully white-label (own domain, logo, emails) or only brand its tenants?
 - Can a tenant ever move between hosts?
+- Which storage providers ship in v1 (S3-compatible + Cloudinary first; cloud drives later)?
+- Should the platform offer a default managed storage for tenants who don't bring their own?
+- Per-tenant storage quotas: enforced by the platform or left to the provider?
+- Default tenancy mode for Supabase/MongoDB (dedicated project/DB per tenant vs shared with `tenant_id`)?
+- Should Supabase Auth be usable for customer login, or keep auth provider-independent?
+- Can tenants switch data provider later, and is a data migration tool needed?
 - Will the Super Admin or hosts provide a **reference backend** tenants can deploy, or only the API contract?
 - Multi-vendor marketplace needed later (many sellers per tenant)?
 - Required compliance regions (GDPR, India DPDP, PCI SAQ-A)?
