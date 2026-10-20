@@ -1,0 +1,151 @@
+import { describe, expect, it, vi } from "vitest";
+import type { HostConfig } from "@/core/domain/host-config";
+import type { TenantRecord } from "@/core/domain/host-portal";
+import type { PlatformStore } from "@/core/ports/platform-store";
+import { normalizeRequestDomain, resolveRequestScope } from "./request-scope";
+
+const host: HostConfig = {
+  id: "550e8400-e29b-41d4-a716-446655440000",
+  slug: "sample-host",
+  name: "Sample Host",
+  status: "active",
+  plan: "starter",
+  limits: { maxTenants: 10, maxCustomDomains: 2, features: {} },
+  branding: { name: "Sample Host" },
+  domains: ["host.example.com"],
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
+
+const tenant: TenantRecord = {
+  id: "550e8400-e29b-41d4-a716-446655440001",
+  hostId: host.id,
+  slug: "sample-store",
+  name: "Sample Store",
+  status: "active",
+  plan: "starter",
+  domains: ["store.example.com"],
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
+
+function createStore(
+  overrides: Partial<
+    Pick<
+      PlatformStore,
+      "getSetupState" | "getHostById" | "getHostByDomain" | "getTenantByDomain"
+    >
+  > = {},
+) {
+  return {
+    getSetupState: vi.fn(
+      overrides.getSetupState ??
+        (async () => ({
+          initialized: true,
+          platformDomain: "platform.example.com",
+          reservedSubdomains: [],
+        })),
+    ),
+    getHostById: vi.fn(overrides.getHostById ?? (async () => host)),
+    getHostByDomain: vi.fn(
+      overrides.getHostByDomain ??
+        (async (domain: string) =>
+          domain === "host.example.com" ? host : null),
+    ),
+    getTenantByDomain: vi.fn(
+      overrides.getTenantByDomain ??
+        (async (domain: string) =>
+          domain === "store.example.com" ? tenant : null),
+    ),
+  };
+}
+
+describe("normalizeRequestDomain", () => {
+  it("normalizes case and removes a valid port and trailing dot", () => {
+    expect(normalizeRequestDomain("Store.Example.com.:443")).toBe(
+      "store.example.com",
+    );
+  });
+
+  it.each([
+    null,
+    "",
+    "store.example.com/path",
+    "store.example.com,attacker.test",
+  ])("rejects invalid host headers: %s", (hostHeader) => {
+    expect(normalizeRequestDomain(hostHeader)).toBeNull();
+  });
+});
+
+describe("resolveRequestScope", () => {
+  it("resolves the configured platform domain", async () => {
+    const store = createStore();
+
+    await expect(
+      resolveRequestScope("PLATFORM.EXAMPLE.COM:443", store),
+    ).resolves.toEqual({
+      kind: "platform",
+      domain: "platform.example.com",
+      scope: { kind: "platform", id: "platform" },
+    });
+    expect(store.getTenantByDomain).not.toHaveBeenCalled();
+  });
+
+  it("resolves active host and tenant scopes by exact domain", async () => {
+    const store = createStore();
+
+    await expect(
+      resolveRequestScope("host.example.com", store),
+    ).resolves.toMatchObject({
+      kind: "host",
+      scope: { kind: "host", id: host.id },
+    });
+    await expect(
+      resolveRequestScope("store.example.com", store),
+    ).resolves.toMatchObject({
+      kind: "tenant",
+      scope: { kind: "tenant", id: tenant.id, hostId: host.id },
+    });
+  });
+
+  it("marks inactive tenants and tenants whose host is inactive unavailable", async () => {
+    const inactiveTenantStore = createStore({
+      getTenantByDomain: async () => ({ ...tenant, status: "suspended" }),
+    });
+    const inactiveHostStore = createStore({
+      getHostById: async () => ({ ...host, status: "suspended" }),
+    });
+
+    await expect(
+      resolveRequestScope("store.example.com", inactiveTenantStore),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      domain: "store.example.com",
+    });
+    await expect(
+      resolveRequestScope("store.example.com", inactiveHostStore),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      domain: "store.example.com",
+    });
+  });
+
+  it("returns no scope for unregistered domains and marks inactive hosts unavailable", async () => {
+    const inactiveHostStore = createStore({
+      getHostByDomain: async () => ({ ...host, status: "suspended" }),
+    });
+
+    await expect(
+      resolveRequestScope("unknown.example.com", createStore()),
+    ).resolves.toBeNull();
+    await expect(
+      resolveRequestScope("host.example.com", inactiveHostStore),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      domain: "host.example.com",
+    });
+    await expect(
+      resolveRequestScope("invalid/path", createStore()),
+    ).resolves.toBeNull();
+  });
+});

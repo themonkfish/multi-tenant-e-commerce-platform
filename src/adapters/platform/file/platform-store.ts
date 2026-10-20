@@ -267,6 +267,11 @@ export class FilePlatformStore implements PlatformStore {
     );
   }
 
+  async getHostById(id: string): Promise<HostConfig | null> {
+    const state = await this.readState();
+    return state.hosts.find((host) => host.id === id) ?? null;
+  }
+
   async getHostByDomain(domain: string): Promise<HostConfig | null> {
     const state = await this.readState();
     return state.hosts.find((host) => host.domains.includes(domain)) ?? null;

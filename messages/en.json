@@ -11,6 +11,9 @@
     "tenantDescription": "A dedicated place to manage products, orders, and integrations.",
     "hostTitle": "Host workspace",
     "hostDescription": "Manage tenants within each host's own scope.",
-    "footer": "Frontend foundation · Backend and tenant configuration are not connected yet."
+    "footer": "Frontend foundation · Backend and tenant configuration are not connected yet.",
+    "storefrontUnavailable": "This store's storefront is not available yet.",
+    "hostPortal": "Manage this host's tenant workspaces.",
+    "hostPortalLink": "Open the host portal"
   }
 }

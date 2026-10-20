@@ -235,16 +235,16 @@ export class SupabasePlatformStore implements PlatformStore {
       return null;
     }
 
+    return this.getHostById(domainRow.host_id);
+  }
+
+  async getHostById(id: string): Promise<HostConfig | null> {
     const [hostResult, domainsResult] = await Promise.all([
-      this.client
-        .from("platform_hosts")
-        .select("*")
-        .eq("id", domainRow.host_id)
-        .maybeSingle(),
+      this.client.from("platform_hosts").select("*").eq("id", id).maybeSingle(),
       this.client
         .from("platform_host_domains")
         .select("domain")
-        .eq("host_id", domainRow.host_id),
+        .eq("host_id", id),
     ]);
     if (hostResult.error || domainsResult.error) {
       throw new Error(

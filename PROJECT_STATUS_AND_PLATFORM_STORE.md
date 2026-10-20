@@ -55,7 +55,11 @@ automatically implemented just because they are listed there.
       complete tenant provider implementations.
 - [x] Host and tenant configuration lookup ports, backed by the existing
       file and Supabase platform-store adapters. These provide exact-domain
-      lookups; request resolution and cache policy remain pending.
+      lookups for request-time scope resolution.
+- [x] Request-time domain resolution for the locale landing page. Registered
+      active host and tenant domains receive typed scopes; tenant resolution
+      also checks that its host is active. Resolution uses exact normalized
+      domains and does not cache request scopes.
 
 ### Partially complete
 
@@ -71,7 +75,9 @@ automatically implemented just because they are listed there.
       implemented. Tenant-specific configuration stores, domain-based routing,
       storefront provisioning, tenant backends, products, staff roles, and
       expanded RBAC remain. Branding/locale settings are stored but not yet
-      applied to a routed storefront.
+      applied to a routed storefront. Domain scopes currently affect the
+      locale landing page only; scoped routing across the rest of the app and
+      tenant-aware cache invalidation remain.
 - [ ] **i18n:** routing infrastructure exists, but only English is configured.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
@@ -86,8 +92,8 @@ automatically implemented just because they are listed there.
 - [ ] Choose a separate host/tenant configuration persistence owner if these
       records need to move outside the platform store; lookup ports currently
       use the platform store as their source of truth.
-- [ ] Resolve requests by custom domain/subdomain and attach trusted host and
-      tenant scope; add cache invalidation and prevent cross-tenant cache reuse.
+- [ ] Extend trusted domain scopes to all storefront and portal routes; add
+      tenant-aware cache invalidation and prevent cross-tenant cache reuse.
 - [ ] Complete server-enforced RBAC and scoped access checks for platform,
       host, tenant, staff, and customer roles.
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner

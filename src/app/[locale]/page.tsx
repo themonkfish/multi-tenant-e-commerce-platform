@@ -1,8 +1,44 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getRequestDomainScope } from "@/lib/server/request-scope";
 
 export default async function HomePage() {
   const t = await getTranslations("Home");
+  const requestScope = await getRequestDomainScope();
+
+  if (requestScope?.kind === "unavailable") {
+    notFound();
+  }
+
+  if (requestScope?.kind === "tenant") {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-8 sm:px-10">
+        <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+          {requestScope.tenant.name}
+        </h1>
+        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
+          {t("storefrontUnavailable")}
+        </p>
+      </main>
+    );
+  }
+
+  if (requestScope?.kind === "host") {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-8 sm:px-10">
+        <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+          {requestScope.host.branding.name}
+        </h1>
+        <p className="mt-4 text-lg leading-8 text-slate-600">
+          {t("hostPortal")}
+        </p>
+        <Link className="mt-6 text-indigo-700 underline" href="/host">
+          {t("hostPortalLink")}
+        </Link>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">

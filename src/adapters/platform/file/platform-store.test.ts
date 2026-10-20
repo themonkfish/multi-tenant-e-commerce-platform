@@ -207,9 +207,11 @@ describe("FilePlatformStore", () => {
 
     await store.createHost(host, hostAudit());
     expect(await store.listHosts()).toEqual([host]);
+    await expect(store.getHostById(host.id)).resolves.toEqual(host);
     await expect(store.getHostByDomain("shop.example.com")).resolves.toEqual(
       host,
     );
+    await expect(store.getHostById("unknown-host")).resolves.toBeNull();
     await expect(
       store.getHostByDomain("unknown.example.com"),
     ).resolves.toBeNull();
