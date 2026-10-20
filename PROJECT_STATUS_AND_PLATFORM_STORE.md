@@ -98,6 +98,9 @@ Status snapshot as of 2026-10-21:
 - [x] **Tenant product management:** the tenant portal now includes a
       catalog screen for listing, creating, editing, and deleting products via
       the tenant-scoped REST API adapter.
+- [x] **Customer storefront preview:** catalog browsing, cart state, checkout
+      confirmation, and account-history views are in place as frontend preview
+      flows; the real backend commerce runtime is still pending.
 - [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, but
       does not yet guide the operator through connection verification, email
       setup, theme/legal settings, or first-host creation. Platform-store
@@ -126,6 +129,54 @@ Status snapshot as of 2026-10-21:
       backup/restore, and full security headers still need work.
 
 ### Pending roadmap
+
+#### Recommended next implementation sequence (priority-ordered)
+
+1. **P1 — Security and scope hardening**
+   - Complete server-enforced RBAC and scoped access checks for platform,
+     host, tenant, staff, and customer roles.
+   - Add tenant-aware cache invalidation and prevent cross-tenant cache reuse.
+   - Harden auth/session boundaries for tenant storefront and portal routes.
+
+2. **P1 — Tenant provisioning and platform configuration**
+   - Finish tenant storefront/domain provisioning and the managed tenant
+     settings flow.
+   - Complete setup-wizard verification, reserved-domain configuration, email
+     provider, theme/legal settings, and first-host guidance.
+   - Extend the Tenant Owner portal with storage, payment, catalog, and staff
+     configuration controls.
+
+3. **P1 — Provider data layer**
+   - Implement the tenant Supabase and MongoDB adapters, reference schemas, and
+     provider testing/initialization flows.
+   - Add schema-version checks and upgrade prompts for tenant data providers.
+   - Continue credential rotation and connection-validation workflows.
+
+4. **P2 — Commerce backend and fulfillment**
+   - Implement payment adapters (Stripe, regional gateway, COD) and webhook
+     verification.
+   - Add storage adapter support with upload validation and scoped file paths.
+   - Build full order, customer, inventory, shipping, tax, and discount
+     workflows behind the storefront preview.
+
+5. **P2 — Storefront runtime upgrade**
+   - Replace frontend preview-only cart/checkout flows with real backend-backed
+     order creation, payment sessioning, and confirmation states.
+   - Add storefront search, category browsing, and richer catalog experience.
+   - Extend customer account pages into authenticated order/history flows.
+
+6. **P3 — Platform operations and scale**
+   - Add observability, CI/CD, automated migration deployment, audit tooling,
+     backups, and restore workflows.
+   - Choose background jobs, email delivery, domain/SSL strategy, and tenant
+     identity model.
+   - Add compliance and export/deletion workflows for tenant data.
+
+7. **P3 — Growth and expansion work**
+   - Add CMS, reviews, reporting, staff permissions, webhooks, PWA support,
+     and theming tools.
+   - Expand i18n and localized storefront customer experiences beyond the
+     current English-only foundation.
 
 #### Foundation and tenancy
 
@@ -165,8 +216,10 @@ Status snapshot as of 2026-10-21:
 
 - [ ] Product/catalog CRUD, variants, categories, and image management.
 - [ ] Orders, customers, inventory, discounts, shipping, and tax workflows.
-- [ ] Tenant storefront, search, cart, checkout, order confirmation, and
-      customer account.
+- [x] Tenant storefront preview: catalog, cart, checkout confirmation, and
+      customer account overview are implemented as frontend flows.
+- [ ] Full tenant commerce runtime: real backend orders, inventory, search,
+      shipping/tax handling, and production checkout orchestration remain.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
 - [ ] Later growth work: CMS, reviews, reporting, staff permissions, webhooks,
