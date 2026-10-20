@@ -426,6 +426,7 @@ Tenants choose how their data is stored. All providers implement the **same port
 - A tenant can enable **multiple gateways**; checkout shows them by priority, filtered by currency/country.
 - Flow: frontend → BFF → tenant backend creates session using **secret keys** → returns redirect URL / client secret → frontend completes with gateway SDK → **webhook** on tenant backend confirms payment → order status updated.
 - Never trust client-side payment success; always confirm via webhook/server verification.
+- **Webhook receiver depends on the data mode:** with a REST backend, gateway webhooks land on the tenant's backend. With Supabase/MongoDB direct mode there is no tenant backend, so the **platform provides** `/api/webhooks/[tenantId]/[gateway]`: verify the gateway signature, de-duplicate by event ID (idempotency), update the order through the data port, retry on failure via the job queue, and log every event. Webhook signing secrets are stored in the secret vault per tenant.
 - Support test/live modes per gateway and idempotency keys on payment creation.
 
 ```ts
@@ -663,3 +664,42 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 - Will the Super Admin or hosts provide a **reference backend** tenants can deploy, or only the API contract?
 - Multi-vendor marketplace needed later (many sellers per tenant)?
 - Required compliance regions (GDPR, India DPDP, PCI SAQ-A)?
+
+---
+
+## 17. Additional Considerations (gaps to plan for)
+
+### Must decide before building (affects architecture)
+- [ ] **Background jobs/queues:** serverless Next.js cannot run long tasks. Pick one (Inngest, Trigger.dev, Upstash QStash, BullMQ) for webhook retries, emails, CSV import/export, image processing, schema migrations, abandoned-cart jobs, tenant health checks.
+- [ ] **Custom domains & SSL:** how domains are added, verified (DNS TXT/CNAME) and given certificates (Vercel Domains API, Cloudflare for SaaS, Caddy/wildcard). Include apex-domain handling, domain conflicts and removal.
+- [ ] **Caching & revalidation per tenant:** tag-based ISR (`tenant:{id}:products`), revalidate on product/price change, cache keys always include tenant, no cross-tenant cache bleed.
+- [ ] **Email/notifications:** transactional email provider (Resend, SES, SMTP) per platform and optionally per tenant; templates, sender-domain verification (SPF/DKIM), and in-app notifications.
+- [ ] **Customer identity model:** customers belong to one tenant (same email can exist in many tenants), guest checkout, social login, password reset, session handling.
+- [ ] **Inventory correctness:** stock reservation at checkout, oversell protection, atomic decrement, release on payment failure/timeout.
+- [ ] **Compliance:** GDPR/DPDP data export and deletion, cookie consent, privacy/terms pages per tenant, regional tax and invoice rules (GST/VAT), PCI SAQ-A scope, data-residency choices.
+
+### Important for production
+- [ ] **Observability:** error tracking (Sentry), structured logs with `hostId`/`tenantId`, uptime checks, per-tenant metrics, alerting; status page.
+- [ ] **Theming/white-label engine:** design tokens as CSS variables per tenant, theme presets, section/page builder scope, custom CSS policy (sanitized).
+- [ ] **Search:** catalog search and filters (Postgres FTS, Meilisearch, Algolia, Typesense) behind a `SearchPort`.
+- [ ] **Billing & plans:** Stripe Billing/Razorpay subscriptions for hosts/tenants, trials, dunning, usage metering, suspension rules.
+- [ ] **Abuse protection:** rate limiting, bot/captcha on login/checkout, WAF, fraud signals, per-tenant resource quotas (noisy-neighbor control).
+- [ ] **Backups & offboarding:** backup/restore guidance per provider, tenant data export, tenant deletion lifecycle (soft delete, grace period, purge).
+- [ ] **Schema/version drift:** track adapter and schema versions per tenant, compatibility matrix, safe rolling upgrades.
+- [ ] **CI/CD & environments:** dev/staging/prod, preview deployments, migration pipeline, secrets management, feature flags, e2e tests in CI.
+- [ ] **Analytics & marketing:** GA/Meta Pixel/GTM per tenant with consent, sitemaps/robots/canonical per domain, UTM tracking.
+- [ ] **Security hardening:** dependency scanning, security headers, secret scanning, periodic key rotation, penetration test before launch.
+
+### Later / product expansion
+- Returns/RMA and refunds workflow, gift cards, store credit, loyalty/referrals
+- Subscriptions/recurring products, pre-orders, bundles, B2B/wholesale pricing
+- Multi-vendor marketplace, multi-warehouse inventory
+- Public/headless API and webhooks for tenants, app/plugin marketplace
+- Mobile app / PWA push notifications, live chat/support tooling
+- Tenant in-app help center, onboarding checklist, support ticketing
+
+### Suggested v1 scope (to keep the first release shippable)
+- One data provider fully done first (Supabase **or** REST), then add MongoDB.
+- One or two payment gateways (e.g. Stripe + one regional gateway) plus Cash on Delivery.
+- S3-compatible storage + Cloudinary (or Supabase Storage); cloud drives later.
+- Super Admin, Host and Tenant dashboards with core CRUD only; advanced features behind feature flags.
