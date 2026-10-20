@@ -53,6 +53,9 @@ automatically implemented just because they are listed there.
       settings.
 - [x] Data and storage port/factory contracts. These are extension points, not
       complete tenant provider implementations.
+- [x] Host and tenant configuration lookup ports, backed by the existing
+      file and Supabase platform-store adapters. These provide exact-domain
+      lookups; request resolution and cache policy remain pending.
 
 ### Partially complete
 
@@ -80,7 +83,9 @@ automatically implemented just because they are listed there.
 
 #### Foundation and tenancy
 
-- [ ] Define host and tenant configuration-store ports and adapters.
+- [ ] Choose a separate host/tenant configuration persistence owner if these
+      records need to move outside the platform store; lookup ports currently
+      use the platform store as their source of truth.
 - [ ] Resolve requests by custom domain/subdomain and attach trusted host and
       tenant scope; add cache invalidation and prevent cross-tenant cache reuse.
 - [ ] Complete server-enforced RBAC and scoped access checks for platform,

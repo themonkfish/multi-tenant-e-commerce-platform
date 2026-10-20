@@ -207,6 +207,12 @@ describe("FilePlatformStore", () => {
 
     await store.createHost(host, hostAudit());
     expect(await store.listHosts()).toEqual([host]);
+    await expect(store.getHostByDomain("shop.example.com")).resolves.toEqual(
+      host,
+    );
+    await expect(
+      store.getHostByDomain("unknown.example.com"),
+    ).resolves.toBeNull();
     await expect(
       store.createHost(
         hostConfig({ id: "550e8400-e29b-41d4-a716-446655440001" }),
@@ -384,6 +390,12 @@ describe("FilePlatformStore", () => {
       }),
     ).resolves.toBeNull();
     await expect(store.listTenantsForHost(host.id)).resolves.toEqual([tenant]);
+    await expect(store.getTenantByDomain(tenant.domains[0])).resolves.toEqual(
+      tenant,
+    );
+    await expect(
+      store.getTenantByDomain("unknown.example.com"),
+    ).resolves.toBeNull();
   });
 
   it("accepts a tenant-owner invitation once and enforces tenant scope", async () => {

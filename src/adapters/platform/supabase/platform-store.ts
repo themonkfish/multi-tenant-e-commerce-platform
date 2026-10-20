@@ -222,6 +222,55 @@ export class SupabasePlatformStore implements PlatformStore {
     );
   }
 
+  async getHostByDomain(domain: string): Promise<HostConfig | null> {
+    const { data: domainRow, error: domainError } = await this.client
+      .from("platform_host_domains")
+      .select("host_id")
+      .eq("domain", domain)
+      .maybeSingle();
+    if (domainError) {
+      throw new Error(`Could not load host domain: ${domainError.message}`);
+    }
+    if (!domainRow) {
+      return null;
+    }
+
+    const [hostResult, domainsResult] = await Promise.all([
+      this.client
+        .from("platform_hosts")
+        .select("*")
+        .eq("id", domainRow.host_id)
+        .maybeSingle(),
+      this.client
+        .from("platform_host_domains")
+        .select("domain")
+        .eq("host_id", domainRow.host_id),
+    ]);
+    if (hostResult.error || domainsResult.error) {
+      throw new Error(
+        `Could not load host configuration: ${hostResult.error?.message ?? domainsResult.error?.message}`,
+      );
+    }
+    if (!hostResult.data) {
+      return null;
+    }
+
+    const row = hostResult.data;
+    return HostConfigSchema.parse({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      status: row.status,
+      plan: row.plan,
+      limits: row.limits,
+      branding: row.branding,
+      domains: domainsResult.data.map((domainEntry) => domainEntry.domain),
+      ...(row.support_contact ? { supportContact: row.support_contact } : {}),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    });
+  }
+
   async createHost(host: HostConfig, auditEvent: AuditEvent): Promise<void> {
     const validatedHost = HostConfigSchema.parse(host);
     const { data, error } = await this.client.rpc("create_platform_host", {
@@ -721,6 +770,55 @@ export class SupabasePlatformStore implements PlatformStore {
         updatedAt: row.updated_at,
       }),
     );
+  }
+
+  async getTenantByDomain(domain: string): Promise<TenantRecord | null> {
+    const { data: domainRow, error: domainError } = await this.client
+      .from("platform_tenant_domains")
+      .select("tenant_id, host_id")
+      .eq("domain", domain)
+      .maybeSingle();
+    if (domainError) {
+      throw new Error(`Could not load tenant domain: ${domainError.message}`);
+    }
+    if (!domainRow) {
+      return null;
+    }
+
+    const [tenantResult, domainsResult] = await Promise.all([
+      this.client
+        .from("platform_tenants")
+        .select("*")
+        .eq("id", domainRow.tenant_id)
+        .eq("host_id", domainRow.host_id)
+        .maybeSingle(),
+      this.client
+        .from("platform_tenant_domains")
+        .select("domain")
+        .eq("tenant_id", domainRow.tenant_id)
+        .eq("host_id", domainRow.host_id),
+    ]);
+    if (tenantResult.error || domainsResult.error) {
+      throw new Error(
+        `Could not load tenant configuration: ${tenantResult.error?.message ?? domainsResult.error?.message}`,
+      );
+    }
+    if (!tenantResult.data) {
+      return null;
+    }
+
+    const row = tenantResult.data;
+    return TenantRecordSchema.parse({
+      id: row.id,
+      hostId: row.host_id,
+      slug: row.slug,
+      name: row.name,
+      status: row.status,
+      plan: row.plan,
+      domains: domainsResult.data.map((domainEntry) => domainEntry.domain),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    });
   }
 
   async createTenantForHost(

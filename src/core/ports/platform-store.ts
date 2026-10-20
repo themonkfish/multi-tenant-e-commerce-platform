@@ -10,6 +10,10 @@ import type {
   TenantStatus,
 } from "@/core/domain/host-portal";
 import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
+import type {
+  HostConfigurationStore,
+  TenantConfigurationStore,
+} from "@/core/ports/configuration-store";
 
 export type PlatformSetupState = {
   initialized: boolean;
@@ -51,7 +55,8 @@ export type SecretRecord = {
   createdAt: string;
 };
 
-export interface PlatformStore {
+export interface PlatformStore
+  extends HostConfigurationStore, TenantConfigurationStore {
   getSetupState(): Promise<PlatformSetupState>;
   getBootstrapAdmin(
     setupTokenHash: string,

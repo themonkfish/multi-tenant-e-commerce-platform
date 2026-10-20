@@ -802,7 +802,9 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 
 - Do tenant staff dashboards use the user's JWT + RLS or the server service role? (default: server layer with scope guards)
 - Which `PlatformStore` is the production default (SQL vs KV)? Is SSO/OIDC required for Super Admin login?
-- Where are host and tenant configuration persisted (KV, hosted DB, or API)? Who owns that store?
+- Host and tenant domain lookups currently use `PlatformStore`; should runtime
+  configuration be separated from platform-owned records, and who would own
+  that store?
 - Does the Super Admin bill hosts, and do hosts bill their tenants (two-level billing)?
 - Can a host fully white-label (own domain, logo, emails) or only brand its tenants?
 - Can a tenant ever move between hosts?

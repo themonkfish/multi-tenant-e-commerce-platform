@@ -267,6 +267,11 @@ export class FilePlatformStore implements PlatformStore {
     );
   }
 
+  async getHostByDomain(domain: string): Promise<HostConfig | null> {
+    const state = await this.readState();
+    return state.hosts.find((host) => host.domains.includes(domain)) ?? null;
+  }
+
   async createHost(host: HostConfig, auditEvent: AuditEvent): Promise<void> {
     const validatedHost = HostConfigSchema.parse(host);
     await this.withLock(async () => {
@@ -686,6 +691,13 @@ export class FilePlatformStore implements PlatformStore {
     return (await this.readState()).tenants
       .filter((tenant) => tenant.hostId === hostId)
       .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  async getTenantByDomain(domain: string): Promise<TenantRecord | null> {
+    const state = await this.readState();
+    return (
+      state.tenants.find((tenant) => tenant.domains.includes(domain)) ?? null
+    );
   }
 
   async createTenantForHost(
