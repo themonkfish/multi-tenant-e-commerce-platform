@@ -18,12 +18,12 @@ Status snapshot as of 2026-10-21:
 - REST backend connection validation, health checks, and the authenticated
   tenant product API are implemented and protected by tenant-scoped server-side
   checks.
-- Tenant branding/locale metadata is persisted and available to the portal,
-  but live storefront rendering, custom-domain provisioning, and provider-level
-  storefront setup remain future work.
-- The repo remains frontend-only; tenant data providers, storefront runtime,
-  catalog management UI, payments, and storage are still pending beyond the
-  current platform and integration scaffolding.
+- Tenant branding/locale metadata is persisted and applied to the tenant
+  storefront landing preview; custom-domain provisioning, commerce runtime, and
+  provider-level storefront setup remain future work.
+- The repo remains frontend-only; tenant data providers, full storefront
+  commerce runtime, payments, and storage are still pending beyond the current
+  platform and integration scaffolding.
 
 ### Completed
 
@@ -57,6 +57,9 @@ Status snapshot as of 2026-10-21:
 - [x] Tenant Owner brand and locale settings with validated HTTPS logo URLs,
       color tokens, locale/currency codes, tenant-scoped persistence, and audit
       events.
+- [x] Tenant storefront landing page uses saved branding and locale metadata
+      when resolving a tenant domain, rendering a branded preview shell while
+      the commerce experience remains intentionally unavailable.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
@@ -95,11 +98,15 @@ Status snapshot as of 2026-10-21:
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, tenant storefront
       routing and provisioning, tenant backends, products, staff roles, and
-      expanded RBAC remain. Branding/locale settings are stored but not yet
-      applied to a routed storefront. Resolved domain scopes apply to all
-      localized pages and authenticated portal requests. Tenant-aware cache
-      invalidation remains future work; no tenant data is currently cached.
+      expanded RBAC remain. Branding/locale settings are now applied to the
+      tenant-domain landing preview, while the full customer storefront,
+      custom domain routing, and commerce runtime remain future work.
+      Resolved domain scopes apply to all localized pages and authenticated
+      portal requests. Tenant-aware cache invalidation remains future work; no
+      tenant data is currently cached.
 - [ ] **i18n:** routing infrastructure exists, but only English is configured.
+      The tenant storefront preview uses the saved default locale metadata but
+      does not yet expand the public storefront to localized customer pages.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
       mutation limits are per-account; production monitoring, a shared

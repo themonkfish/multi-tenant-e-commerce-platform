@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
 
 export default async function HomePage() {
@@ -12,14 +13,120 @@ export default async function HomePage() {
   }
 
   if (requestScope?.kind === "tenant") {
+    const settings = await getPlatformStore().getTenantStoreSettings(
+      requestScope.tenant.id,
+      requestScope.host.id,
+      requestScope.tenant.name,
+    );
+
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-8 sm:px-10">
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
-          {requestScope.tenant.name}
-        </h1>
-        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-          {t("storefrontUnavailable")}
-        </p>
+      <main
+        className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-8 sm:px-10"
+        style={{
+          background: `linear-gradient(180deg, ${settings.branding.primaryColor}10 0%, #ffffff 28%, #ffffff 100%)`,
+        }}
+      >
+        <div
+          className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60"
+          style={{
+            borderColor: `${settings.branding.primaryColor}33`,
+          }}
+        >
+          <header
+            className="flex flex-col gap-4 border-b px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+            style={{
+              background: `${settings.branding.primaryColor}12`,
+              borderColor: `${settings.branding.primaryColor}22`,
+            }}
+          >
+            <div className="flex items-center gap-3">
+              {settings.branding.logoUrl ? (
+                <img
+                  alt={`${settings.branding.name} logo`}
+                  className="h-12 w-12 rounded-lg object-cover"
+                  src={settings.branding.logoUrl}
+                />
+              ) : (
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-lg text-lg font-semibold text-white"
+                  style={{ backgroundColor: settings.branding.primaryColor }}
+                >
+                  {settings.branding.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Tenant storefront
+                </p>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+                  {settings.branding.name}
+                </h1>
+              </div>
+            </div>
+            <span
+              className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+              style={{
+                backgroundColor: `${settings.branding.accentColor}14`,
+                color: settings.branding.accentColor,
+              }}
+            >
+              {settings.locale.defaultLocale}
+            </span>
+          </header>
+
+          <section className="grid gap-6 px-6 py-8 lg:grid-cols-[1.2fr_0.8fr]">
+            <div>
+              <p
+                className="mb-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+                style={{
+                  backgroundColor: `${settings.branding.primaryColor}12`,
+                  color: settings.branding.primaryColor,
+                }}
+              >
+                Storefront preview
+              </p>
+              <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
+                {t("storefrontUnavailable")}
+              </h2>
+              <p className="mt-4 max-w-xl text-lg leading-8 text-slate-600">
+                {settings.branding.description ||
+                  "This tenant storefront is configured and ready for future catalog, cart, and checkout flows."}
+              </p>
+            </div>
+
+            <aside
+              className="rounded-xl border p-5"
+              style={{
+                backgroundColor: `${settings.branding.primaryColor}08`,
+                borderColor: `${settings.branding.primaryColor}22`,
+              }}
+            >
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Store identity
+              </p>
+              <dl className="mt-4 space-y-4 text-sm text-slate-700">
+                <div>
+                  <dt className="font-medium text-slate-500">Default locale</dt>
+                  <dd className="mt-1 text-slate-900">
+                    {settings.locale.defaultLocale}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-500">Currency</dt>
+                  <dd className="mt-1 text-slate-900">
+                    {settings.locale.currency}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-500">Supported locales</dt>
+                  <dd className="mt-1 text-slate-900">
+                    {settings.locale.locales.join(", ")}
+                  </dd>
+                </div>
+              </dl>
+            </aside>
+          </section>
+        </div>
       </main>
     );
   }
