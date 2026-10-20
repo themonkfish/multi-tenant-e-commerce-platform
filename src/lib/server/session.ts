@@ -9,6 +9,7 @@ import { getServerEnv } from "./env";
 const ISSUER = "multi-tenant-e-commerce-platform";
 const AUDIENCE = "super-admin";
 const HOST_OWNER_AUDIENCE = "host-owner";
+const TENANT_OWNER_AUDIENCE = "tenant-owner";
 
 export function getSessionCookieName(): string {
   return getServerEnv().NODE_ENV === "production"
@@ -20,6 +21,12 @@ export function getHostOwnerCookieName(): string {
   return getServerEnv().NODE_ENV === "production"
     ? "__Host-host-owner"
     : "host-owner";
+}
+
+export function getTenantOwnerCookieName(): string {
+  return getServerEnv().NODE_ENV === "production"
+    ? "__Host-tenant-owner"
+    : "tenant-owner";
 }
 
 function getSessionKey(): Uint8Array {
@@ -57,6 +64,24 @@ export async function createHostOwnerSession(
     .setSubject(userId)
     .setIssuer(ISSUER)
     .setAudience(HOST_OWNER_AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("30m")
+    .sign(getSessionKey());
+}
+
+export async function createTenantOwnerSession(
+  userId: string,
+  tenantId: string,
+  hostId: string,
+): Promise<string> {
+  return new SignJWT({
+    scope: { kind: "tenant", id: tenantId, hostId },
+    role: "tenant_owner",
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(userId)
+    .setIssuer(ISSUER)
+    .setAudience(TENANT_OWNER_AUDIENCE)
     .setIssuedAt()
     .setExpirationTime("30m")
     .sign(getSessionKey());
@@ -144,6 +169,70 @@ export async function getHostOwnerSession(): Promise<Principal | null> {
   };
 }
 
+export async function getTenantOwnerSession(): Promise<Principal | null> {
+  const token = (await cookies()).get(getTenantOwnerCookieName())?.value;
+  if (!token) {
+    return null;
+  }
+
+  let payload: JWTPayload;
+  try {
+    ({ payload } = await jwtVerify(token, getSessionKey(), {
+      issuer: ISSUER,
+      audience: TENANT_OWNER_AUDIENCE,
+      algorithms: ["HS256"],
+    }));
+  } catch {
+    return null;
+  }
+
+  const claims = z
+    .object({
+      sub: z.string().uuid(),
+      role: z.literal("tenant_owner"),
+      scope: z.object({
+        kind: z.literal("tenant"),
+        id: z.string().uuid(),
+        hostId: z.string().uuid(),
+      }),
+    })
+    .safeParse(payload);
+  if (!claims.success) {
+    return null;
+  }
+
+  const store = getPlatformStore();
+  const [owner, hosts, tenants] = await Promise.all([
+    store.getTenantOwnerForTenant(claims.data.sub, claims.data.scope.id),
+    store.listHosts(),
+    store.listTenantsForHost(claims.data.scope.hostId),
+  ]);
+  const host = hosts.find(
+    (candidate) => candidate.id === claims.data.scope.hostId,
+  );
+  const tenant = tenants.find(
+    (candidate) =>
+      candidate.id === claims.data.scope.id &&
+      candidate.hostId === claims.data.scope.hostId,
+  );
+  if (
+    !owner ||
+    owner.hostId !== claims.data.scope.hostId ||
+    !host ||
+    host.status !== "active" ||
+    !tenant ||
+    tenant.status !== "active"
+  ) {
+    return null;
+  }
+
+  return {
+    userId: claims.data.sub,
+    scope: claims.data.scope,
+    permissions: ["tenant:read", "tenant:write", "settings:read"],
+  };
+}
+
 export function superAdminCookieOptions() {
   return {
     httpOnly: true,
@@ -162,4 +251,8 @@ export function hostOwnerCookieOptions() {
     path: "/",
     maxAge: 30 * 60,
   };
+}
+
+export function tenantOwnerCookieOptions() {
+  return hostOwnerCookieOptions();
 }

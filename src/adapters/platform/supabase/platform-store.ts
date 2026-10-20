@@ -8,9 +8,13 @@ import {
 import {
   HostOwnerInviteSchema,
   HostOwnerSchema,
+  TenantOwnerInviteSchema,
+  TenantOwnerSchema,
   TenantRecordSchema,
   type HostOwner,
   type HostOwnerInvite,
+  type TenantOwner,
+  type TenantOwnerInvite,
   type TenantRecord,
   type TenantStatus,
 } from "@/core/domain/host-portal";
@@ -378,6 +382,182 @@ export class SupabasePlatformStore implements PlatformStore {
     return data
       ? HostOwnerSchema.parse({
           id: data.id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async createTenantOwnerInvite(
+    invite: TenantOwnerInvite,
+    auditEvent: AuditEvent,
+  ): Promise<void> {
+    const validatedInvite = TenantOwnerInviteSchema.parse(invite);
+    const { data, error } = await this.client.rpc(
+      "create_platform_tenant_owner_invite",
+      {
+        p_invite_id: validatedInvite.id,
+        p_tenant_id: validatedInvite.tenantId,
+        p_host_id: validatedInvite.hostId,
+        p_email: validatedInvite.email,
+        p_token_hash: validatedInvite.tokenHash,
+        p_expires_at: validatedInvite.expiresAt,
+        p_created_at: validatedInvite.createdAt,
+        p_actor_id: auditEvent.actorId,
+        p_audit_id: auditEvent.id,
+        p_audit_action: auditEvent.action,
+        p_audit_resource_id: auditEvent.resourceId ?? null,
+        p_audit_created_at: auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not create tenant owner invitation: ${error.message}`,
+      );
+    }
+    if (!data) {
+      const [owner, tenantOwner] = await Promise.all([
+        this.getTenantOwnerByEmail(validatedInvite.email),
+        this.getTenantOwnerByTenant(validatedInvite.tenantId),
+      ]);
+      if (owner || tenantOwner) {
+        throw new Error("This email or tenant already has a tenant owner");
+      }
+      throw new Error(
+        "Only active tenants on active hosts can receive owner invitations",
+      );
+    }
+  }
+
+  async getTenantOwnerInvite(
+    tokenHash: string,
+    now: string,
+  ): Promise<TenantOwnerInvite | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_owner_invites")
+      .select("*")
+      .eq("token_hash", tokenHash)
+      .gt("expires_at", now)
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not load tenant owner invitation: ${error.message}`,
+      );
+    }
+    if (!data) {
+      return null;
+    }
+
+    const [host, tenants] = await Promise.all([
+      this.listHosts(),
+      this.listTenantsForHost(data.host_id),
+    ]);
+    const matchingHost = host.find(
+      (candidate) => candidate.id === data.host_id,
+    );
+    const tenant = tenants.find((candidate) => candidate.id === data.tenant_id);
+    if (matchingHost?.status !== "active" || tenant?.status !== "active") {
+      return null;
+    }
+    return TenantOwnerInviteSchema.parse({
+      id: data.id,
+      tenantId: data.tenant_id,
+      hostId: data.host_id,
+      email: data.email,
+      tokenHash: data.token_hash,
+      expiresAt: data.expires_at,
+      createdAt: data.created_at,
+    });
+  }
+
+  async acceptTenantOwnerInvite(input: {
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantOwner | null> {
+    const { data, error } = await this.client.rpc(
+      "accept_platform_tenant_owner_invite",
+      {
+        p_token_hash: input.tokenHash,
+        p_owner_id: randomUUID(),
+        p_password_hash: input.passwordHash,
+        p_now: input.now,
+        p_audit_id: input.auditEvent.id,
+        p_audit_actor_id: input.auditEvent.actorId,
+        p_audit_action: input.auditEvent.action,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not accept tenant owner invitation: ${error.message}`,
+      );
+    }
+    return data === null ? null : TenantOwnerSchema.parse(data);
+  }
+
+  async getTenantOwnerByEmail(email: string): Promise<TenantOwner | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_owners")
+      .select("*")
+      .eq("email", email.trim().toLowerCase())
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load tenant owner: ${error.message}`);
+    }
+    return data
+      ? TenantOwnerSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async getTenantOwnerByTenant(tenantId: string): Promise<TenantOwner | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_owners")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load tenant owner: ${error.message}`);
+    }
+    return data
+      ? TenantOwnerSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async getTenantOwnerForTenant(
+    ownerId: string,
+    tenantId: string,
+  ): Promise<TenantOwner | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_owners")
+      .select("*")
+      .eq("id", ownerId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not verify tenant owner scope: ${error.message}`);
+    }
+    return data
+      ? TenantOwnerSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
           hostId: data.host_id,
           email: data.email,
           passwordHash: data.password_hash,

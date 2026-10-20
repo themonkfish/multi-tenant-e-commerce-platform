@@ -32,8 +32,12 @@ automatically implemented just because they are listed there.
       suspension checks.
 - [x] Host portal tenant metadata management with host-scoped reads and writes,
       status changes, audit events, and tenant/domain limit enforcement.
+- [x] Tenant Owner invitations issued by the managing Host Owner, one-time
+      acceptance, Argon2id passwords, scoped sessions, and status checks.
+- [x] Initial Tenant Owner portal with scoped store metadata, assigned domains,
+      and a clear notice that backend/storefront provisioning is not available.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
-      Owner/tenant portal.
+      Owner/tenant portal, plus Tenant Owner accounts and invitations.
 - [x] Data and storage port/factory contracts. These are extension points, not
       complete tenant provider implementations.
 
@@ -47,9 +51,10 @@ automatically implemented just because they are listed there.
       editing host details, deletion, invitations, staff/roles, settings, health,
       analytics, domains, billing, and audit-log views remain.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
-      tenant metadata management are implemented. Tenant-specific configuration
-      stores, domain-based routing, storefront provisioning, tenant backends,
-      products, staff roles, and expanded RBAC remain.
+      tenant metadata management and an initial Tenant Owner portal are
+      implemented. Tenant-specific configuration stores, domain-based routing,
+      storefront provisioning, tenant backends, products, staff roles, and
+      expanded RBAC remain.
 - [ ] **i18n:** routing infrastructure exists, but only English is configured.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
@@ -66,7 +71,8 @@ automatically implemented just because they are listed there.
       tenant scope; add cache invalidation and prevent cross-tenant cache reuse.
 - [ ] Complete server-enforced RBAC and scoped access checks for platform,
       host, tenant, staff, and customer roles.
-- [ ] Add tenant storefront provisioning and a tenant dashboard.
+- [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
+      portal with backend, storage, payment, theme, catalog, and staff settings.
 - [ ] Complete the setup wizard's connection check, reserved-domain
       configuration, email provider, theme/legal settings, and optional
       first-host steps.
@@ -177,10 +183,13 @@ features are implemented.
 7. Invite its owner and securely share the generated URL; email delivery is
    not configured. Open the link, set a password of at least 14 characters,
    then use `http://localhost:3000/en/host` to manage tenants.
+8. Activate a tenant, invite its owner from that tenant's row, and securely
+   share the generated link. The owner sets a password of at least 14
+   characters and signs in at `http://localhost:3000/en/tenant`.
 
-Host and tenant records in this milestone are platform metadata only. Tenant
-creation does not provision storefronts, databases, products, or working
-custom-domain routes.
+Host and tenant portals currently manage platform metadata and account access
+only. Tenant creation does not provision storefronts, databases, products, or
+working custom-domain routes.
 
 The file adapter creates `.local/` as needed. That directory is Git-ignored
 and contains platform credentials/state: keep it private and backed up if the
@@ -219,10 +228,10 @@ Before deploying the app:
    server-only service key.
 2. Apply every migration in `supabase/migrations/` **in order**, including
    `0001_platform_store.sql`, `0002_platform_hosts.sql`, and
-   `0003_host_portal.sql`. For the current workflow, review each SQL file and
-   run it in that project's Supabase SQL
-   Editor or through your reviewed migration pipeline. Do not run migrations
-   from the browser or expose the service key to the client.
+   `0003_host_portal.sql`, and `0004_tenant_owner_portal.sql`. Review each SQL
+   file and run it in that project's Supabase SQL Editor or through your
+   reviewed migration pipeline. Do not run migrations from the browser or
+   expose the service key to the client.
 3. Set the production environment variables above. Production startup requires
    `PLATFORM_STORE=supabase`, `PLATFORM_SECRET_KEY`, and `SESSION_SECRET`; the
    Supabase URL and service key are required for the Supabase adapter.
@@ -233,6 +242,9 @@ Before deploying the app:
    hosting provider's environment variable automatically.
 6. Sign in at `/en/super-admin`, create and activate hosts, then invite Host
    Owners. Share invitation URLs manually until an email provider is configured.
+7. Host Owners can create and activate tenants, invite one Tenant Owner per
+   tenant, and share the generated invitation URL manually. Tenant Owners sign
+   in at `/en/tenant`.
 
 If production setup fails, check server logs for missing environment
 configuration and confirm migrations completed. Do not solve setup errors by

@@ -3,6 +3,8 @@ import type { HostConfig, HostStatus } from "@/core/domain/host-config";
 import type {
   HostOwner,
   HostOwnerInvite,
+  TenantOwner,
+  TenantOwnerInvite,
   TenantRecord,
   TenantStatus,
 } from "@/core/domain/host-portal";
@@ -86,6 +88,26 @@ export interface PlatformStore {
     auditEvent: AuditEvent;
   }): Promise<HostOwner | null>;
   getHostOwnerByEmail(email: string): Promise<HostOwner | null>;
+  createTenantOwnerInvite(
+    invite: TenantOwnerInvite,
+    auditEvent: AuditEvent,
+  ): Promise<void>;
+  getTenantOwnerInvite(
+    tokenHash: string,
+    now: string,
+  ): Promise<TenantOwnerInvite | null>;
+  acceptTenantOwnerInvite(input: {
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantOwner | null>;
+  getTenantOwnerByEmail(email: string): Promise<TenantOwner | null>;
+  getTenantOwnerByTenant(tenantId: string): Promise<TenantOwner | null>;
+  getTenantOwnerForTenant(
+    ownerId: string,
+    tenantId: string,
+  ): Promise<TenantOwner | null>;
   listTenantsForHost(hostId: string): Promise<TenantRecord[]>;
   createTenantForHost(
     tenant: TenantRecord,

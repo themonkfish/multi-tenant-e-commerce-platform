@@ -11,9 +11,13 @@ import {
 import {
   HostOwnerInviteSchema,
   HostOwnerSchema,
+  TenantOwnerInviteSchema,
+  TenantOwnerSchema,
   TenantRecordSchema,
   type HostOwner,
   type HostOwnerInvite,
+  type TenantOwner,
+  type TenantOwnerInvite,
   type TenantRecord,
   type TenantStatus,
 } from "@/core/domain/host-portal";
@@ -69,6 +73,8 @@ const FileStateSchema = z.object({
   hosts: z.array(HostConfigSchema).default([]),
   hostOwnerInvites: z.array(HostOwnerInviteSchema).default([]),
   hostOwners: z.array(HostOwnerSchema).default([]),
+  tenantOwnerInvites: z.array(TenantOwnerInviteSchema).default([]),
+  tenantOwners: z.array(TenantOwnerSchema).default([]),
   tenants: z.array(TenantRecordSchema).default([]),
   auditEvents: z.array(AuditEventSchema),
   secrets: z.array(SecretRecordSchema),
@@ -89,6 +95,8 @@ const EMPTY_STATE: FileState = {
   hosts: [],
   hostOwnerInvites: [],
   hostOwners: [],
+  tenantOwnerInvites: [],
+  tenantOwners: [],
   tenants: [],
   auditEvents: [],
   secrets: [],
@@ -364,6 +372,153 @@ export class FilePlatformStore implements PlatformStore {
   async getHostOwnerByEmail(email: string): Promise<HostOwner | null> {
     const owner = (await this.readState()).hostOwners.find(
       (candidate) => candidate.email === email.trim().toLowerCase(),
+    );
+    return owner ?? null;
+  }
+
+  async createTenantOwnerInvite(
+    invite: TenantOwnerInvite,
+    auditEvent: AuditEvent,
+  ): Promise<void> {
+    const validatedInvite = TenantOwnerInviteSchema.parse(invite);
+    await this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === validatedInvite.tenantId &&
+          candidate.hostId === validatedInvite.hostId,
+      );
+      const host = state.hosts.find(
+        (candidate) => candidate.id === validatedInvite.hostId,
+      );
+      if (
+        !tenant ||
+        tenant.status !== "active" ||
+        !host ||
+        host.status !== "active"
+      ) {
+        throw new Error(
+          "Only active tenants on active hosts can receive owner invitations",
+        );
+      }
+      if (
+        state.tenantOwners.some(
+          (owner) =>
+            owner.email === validatedInvite.email ||
+            owner.tenantId === validatedInvite.tenantId,
+        )
+      ) {
+        throw new Error("This email or tenant already has a tenant owner");
+      }
+      state.tenantOwnerInvites = state.tenantOwnerInvites.filter(
+        (existing) =>
+          existing.tenantId !== validatedInvite.tenantId ||
+          existing.email !== validatedInvite.email,
+      );
+      state.tenantOwnerInvites.push(validatedInvite);
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+    });
+  }
+
+  async getTenantOwnerInvite(
+    tokenHash: string,
+    now: string,
+  ): Promise<TenantOwnerInvite | null> {
+    const state = await this.readState();
+    const invite = state.tenantOwnerInvites.find(
+      (candidate) =>
+        candidate.tokenHash === tokenHash && candidate.expiresAt > now,
+    );
+    if (!invite) {
+      return null;
+    }
+    const tenant = state.tenants.find(
+      (candidate) =>
+        candidate.id === invite.tenantId && candidate.hostId === invite.hostId,
+    );
+    const host = state.hosts.find(
+      (candidate) => candidate.id === invite.hostId,
+    );
+    return tenant?.status === "active" && host?.status === "active"
+      ? invite
+      : null;
+  }
+
+  async acceptTenantOwnerInvite(input: {
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantOwner | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const inviteIndex = state.tenantOwnerInvites.findIndex(
+        (candidate) =>
+          candidate.tokenHash === input.tokenHash &&
+          candidate.expiresAt > input.now,
+      );
+      if (inviteIndex === -1) {
+        return null;
+      }
+      const invite = state.tenantOwnerInvites[inviteIndex];
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === invite.tenantId &&
+          candidate.hostId === invite.hostId &&
+          candidate.status === "active",
+      );
+      const host = state.hosts.find(
+        (candidate) =>
+          candidate.id === invite.hostId && candidate.status === "active",
+      );
+      if (
+        !tenant ||
+        !host ||
+        state.tenantOwners.some((owner) => owner.email === invite.email)
+      ) {
+        return null;
+      }
+
+      const owner = TenantOwnerSchema.parse({
+        id: randomUUID(),
+        tenantId: invite.tenantId,
+        hostId: invite.hostId,
+        email: invite.email,
+        passwordHash: input.passwordHash,
+        createdAt: input.now,
+      });
+      state.tenantOwners.push(owner);
+      state.tenantOwnerInvites = state.tenantOwnerInvites.filter(
+        (candidate) => candidate.tenantId !== invite.tenantId,
+      );
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return owner;
+    });
+  }
+
+  async getTenantOwnerByEmail(email: string): Promise<TenantOwner | null> {
+    const owner = (await this.readState()).tenantOwners.find(
+      (candidate) => candidate.email === email.trim().toLowerCase(),
+    );
+    return owner ?? null;
+  }
+
+  async getTenantOwnerByTenant(tenantId: string): Promise<TenantOwner | null> {
+    const owner = (await this.readState()).tenantOwners.find(
+      (candidate) => candidate.tenantId === tenantId,
+    );
+    return owner ?? null;
+  }
+
+  async getTenantOwnerForTenant(
+    ownerId: string,
+    tenantId: string,
+  ): Promise<TenantOwner | null> {
+    const owner = (await this.readState()).tenantOwners.find(
+      (candidate) =>
+        candidate.id === ownerId && candidate.tenantId === tenantId,
     );
     return owner ?? null;
   }

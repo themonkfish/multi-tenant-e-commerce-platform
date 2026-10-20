@@ -241,6 +241,48 @@ export type PlatformDatabase = {
         Update: never;
         Relationships: [];
       };
+      platform_tenant_owners: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          host_id: string;
+          email: string;
+          password_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          host_id: string;
+          email: string;
+          password_hash: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      platform_tenant_owner_invites: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          host_id: string;
+          email: string;
+          token_hash: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          host_id: string;
+          email: string;
+          token_hash: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -378,6 +420,36 @@ export type PlatformDatabase = {
           p_audit_created_at: string;
         };
         Returns: boolean;
+      };
+      create_platform_tenant_owner_invite: {
+        Args: {
+          p_invite_id: string;
+          p_tenant_id: string;
+          p_host_id: string;
+          p_email: string;
+          p_token_hash: string;
+          p_expires_at: string;
+          p_created_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      accept_platform_tenant_owner_invite: {
+        Args: {
+          p_token_hash: string;
+          p_owner_id: string;
+          p_password_hash: string;
+          p_now: string;
+          p_audit_id: string;
+          p_audit_actor_id: string;
+          p_audit_action: string;
+          p_audit_created_at: string;
+        };
+        Returns: Json;
       };
     };
     Enums: Record<string, never>;

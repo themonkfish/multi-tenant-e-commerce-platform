@@ -57,9 +57,13 @@ invitations and a host-scoped tenant management portal are available:
    `/en/host/login` (acceptance also signs the owner in).
 4. Use `/en/host` to create, activate, or suspend tenants within the host's
    configured limits.
+5. From an active tenant’s row, invite its Tenant Owner and securely share the
+   one-time link. The owner sets a password and signs in at `/en/tenant`.
 
-This milestone manages tenant metadata only. It does not yet provision a
-storefront, tenant database, products, or custom-domain routing.
+The initial tenant portal shows store metadata and assigned domains. Tenant
+backend connections, storefront provisioning, products, payments, storage, and
+custom-domain routing are not yet implemented. Email delivery is not configured
+for either invitation flow, so links must be shared manually.
 
 For a deployment, set `PLATFORM_STORE=supabase`, configure
 `PLATFORM_SUPABASE_URL` and `PLATFORM_SUPABASE_SERVICE_KEY` as server-only

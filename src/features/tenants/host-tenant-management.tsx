@@ -17,6 +17,12 @@ function errorCode(body: unknown): unknown {
 }
 
 function describeTenantError(code: unknown): string {
+  if (code === "tenant_owner_already_exists") {
+    return "This email already owns a tenant account.";
+  }
+  if (code === "tenant_must_be_active") {
+    return "Activate this tenant before inviting its owner.";
+  }
   if (code === "tenant_limit_reached") {
     return "Your host has reached its tenant limit.";
   }
@@ -33,6 +39,118 @@ function describeTenantError(code: unknown): string {
     return "Too many changes. Wait a few minutes and try again.";
   }
   return "The request could not be completed. Please try again.";
+}
+
+function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function createInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setBusy(true);
+    setError("");
+    setInviteUrl("");
+    setCopied(false);
+    try {
+      const response = await fetch(`/api/host/tenants/${tenant.id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.get("ownerEmail") }),
+      });
+      const body: unknown = await response.json();
+      const code = errorCode(body);
+      if (!response.ok) {
+        setError(
+          code === "rate_limited"
+            ? "Too many invitations. Wait before trying again."
+            : describeTenantError(code),
+        );
+        return;
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("inviteUrl" in body) ||
+        typeof body.inviteUrl !== "string"
+      ) {
+        setError("The server returned an invalid invitation.");
+        return;
+      }
+      setInviteUrl(body.inviteUrl);
+      formElement.reset();
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyInviteUrl() {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setError("");
+    } catch {
+      setError("Copy was blocked. Select the link and copy it manually.");
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <form className="flex flex-wrap gap-2" onSubmit={createInvite}>
+        <label className="sr-only" htmlFor={`owner-email-${tenant.id}`}>
+          Tenant owner email
+        </label>
+        <input
+          className="min-w-48 rounded-md border border-slate-300 px-3 py-2 text-sm"
+          id={`owner-email-${tenant.id}`}
+          name="ownerEmail"
+          type="email"
+          autoComplete="email"
+          placeholder="owner@example.com"
+          required
+        />
+        <button
+          className="rounded-md border border-indigo-300 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"
+          disabled={busy}
+          type="submit"
+        >
+          {busy ? "Creating invite…" : "Invite tenant owner"}
+        </button>
+      </form>
+      {error && (
+        <p className="text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      )}
+      {inviteUrl && (
+        <div className="space-y-2 rounded-md bg-indigo-50 p-3">
+          <p className="text-sm text-indigo-950">
+            Securely share this single-use invite link. It expires in 24 hours.
+            Email delivery is not configured.
+          </p>
+          <input
+            aria-label="One-time tenant owner invitation link"
+            className="w-full rounded border border-indigo-200 bg-white px-2 py-1 font-mono text-xs"
+            readOnly
+            value={inviteUrl}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+          <button
+            className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-800 hover:bg-indigo-100"
+            onClick={() => void copyInviteUrl()}
+            type="button"
+          >
+            {copied ? "Copied" : "Copy invite link"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function HostTenantManagement({
@@ -164,6 +282,9 @@ export function HostTenantManagement({
                     <p className="mt-1 break-all text-sm text-slate-500">
                       {tenant.domains.join(", ")}
                     </p>
+                  )}
+                  {tenant.status === "active" && (
+                    <TenantOwnerInviteControl tenant={tenant} />
                   )}
                 </div>
                 <button

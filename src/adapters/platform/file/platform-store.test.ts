@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { HostConfig } from "@/core/domain/host-config";
-import type { HostOwnerInvite, TenantRecord } from "@/core/domain/host-portal";
+import type {
+  HostOwnerInvite,
+  TenantOwnerInvite,
+  TenantRecord,
+} from "@/core/domain/host-portal";
 import type { AuditEvent, BootstrapInput } from "@/core/ports/platform-store";
 import { hashToken } from "@/lib/server/crypto";
 import { FilePlatformStore } from "./platform-store";
@@ -378,5 +382,138 @@ describe("FilePlatformStore", () => {
       }),
     ).resolves.toBeNull();
     await expect(store.listTenantsForHost(host.id)).resolves.toEqual([tenant]);
+  });
+
+  it("accepts a tenant-owner invitation once and enforces tenant scope", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active" });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ status: "active" });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+    const pendingTenant = tenantRecord({ status: "pending" });
+    await store.createTenantForHost(
+      pendingTenant,
+      hostScopedAudit("tenant.created", "tenant", pendingTenant.id),
+    );
+    const now = new Date();
+    const invite: TenantOwnerInvite = {
+      id: randomUUID(),
+      tenantId: tenant.id,
+      hostId: host.id,
+      email: "store-owner@example.com",
+      tokenHash: hashToken("tenant-owner-invitation-token"),
+      expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+      createdAt: now.toISOString(),
+    };
+    await expect(
+      store.createTenantOwnerInvite(
+        { ...invite, tenantId: pendingTenant.id },
+        hostScopedAudit(
+          "tenant.owner_invited",
+          "tenant_owner_invite",
+          invite.id,
+        ),
+      ),
+    ).rejects.toThrow("Only active tenants");
+    await store.createTenantOwnerInvite(
+      invite,
+      hostScopedAudit("tenant.owner_invited", "tenant_owner_invite", invite.id),
+    );
+    const supersededInvite: TenantOwnerInvite = {
+      ...invite,
+      id: randomUUID(),
+      email: "another-owner@example.com",
+      tokenHash: hashToken("superseded-tenant-owner-invitation"),
+    };
+    await store.createTenantOwnerInvite(
+      supersededInvite,
+      hostScopedAudit(
+        "tenant.owner_invited",
+        "tenant_owner_invite",
+        supersededInvite.id,
+      ),
+    );
+
+    expect(
+      await store.getTenantOwnerInvite(
+        supersededInvite.tokenHash,
+        now.toISOString(),
+      ),
+    ).toEqual(supersededInvite);
+    const owner = await store.acceptTenantOwnerInvite({
+      tokenHash: supersededInvite.tokenHash,
+      passwordHash: "argon2id-password-hash",
+      now: now.toISOString(),
+      auditEvent: {
+        id: randomUUID(),
+        actorId: invite.email,
+        scope: { kind: "tenant", id: tenant.id, hostId: host.id },
+        action: "tenant.owner_invite.accepted",
+        resourceType: "tenant_owner",
+        createdAt: now.toISOString(),
+      },
+    });
+    expect(owner).toMatchObject({
+      tenantId: tenant.id,
+      hostId: host.id,
+      email: supersededInvite.email,
+    });
+    if (!owner) {
+      throw new Error("Expected tenant owner invitation to be accepted");
+    }
+    await expect(
+      store.getTenantOwnerForTenant(
+        owner.id,
+        "550e8400-e29b-41d4-a716-446655440099",
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      store.getTenantOwnerByEmail(invite.email.toUpperCase()),
+    ).resolves.toBeNull();
+    await expect(
+      store.getTenantOwnerByEmail(supersededInvite.email.toUpperCase()),
+    ).resolves.toMatchObject({ id: owner.id });
+    await expect(
+      store.getTenantOwnerByTenant(tenant.id),
+    ).resolves.toMatchObject({
+      id: owner.id,
+    });
+    await expect(
+      store.getTenantOwnerInvite(invite.tokenHash, now.toISOString()),
+    ).resolves.toBeNull();
+    const duplicateInvite: TenantOwnerInvite = {
+      ...invite,
+      id: randomUUID(),
+      email: "new-owner@example.com",
+      tokenHash: hashToken("another-tenant-owner-invitation"),
+    };
+    await expect(
+      store.createTenantOwnerInvite(
+        duplicateInvite,
+        hostScopedAudit(
+          "tenant.owner_invited",
+          "tenant_owner_invite",
+          duplicateInvite.id,
+        ),
+      ),
+    ).rejects.toThrow("already has a tenant owner");
+    await expect(
+      store.acceptTenantOwnerInvite({
+        tokenHash: supersededInvite.tokenHash,
+        passwordHash: "another-hash",
+        now: now.toISOString(),
+        auditEvent: {
+          id: randomUUID(),
+          actorId: invite.email,
+          scope: { kind: "tenant", id: tenant.id, hostId: host.id },
+          action: "tenant.owner_invite.accepted",
+          resourceType: "tenant_owner",
+          createdAt: now.toISOString(),
+        },
+      }),
+    ).resolves.toBeNull();
   });
 });

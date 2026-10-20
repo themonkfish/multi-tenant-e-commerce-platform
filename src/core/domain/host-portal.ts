@@ -21,6 +21,29 @@ export const HostOwnerInviteSchema = z.object({
 
 export type HostOwnerInvite = z.infer<typeof HostOwnerInviteSchema>;
 
+export const TenantOwnerSchema = z.object({
+  id: z.uuid(),
+  tenantId: z.uuid(),
+  hostId: z.uuid(),
+  email: z.email(),
+  passwordHash: z.string().min(1),
+  createdAt: z.iso.datetime(),
+});
+
+export type TenantOwner = z.infer<typeof TenantOwnerSchema>;
+
+export const TenantOwnerInviteSchema = z.object({
+  id: z.uuid(),
+  tenantId: z.uuid(),
+  hostId: z.uuid(),
+  email: z.email(),
+  tokenHash: z.string().length(64),
+  expiresAt: z.iso.datetime(),
+  createdAt: z.iso.datetime(),
+});
+
+export type TenantOwnerInvite = z.infer<typeof TenantOwnerInviteSchema>;
+
 export const TenantRecordSchema = z.object({
   id: z.uuid(),
   hostId: z.uuid(),
