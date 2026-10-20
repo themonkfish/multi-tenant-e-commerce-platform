@@ -7,6 +7,24 @@ automatically implemented just because they are listed there.
 
 ## Current status
 
+Status snapshot as of 2026-10-21:
+
+- The frontend platform bootstrap, Super Admin onboarding, host/tenant
+  lifecycle management, and scoped portal auth flows are in place and working
+  for the current app surface.
+- The file-store developer path is fully usable locally; the Supabase platform
+  store is the supported production path once the required migration set is
+  applied.
+- REST backend connection validation, health checks, and the authenticated
+  tenant product API are implemented and protected by tenant-scoped server-side
+  checks.
+- Tenant branding/locale metadata is persisted and available to the portal,
+  but live storefront rendering, custom-domain provisioning, and provider-level
+  storefront setup remain future work.
+- The repo remains frontend-only; tenant data providers, storefront runtime,
+  catalog management UI, payments, and storage are still pending beyond the
+  current platform and integration scaffolding.
+
 ### Completed
 
 - [x] Next.js App Router foundation with strict TypeScript, Tailwind CSS,
@@ -63,6 +81,9 @@ automatically implemented just because they are listed there.
 
 ### Partially complete
 
+- [x] **Tenant product management:** the tenant portal now includes a
+      catalog screen for listing, creating, editing, and deleting products via
+      the tenant-scoped REST API adapter.
 - [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, but
       does not yet guide the operator through connection verification, email
       setup, theme/legal settings, or first-host creation. Platform-store
@@ -107,9 +128,9 @@ automatically implemented just because they are listed there.
 
 #### Tenant data and integrations
 
-- [ ] Add local mock service/MSW end-to-end coverage and a product-management
-      screen. REST connection, health testing, catalog adapter, and authenticated
-      product API routes are implemented.
+- [x] Add local product-management screen for catalog CRUD. REST connection,
+      health testing, catalog adapter, and authenticated product API routes are
+      implemented; end-to-end mock coverage remains as a follow-up enhancement.
 - [ ] Implement tenant Supabase and MongoDB data adapters, reference schemas,
       provider setup, test-connection, and schema initialization.
 - [ ] Add connection testing for other providers and full credential rotation

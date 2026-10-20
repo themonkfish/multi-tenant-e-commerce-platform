@@ -90,7 +90,7 @@ export default async function TenantDashboardPage({
           <p className="mb-4 text-sm text-slate-600">
             Connect an HTTPS API that implements the platform REST contract.
             Connection tests are rate-limited and block private or internal IP
-            addresses. Catalog operations are not wired to this backend yet.
+            addresses.
           </p>
           <TenantRestConnectionForm
             initialConnection={{
@@ -99,6 +99,19 @@ export default async function TenantDashboardPage({
               apiKeyConfigured: Boolean(restConnection),
             }}
           />
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <h3 className="mb-2 font-semibold">Catalog management</h3>
+          <p className="mb-4 text-sm text-slate-600">
+            Use the product catalog to create and maintain the tenant backend
+            catalog connected through the configured REST API.
+          </p>
+          <a
+            className="inline-flex rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-800"
+            href={`/${locale}/tenant/products`}
+          >
+            Open product manager
+          </a>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <p className="text-sm leading-6 text-amber-900">
