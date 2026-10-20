@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import {
+  StorefrontAddToCartButton,
+  StorefrontCartButton,
+} from "@/features/storefront/cart-button";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
 
@@ -94,6 +98,7 @@ export default async function TenantProductDetailPage({
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
+          <StorefrontCartButton locale={locale} />
           <Link
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}/products`}
@@ -148,10 +153,30 @@ export default async function TenantProductDetailPage({
             )}
           </div>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <StorefrontAddToCartButton
+              item={{
+                id: product.id,
+                slug: product.slug,
+                title: product.title,
+                price: product.price.amount,
+                currency: product.price.currency,
+              }}
+              locale={locale}
+            />
+            <Link
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+              href={`/${locale}/products`}
+            >
+              Keep shopping
+            </Link>
+          </div>
+
           <p className="max-w-2xl text-lg leading-8 text-slate-600">
             Product details are rendered from the tenant’s connected catalog
-            backend. Full cart, checkout, and storefront commerce flows remain
-            future work.
+            backend. This preview includes a cart flow placeholder and a simple
+            checkout completion state, while full commerce runtime remains future
+            work.
           </p>
         </div>
       </article>

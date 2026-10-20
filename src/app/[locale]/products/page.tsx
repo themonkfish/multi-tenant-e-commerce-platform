@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import {
+  StorefrontAddToCartButton,
+  StorefrontCartButton,
+} from "@/features/storefront/cart-button";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
 
@@ -85,12 +89,15 @@ export default async function TenantProductCatalogPage({
             </h1>
           </div>
         </div>
-        <Link
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
-          href={`/${locale}`}
-        >
-          Return home
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <StorefrontCartButton locale={locale} />
+          <Link
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            href={`/${locale}`}
+          >
+            Return home
+          </Link>
+        </div>
       </header>
 
       {products.length === 0 ? (
@@ -143,17 +150,29 @@ export default async function TenantProductCatalogPage({
                     : "Ready for storefront display"}
                 </p>
 
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center justify-between gap-2 pt-2">
                   <span className="text-xl font-semibold text-slate-900">
                     {product.price.amount} {product.price.currency}
                   </span>
-                  <Link
-                    className="rounded-md px-3 py-2 text-sm font-medium text-white"
-                    href={`/${locale}/products/${product.slug}`}
-                    style={{ backgroundColor: settings.branding.primaryColor }}
-                  >
-                    View item
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <StorefrontAddToCartButton
+                      item={{
+                        id: product.id,
+                        slug: product.slug,
+                        title: product.title,
+                        price: product.price.amount,
+                        currency: product.price.currency,
+                      }}
+                      locale={locale}
+                    />
+                    <Link
+                      className="rounded-md px-3 py-2 text-sm font-medium text-white"
+                      href={`/${locale}/products/${product.slug}`}
+                      style={{ backgroundColor: settings.branding.primaryColor }}
+                    >
+                      View item
+                    </Link>
+                  </div>
                 </div>
               </div>
             </article>

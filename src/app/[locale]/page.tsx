@@ -2,6 +2,10 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import {
+  StorefrontAddToCartButton,
+  StorefrontCartButton,
+} from "@/features/storefront/cart-button";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
 
@@ -95,15 +99,18 @@ export default async function HomePage({ params }: HomePageProps) {
                 </h1>
               </div>
             </div>
-            <span
-              className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
-              style={{
-                backgroundColor: `${settings.branding.accentColor}14`,
-                color: settings.branding.accentColor,
-              }}
-            >
-              {settings.locale.defaultLocale}
-            </span>
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+                style={{
+                  backgroundColor: `${settings.branding.accentColor}14`,
+                  color: settings.branding.accentColor,
+                }}
+              >
+                {settings.locale.defaultLocale}
+              </span>
+              <StorefrontCartButton locale={locale} />
+            </div>
           </header>
 
           <section className="grid gap-6 px-6 py-8 lg:grid-cols-[1.2fr_0.8fr]">
@@ -221,15 +228,27 @@ export default async function HomePage({ params }: HomePageProps) {
                       </span>
                       {product.sku && <span>SKU: {product.sku}</span>}
                     </div>
-                    <Link
-                      className="mt-4 inline-flex rounded-md px-3 py-2 text-sm font-medium text-white"
-                      href={`/${locale}/products/${product.slug}`}
-                      style={{
-                        backgroundColor: settings.branding.primaryColor,
-                      }}
-                    >
-                      View item
-                    </Link>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <StorefrontAddToCartButton
+                        item={{
+                          id: product.id,
+                          slug: product.slug,
+                          title: product.title,
+                          price: product.price.amount,
+                          currency: product.price.currency,
+                        }}
+                        locale={locale}
+                      />
+                      <Link
+                        className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-white"
+                        href={`/${locale}/products/${product.slug}`}
+                        style={{
+                          backgroundColor: settings.branding.primaryColor,
+                        }}
+                      >
+                        View item
+                      </Link>
+                    </div>
                   </article>
                 ))}
               </div>

@@ -19,8 +19,9 @@ Status snapshot as of 2026-10-21:
   tenant product API are implemented and protected by tenant-scoped server-side
   checks.
 - Tenant branding/locale metadata is persisted and applied to the tenant
-  storefront landing preview; custom-domain provisioning, commerce runtime, and
-  provider-level storefront setup remain future work.
+  storefront landing preview, and a frontend cart/checkout preview is now wired
+  into the product catalog and detail flows; custom-domain provisioning,
+  commerce runtime, and provider-level storefront setup remain future work.
 - The repo remains frontend-only; tenant data providers, full storefront
   commerce runtime, payments, and storage are still pending beyond the current
   platform and integration scaffolding.
@@ -62,6 +63,10 @@ Status snapshot as of 2026-10-21:
       public catalog cards with linked product detail pages when active products
       are available from the tenant backend while the full commerce experience
       remains intentionally unavailable.
+- [x] Tenant storefront cart and checkout preview: persisted cart state,
+      add-to-cart actions, a focused cart page, and a checkout completion
+      placeholder are now wired into the storefront catalog and product detail
+      flows while the underlying commerce runtime remains future work.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
