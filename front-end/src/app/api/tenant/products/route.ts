@@ -4,7 +4,7 @@ import { canAccessPermission } from "@/core/tenancy/scope";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
-import { getTenantOwnerSession } from "@/lib/server/session";
+import { getTenantCatalogSession } from "@/lib/server/session";
 import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
 
 function backendError(error: unknown) {
@@ -32,11 +32,11 @@ function backendError(error: unknown) {
 }
 
 export async function GET(request: Request) {
-  const session = await getTenantOwnerSession();
+  const session = await getTenantCatalogSession();
   if (!session || session.scope.kind !== "tenant") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!canAccessPermission(session, "tenant:read")) {
+  if (!canAccessPermission(session, "catalog:read")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   const url = new URL(request.url);
@@ -96,11 +96,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await getTenantOwnerSession();
+  const session = await getTenantCatalogSession();
   if (!session || session.scope.kind !== "tenant") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!canAccessPermission(session, "tenant:write")) {
+  if (!canAccessPermission(session, "catalog:write")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   if (!isSameOrigin(request)) {

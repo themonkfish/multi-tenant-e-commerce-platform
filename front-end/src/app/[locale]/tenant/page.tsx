@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-settings-form";
 import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-connection-form";
+import { TenantStaffManagement } from "@/features/tenant-auth/tenant-staff-management";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantOwnerSession } from "@/lib/server/session";
 
@@ -39,6 +40,7 @@ export default async function TenantDashboardPage({
     store.getTenantStoreSettings(tenant.id, hostId, tenant.name),
     store.getTenantRestConnection(tenant.id, hostId),
   ]);
+  const staff = await store.listTenantStaff(tenant.id);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -84,6 +86,8 @@ export default async function TenantDashboardPage({
           settings are saved within your tenant scope.
         </p>
         <TenantStoreSettingsForm initialSettings={settings} />
+        <h2 className="pt-4 text-xl font-semibold">Team access</h2>
+        <TenantStaffManagement initialStaff={staff} />
         <h2 className="pt-4 text-xl font-semibold">Store setup</h2>
         <div>
           <h3 className="mb-2 font-semibold">REST backend connection</h3>

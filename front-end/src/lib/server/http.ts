@@ -3,12 +3,39 @@ import { hashToken } from "./crypto";
 
 export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
-  if (!origin) {
+  const host = request.headers.get("host");
+  if (!origin || !host) {
     return false;
   }
 
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    const requestUrl = new URL(request.url);
+    const forwardedProtocol = request.headers
+      .get("x-forwarded-proto")
+      ?.split(",")[0]
+      .trim();
+    const protocol = forwardedProtocol ?? requestUrl.protocol.slice(0, -1);
+    if (protocol !== "http" && protocol !== "https") return false;
+
+    const requestOrigin = new URL(`${protocol}://${host}`);
+    if (
+      requestOrigin.username ||
+      requestOrigin.password ||
+      requestOrigin.pathname !== "/" ||
+      requestOrigin.search ||
+      requestOrigin.hash
+    ) {
+      return false;
+    }
+    const originUrl = new URL(origin);
+    return (
+      !originUrl.username &&
+      !originUrl.password &&
+      originUrl.pathname === "/" &&
+      !originUrl.search &&
+      !originUrl.hash &&
+      originUrl.origin === requestOrigin.origin
+    );
   } catch {
     return false;
   }

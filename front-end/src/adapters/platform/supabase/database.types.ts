@@ -261,6 +261,76 @@ export type PlatformDatabase = {
         Update: never;
         Relationships: [];
       };
+      platform_tenant_staff: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          host_id: string;
+          email: string;
+          password_hash: string;
+          permissions: string[];
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          host_id: string;
+          email: string;
+          password_hash: string;
+          permissions: string[];
+          active?: boolean;
+          created_at: string;
+        };
+        Update: {
+          password_hash?: string;
+          permissions?: string[];
+          active?: boolean;
+        };
+        Relationships: [];
+      };
+      platform_customers: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          email: string;
+          password_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          email: string;
+          password_hash: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      platform_customer_orders: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          customer_id: string;
+          status: "Confirmed" | "Processing" | "Shipped";
+          created_at: string;
+          total: number;
+          currency: string;
+          item_count: number;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          customer_id: string;
+          status: "Confirmed" | "Processing" | "Shipped";
+          created_at: string;
+          total: number;
+          currency: string;
+          item_count: number;
+        };
+        Update: never;
+        Relationships: [];
+      };
       platform_tenant_owner_invites: {
         Row: {
           id: string;

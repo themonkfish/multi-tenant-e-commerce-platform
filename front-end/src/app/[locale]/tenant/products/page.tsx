@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { TenantProductManagement } from "@/features/tenants/tenant-product-management";
-import { getTenantOwnerSession } from "@/lib/server/session";
+import { getTenantCatalogSession } from "@/lib/server/session";
 
 type TenantProductsPageProps = {
   params: Promise<{ locale: string }>;
@@ -12,7 +12,7 @@ export default async function TenantProductsPage({
 }: TenantProductsPageProps) {
   await connection();
   const { locale } = await params;
-  const session = await getTenantOwnerSession();
+  const session = await getTenantCatalogSession();
 
   if (!session || session.scope.kind !== "tenant") {
     redirect(`/${locale}/tenant/login`);
@@ -32,14 +32,28 @@ export default async function TenantProductsPage({
         </div>
         <a
           className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
-          href={`/${locale}/tenant`}
+          href={
+            session.role === "tenant_owner" ? `/${locale}/tenant` : `/${locale}`
+          }
         >
-          Back to dashboard
+          {session.role === "tenant_owner" ? "Back to dashboard" : "Storefront"}
         </a>
+        {session.role === "tenant_staff" ? (
+          <form action="/api/tenant/staff/auth/logout" method="post">
+            <button
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+              type="submit"
+            >
+              Sign out
+            </button>
+          </form>
+        ) : null}
       </header>
 
       <section className="py-8">
-        <TenantProductManagement />
+        <TenantProductManagement
+          canWrite={session.permissions.includes("catalog:write")}
+        />
       </section>
     </main>
   );

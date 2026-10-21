@@ -11,6 +11,12 @@ import type {
 } from "@/core/domain/host-portal";
 import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
 import type {
+  CustomerAccount,
+  CustomerOrder,
+  TenantStaff,
+  TenantStaffPermission,
+} from "@/core/domain/tenant-identities";
+import type {
   HostConfigurationStore,
   TenantConfigurationStore,
 } from "@/core/ports/configuration-store";
@@ -115,6 +121,45 @@ export interface PlatformStore
     ownerId: string,
     tenantId: string,
   ): Promise<TenantOwner | null>;
+  listTenantStaff(
+    tenantId: string,
+  ): Promise<Omit<TenantStaff, "passwordHash">[]>;
+  createTenantStaff(input: {
+    id: string;
+    tenantId: string;
+    hostId: string;
+    email: string;
+    passwordHash: string;
+    permissions: TenantStaffPermission[];
+    createdAt: string;
+  }): Promise<TenantStaff>;
+  getTenantStaffByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<TenantStaff | null>;
+  getTenantStaffForTenant(
+    staffId: string,
+    tenantId: string,
+  ): Promise<TenantStaff | null>;
+  getCustomerAccountByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<CustomerAccount | null>;
+  getCustomerAccountForTenant(
+    tenantId: string,
+    customerId: string,
+  ): Promise<CustomerAccount | null>;
+  createCustomerAccount(input: {
+    id: string;
+    tenantId: string;
+    email: string;
+    passwordHash: string;
+    createdAt: string;
+  }): Promise<CustomerAccount>;
+  listCustomerOrders(
+    tenantId: string,
+    customerId: string,
+  ): Promise<CustomerOrder[]>;
   getTenantStoreSettings(
     tenantId: string,
     hostId: string,

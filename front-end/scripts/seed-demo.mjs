@@ -37,6 +37,9 @@ const tenantId = randomUUID();
 const adminId = randomUUID();
 const hostOwnerId = randomUUID();
 const tenantOwnerId = randomUUID();
+const staffId = randomUUID();
+const customerId = randomUUID();
+const secondCustomerId = randomUUID();
 const secretRef = randomUUID();
 const apiKey = randomBytes(32).toString("base64url");
 const platformSecretKey = randomBytes(32).toString("hex");
@@ -44,6 +47,9 @@ const sessionSecret = randomBytes(48).toString("base64url");
 const adminPassword = "DemoSuperAdmin-2026!";
 const hostOwnerPassword = "DemoHostOwner-2026!";
 const tenantOwnerPassword = "DemoTenantOwner-2026!";
+const staffPassword = "DemoCatalogStaff-2026!";
+const customerPassword = "DemoCustomer-2026!";
+const secondCustomerPassword = "DemoCustomerTwo-2026!";
 const totpSecret = new OTPAuth.Secret();
 
 function encryptDemoSecret(value) {
@@ -65,12 +71,21 @@ function encryptDemoSecret(value) {
   };
 }
 
-const [adminPasswordHash, hostOwnerPasswordHash, tenantOwnerPasswordHash] =
-  await Promise.all([
-    hash(adminPassword),
-    hash(hostOwnerPassword),
-    hash(tenantOwnerPassword),
-  ]);
+const [
+  adminPasswordHash,
+  hostOwnerPasswordHash,
+  tenantOwnerPasswordHash,
+  staffPasswordHash,
+  customerPasswordHash,
+  secondCustomerPasswordHash,
+] = await Promise.all([
+  hash(adminPassword),
+  hash(hostOwnerPassword),
+  hash(tenantOwnerPassword),
+  hash(staffPassword),
+  hash(customerPassword),
+  hash(secondCustomerPassword),
+]);
 
 const productNames = [
   ["Everyday Canvas Tote", "everyday-canvas-tote", "TOTE-001", 2400, "active"],
@@ -159,6 +174,66 @@ const state = {
       email: "owner@store.demo.local",
       passwordHash: tenantOwnerPasswordHash,
       createdAt,
+    },
+  ],
+  tenantStaff: [
+    {
+      id: staffId,
+      tenantId,
+      hostId,
+      email: "staff@store.demo.local",
+      passwordHash: staffPasswordHash,
+      permissions: ["catalog:read", "catalog:write"],
+      active: true,
+      createdAt,
+    },
+  ],
+  customerAccounts: [
+    {
+      id: customerId,
+      tenantId,
+      email: "customer@store.demo.local",
+      passwordHash: customerPasswordHash,
+      createdAt,
+    },
+    {
+      id: secondCustomerId,
+      tenantId,
+      email: "customer2@store.demo.local",
+      passwordHash: secondCustomerPasswordHash,
+      createdAt,
+    },
+  ],
+  customerOrders: [
+    {
+      id: "DEMO-ORDER-1001",
+      tenantId,
+      customerId,
+      status: "Processing",
+      createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+      total: 5600,
+      currency: "USD",
+      itemCount: 2,
+    },
+    {
+      id: "DEMO-ORDER-1002",
+      tenantId,
+      customerId,
+      status: "Shipped",
+      createdAt: new Date(Date.now() - 7 * 86_400_000).toISOString(),
+      total: 3200,
+      currency: "USD",
+      itemCount: 1,
+    },
+    {
+      id: "DEMO-ORDER-1003",
+      tenantId,
+      customerId: secondCustomerId,
+      status: "Confirmed",
+      createdAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+      total: 4100,
+      currency: "USD",
+      itemCount: 2,
     },
   ],
   tenants: [
@@ -260,6 +335,11 @@ const credentials = [
   "",
   `Host Owner: owner@host.demo.local / ${hostOwnerPassword}`,
   `Tenant Owner: owner@store.demo.local / ${tenantOwnerPassword}`,
+  `Tenant Staff: staff@store.demo.local / ${staffPassword}`,
+  `Customer: customer@store.demo.local / ${customerPassword}`,
+  `Second Customer: customer2@store.demo.local / ${secondCustomerPassword}`,
+  "Staff login: /en/tenant/staff/login (catalog access only).",
+  "Customer login: /en/customer/login (own orders only).",
   "",
   `Tenant ID: ${tenantId}`,
   `Tenant API key: ${apiKey}`,

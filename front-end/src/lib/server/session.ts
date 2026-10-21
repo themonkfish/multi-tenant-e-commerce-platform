@@ -3,7 +3,9 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { isScopeAllowedOnRequestDomain } from "@/core/tenancy/request-scope";
+import { TenantStaffSchema } from "@/core/domain/tenant-identities";
 import {
+  canAccessPermission,
   ROLE_PERMISSIONS,
   type Principal,
 } from "@/core/tenancy/scope";
@@ -15,6 +17,8 @@ const ISSUER = "multi-tenant-e-commerce-platform";
 const AUDIENCE = "super-admin";
 const HOST_OWNER_AUDIENCE = "host-owner";
 const TENANT_OWNER_AUDIENCE = "tenant-owner";
+const TENANT_STAFF_AUDIENCE = "tenant-staff";
+const CUSTOMER_AUDIENCE = "store-customer";
 
 export function getSessionCookieName(): string {
   return getServerEnv().NODE_ENV === "production"
@@ -32,6 +36,18 @@ export function getTenantOwnerCookieName(): string {
   return getServerEnv().NODE_ENV === "production"
     ? "__Host-tenant-owner"
     : "tenant-owner";
+}
+
+export function getTenantStaffCookieName(): string {
+  return getServerEnv().NODE_ENV === "production"
+    ? "__Host-tenant-staff"
+    : "tenant-staff";
+}
+
+export function getCustomerCookieName(): string {
+  return getServerEnv().NODE_ENV === "production"
+    ? "__Host-store-customer"
+    : "store-customer";
 }
 
 function getSessionKey(): Uint8Array {
@@ -87,6 +103,41 @@ export async function createTenantOwnerSession(
     .setSubject(userId)
     .setIssuer(ISSUER)
     .setAudience(TENANT_OWNER_AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("30m")
+    .sign(getSessionKey());
+}
+
+export async function createTenantStaffSession(
+  userId: string,
+  tenantId: string,
+  hostId: string,
+): Promise<string> {
+  return new SignJWT({
+    scope: { kind: "tenant", id: tenantId, hostId },
+    role: "tenant_staff",
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(userId)
+    .setIssuer(ISSUER)
+    .setAudience(TENANT_STAFF_AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("30m")
+    .sign(getSessionKey());
+}
+
+export async function createCustomerSession(
+  userId: string,
+  tenantId: string,
+): Promise<string> {
+  return new SignJWT({
+    scope: { kind: "tenant", id: tenantId },
+    role: "customer",
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(userId)
+    .setIssuer(ISSUER)
+    .setAudience(CUSTOMER_AUDIENCE)
     .setIssuedAt()
     .setExpirationTime("30m")
     .sign(getSessionKey());
@@ -199,7 +250,6 @@ export async function getTenantOwnerSession(): Promise<Principal | null> {
   if (!token) {
     return null;
   }
-
   let payload: JWTPayload;
   try {
     ({ payload } = await jwtVerify(token, getSessionKey(), {
@@ -268,6 +318,135 @@ export async function getTenantOwnerSession(): Promise<Principal | null> {
   };
 }
 
+export async function getTenantStaffSession(): Promise<Principal | null> {
+  const token = (await cookies()).get(getTenantStaffCookieName())?.value;
+  if (!token) return null;
+
+  let payload: JWTPayload;
+  try {
+    ({ payload } = await jwtVerify(token, getSessionKey(), {
+      issuer: ISSUER,
+      audience: TENANT_STAFF_AUDIENCE,
+      algorithms: ["HS256"],
+    }));
+  } catch {
+    return null;
+  }
+
+  const claims = z
+    .object({
+      sub: z.string().uuid(),
+      role: z.literal("tenant_staff"),
+      scope: z.object({
+        kind: z.literal("tenant"),
+        id: z.string().uuid(),
+        hostId: z.string().uuid(),
+      }),
+    })
+    .safeParse(payload);
+  if (!claims.success) return null;
+  const requestScope = await getRequestDomainScope();
+  if (
+    requestScope?.kind !== "tenant" ||
+    requestScope.tenant.id !== claims.data.scope.id ||
+    requestScope.host.id !== claims.data.scope.hostId
+  ) {
+    return null;
+  }
+
+  const store = getPlatformStore();
+  const [record, hosts, tenants] = await Promise.all([
+    store.getTenantStaffForTenant(claims.data.sub, claims.data.scope.id),
+    store.listHosts(),
+    store.listTenantsForHost(claims.data.scope.hostId),
+  ]);
+  const staff = record ? TenantStaffSchema.safeParse(record) : null;
+  const host = hosts.find(
+    (candidate) => candidate.id === claims.data.scope.hostId,
+  );
+  const tenant = tenants.find(
+    (candidate) =>
+      candidate.id === claims.data.scope.id &&
+      candidate.hostId === claims.data.scope.hostId,
+  );
+  if (
+    !staff?.success ||
+    staff.data.hostId !== claims.data.scope.hostId ||
+    !host ||
+    host.status !== "active" ||
+    !tenant ||
+    tenant.status !== "active"
+  ) {
+    return null;
+  }
+  return {
+    userId: claims.data.sub,
+    role: "tenant_staff",
+    scope: claims.data.scope,
+    permissions: staff.data.permissions,
+  };
+}
+
+export async function getTenantCatalogSession(): Promise<Principal | null> {
+  const principal =
+    (await getTenantOwnerSession()) ?? (await getTenantStaffSession());
+  if (
+    !principal ||
+    principal.scope.kind !== "tenant" ||
+    !canAccessPermission(principal, "catalog:read")
+  ) {
+    return null;
+  }
+  return principal;
+}
+
+export async function getCustomerSession(): Promise<Principal | null> {
+  const token = (await cookies()).get(getCustomerCookieName())?.value;
+  if (!token) return null;
+
+  let payload: JWTPayload;
+  try {
+    ({ payload } = await jwtVerify(token, getSessionKey(), {
+      issuer: ISSUER,
+      audience: CUSTOMER_AUDIENCE,
+      algorithms: ["HS256"],
+    }));
+  } catch {
+    return null;
+  }
+
+  const claims = z
+    .object({
+      sub: z.string().uuid(),
+      role: z.literal("customer"),
+      scope: z.object({
+        kind: z.literal("tenant"),
+        id: z.string().uuid(),
+      }),
+    })
+    .safeParse(payload);
+  if (!claims.success) return null;
+  const requestScope = await getRequestDomainScope();
+  if (
+    requestScope?.kind !== "tenant" ||
+    requestScope.tenant.id !== claims.data.scope.id
+  ) {
+    return null;
+  }
+
+  const account = await getPlatformStore().getCustomerAccountForTenant(
+    claims.data.scope.id,
+    claims.data.sub,
+  );
+  if (!account) return null;
+  return {
+    userId: claims.data.sub,
+    role: "customer",
+    scope: requestScope.scope,
+    permissions: [...ROLE_PERMISSIONS.customer],
+  };
+}
+
 export function superAdminCookieOptions() {
   return {
     httpOnly: true,
@@ -289,5 +468,13 @@ export function hostOwnerCookieOptions() {
 }
 
 export function tenantOwnerCookieOptions() {
+  return hostOwnerCookieOptions();
+}
+
+export function tenantStaffCookieOptions() {
+  return hostOwnerCookieOptions();
+}
+
+export function customerCookieOptions() {
   return hostOwnerCookieOptions();
 }

@@ -2,9 +2,21 @@
 
 import Link from "next/link";
 import { useOrderStore } from "@/features/storefront/order-store";
+import type { CustomerOrder } from "@/core/domain/tenant-identities";
 
-export function StorefrontCustomerAccount({ locale }: { locale: string }) {
-  const orders = useOrderStore((state) => state.orders);
+export function StorefrontCustomerAccount({
+  locale,
+  customer,
+}: {
+  locale: string;
+  customer: { email: string; orders: CustomerOrder[] } | null;
+}) {
+  const previewOrders = useOrderStore((state) => state.orders);
+  const orders = customer?.orders ?? previewOrders;
+  const orderDateFormatter = new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  });
 
   return (
     <section className="space-y-6">
@@ -13,16 +25,41 @@ export function StorefrontCustomerAccount({ locale }: { locale: string }) {
           Account overview
         </p>
         <h2 className="mt-2 text-3xl font-semibold text-slate-950">
-          Welcome back
+          {customer ? `Welcome, ${customer.email}` : "Order preview"}
         </h2>
         <p className="mt-2 text-sm text-slate-600">
-          This storefront preview keeps order history locally so you can review recent purchases and the latest checkout confirmation.
+          {customer
+            ? "These orders are loaded from your private account in this store."
+            : "Preview orders are stored only in this browser. Sign in to view tenant-scoped account orders."}
         </p>
+        {customer ? (
+          <form
+            action="/api/customer/auth/logout"
+            method="post"
+            className="mt-4"
+          >
+            <button
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
+              type="submit"
+            >
+              Sign out
+            </button>
+          </form>
+        ) : (
+          <Link
+            className="mt-4 inline-flex rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white"
+            href={`/${locale}/customer/login`}
+          >
+            Sign in or create account
+          </Link>
+        )}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-xl font-semibold text-slate-900">Recent orders</h3>
+          <h3 className="text-xl font-semibold text-slate-900">
+            Recent orders
+          </h3>
           <Link
             className="text-sm font-medium text-slate-700 underline"
             href={`/${locale}/products`}
@@ -35,7 +72,8 @@ export function StorefrontCustomerAccount({ locale }: { locale: string }) {
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
             <p className="text-lg font-medium text-slate-900">No orders yet</p>
             <p className="mt-2 text-sm text-slate-600">
-              Place an order from the storefront to see it appear here.
+              Checkout is currently a browser-only preview and does not create
+              an order in your account.
             </p>
           </div>
         ) : (
@@ -60,9 +98,14 @@ export function StorefrontCustomerAccount({ locale }: { locale: string }) {
                 </div>
 
                 <div className="mt-3 flex flex-col justify-between gap-2 text-sm text-slate-600 sm:flex-row">
-                  <span>Ordered {new Date(order.createdAt).toLocaleDateString()}</span>
+                  <span>
+                    Ordered{" "}
+                    {orderDateFormatter.format(new Date(order.createdAt))}
+                  </span>
                   <span className="font-semibold text-slate-900">
-                    {order.total} {order.currency}
+                    {customer
+                      ? `${(order.total / 100).toFixed(2)} ${order.currency}`
+                      : `${order.total} ${order.currency}`}
                   </span>
                 </div>
               </article>

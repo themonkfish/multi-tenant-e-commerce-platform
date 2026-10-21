@@ -22,6 +22,17 @@ import {
   type TenantStatus,
 } from "@/core/domain/host-portal";
 import {
+  CustomerAccountSchema,
+  CustomerOrderSchema,
+  TenantStaffPermissionSchema,
+  TenantStaffSchema,
+  TenantStaffViewSchema,
+  type CustomerAccount,
+  type CustomerOrder,
+  type TenantStaff,
+  type TenantStaffPermission,
+} from "@/core/domain/tenant-identities";
+import {
   TenantRestDataProviderConfigSchema,
   type TenantRestDataProviderConfig,
 } from "@/core/domain/tenant-config";
@@ -620,6 +631,264 @@ export class SupabasePlatformStore implements PlatformStore {
           createdAt: data.created_at,
         })
       : null;
+  }
+
+  async listTenantStaff(
+    tenantId: string,
+  ): Promise<Omit<TenantStaff, "passwordHash">[]> {
+    const { data, error } = await this.client
+      .from("platform_tenant_staff")
+      .select("id, tenant_id, host_id, email, permissions, active, created_at")
+      .eq("tenant_id", tenantId)
+      .order("email");
+    if (error) {
+      throw new Error(`Could not load tenant staff: ${error.message}`);
+    }
+    return data.map((row) =>
+      TenantStaffViewSchema.parse({
+        id: row.id,
+        tenantId: row.tenant_id,
+        hostId: row.host_id,
+        email: row.email,
+        permissions: TenantStaffPermissionSchema.array().parse(row.permissions),
+        active: row.active,
+        createdAt: row.created_at,
+      }),
+    );
+  }
+
+  async createTenantStaff(input: {
+    id: string;
+    tenantId: string;
+    hostId: string;
+    email: string;
+    passwordHash: string;
+    permissions: TenantStaffPermission[];
+    createdAt: string;
+  }): Promise<TenantStaff> {
+    const staff = TenantStaffSchema.parse({
+      ...input,
+      email: input.email.trim().toLowerCase(),
+      active: true,
+    });
+    const { data: owner, error: ownerError } = await this.client
+      .from("platform_tenant_owners")
+      .select("id")
+      .eq("tenant_id", staff.tenantId)
+      .eq("email", staff.email)
+      .maybeSingle();
+    if (ownerError) {
+      throw new Error(
+        `Could not check tenant owner email before staff creation: ${ownerError.message}`,
+      );
+    }
+    if (owner) {
+      throw new Error(
+        "An account with this email already exists for the tenant",
+      );
+    }
+    const { data, error } = await this.client
+      .from("platform_tenant_staff")
+      .insert({
+        id: staff.id,
+        tenant_id: staff.tenantId,
+        host_id: staff.hostId,
+        email: staff.email,
+        password_hash: staff.passwordHash,
+        permissions: staff.permissions,
+        active: staff.active,
+        created_at: staff.createdAt,
+      })
+      .select("*")
+      .single();
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error(
+          "An account with this email already exists for the tenant",
+        );
+      }
+      throw new Error(
+        `Could not create tenant staff account: ${error.message}`,
+      );
+    }
+    return TenantStaffSchema.parse({
+      id: data.id,
+      tenantId: data.tenant_id,
+      hostId: data.host_id,
+      email: data.email,
+      passwordHash: data.password_hash,
+      permissions: TenantStaffPermissionSchema.array().parse(data.permissions),
+      active: data.active,
+      createdAt: data.created_at,
+    });
+  }
+
+  async getTenantStaffByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<TenantStaff | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_staff")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("email", email.trim().toLowerCase())
+      .eq("active", true)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load tenant staff account: ${error.message}`);
+    }
+    return data
+      ? TenantStaffSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          permissions: data.permissions,
+          active: data.active,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async getTenantStaffForTenant(
+    staffId: string,
+    tenantId: string,
+  ): Promise<TenantStaff | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_staff")
+      .select("*")
+      .eq("id", staffId)
+      .eq("tenant_id", tenantId)
+      .eq("active", true)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not verify tenant staff scope: ${error.message}`);
+    }
+    return data
+      ? TenantStaffSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          permissions: data.permissions,
+          active: data.active,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async getCustomerAccountByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<CustomerAccount | null> {
+    const { data, error } = await this.client
+      .from("platform_customers")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("email", email.trim().toLowerCase())
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load customer account: ${error.message}`);
+    }
+    return data
+      ? CustomerAccountSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async getCustomerAccountForTenant(
+    tenantId: string,
+    customerId: string,
+  ): Promise<CustomerAccount | null> {
+    const { data, error } = await this.client
+      .from("platform_customers")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("id", customerId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not verify customer scope: ${error.message}`);
+    }
+    return data
+      ? CustomerAccountSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async createCustomerAccount(input: {
+    id: string;
+    tenantId: string;
+    email: string;
+    passwordHash: string;
+    createdAt: string;
+  }): Promise<CustomerAccount> {
+    const account = CustomerAccountSchema.parse({
+      ...input,
+      email: input.email.trim().toLowerCase(),
+    });
+    const { data, error } = await this.client
+      .from("platform_customers")
+      .insert({
+        id: account.id,
+        tenant_id: account.tenantId,
+        email: account.email,
+        password_hash: account.passwordHash,
+        created_at: account.createdAt,
+      })
+      .select("*")
+      .single();
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error("A customer account already exists for this email");
+      }
+      throw new Error(`Could not create customer account: ${error.message}`);
+    }
+    return CustomerAccountSchema.parse({
+      id: data.id,
+      tenantId: data.tenant_id,
+      email: data.email,
+      passwordHash: data.password_hash,
+      createdAt: data.created_at,
+    });
+  }
+
+  async listCustomerOrders(
+    tenantId: string,
+    customerId: string,
+  ): Promise<CustomerOrder[]> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      throw new Error(`Could not load customer orders: ${error.message}`);
+    }
+    return data.map((row) =>
+      CustomerOrderSchema.parse({
+        id: row.id,
+        tenantId: row.tenant_id,
+        customerId: row.customer_id,
+        status: row.status,
+        createdAt: row.created_at,
+        total: row.total,
+        currency: row.currency,
+        itemCount: row.item_count,
+      }),
+    );
   }
 
   async getTenantStoreSettings(

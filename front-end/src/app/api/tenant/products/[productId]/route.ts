@@ -5,7 +5,7 @@ import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
-import { getTenantOwnerSession } from "@/lib/server/session";
+import { getTenantCatalogSession } from "@/lib/server/session";
 
 type ProductRouteContext = {
   params: Promise<{ productId: string }>;
@@ -36,11 +36,11 @@ function backendError(error: unknown) {
 }
 
 export async function GET(_request: Request, context: ProductRouteContext) {
-  const session = await getTenantOwnerSession();
+  const session = await getTenantCatalogSession();
   if (!session || session.scope.kind !== "tenant") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!canAccessPermission(session, "tenant:read")) {
+  if (!canAccessPermission(session, "catalog:read")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   const { productId } = await context.params;
@@ -81,11 +81,11 @@ export async function GET(_request: Request, context: ProductRouteContext) {
 }
 
 export async function PATCH(request: Request, context: ProductRouteContext) {
-  const session = await getTenantOwnerSession();
+  const session = await getTenantCatalogSession();
   if (!session || session.scope.kind !== "tenant") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!canAccessPermission(session, "tenant:write")) {
+  if (!canAccessPermission(session, "catalog:write")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   if (!isSameOrigin(request)) {
@@ -143,11 +143,11 @@ export async function PATCH(request: Request, context: ProductRouteContext) {
 }
 
 export async function DELETE(request: Request, context: ProductRouteContext) {
-  const session = await getTenantOwnerSession();
+  const session = await getTenantCatalogSession();
   if (!session || session.scope.kind !== "tenant") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!canAccessPermission(session, "tenant:write")) {
+  if (!canAccessPermission(session, "catalog:write")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   if (!isSameOrigin(request)) {

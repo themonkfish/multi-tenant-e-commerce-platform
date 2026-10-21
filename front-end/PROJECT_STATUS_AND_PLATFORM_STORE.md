@@ -25,6 +25,9 @@ Status snapshot as of 2026-10-21:
 - The repo remains frontend-only; tenant data providers, full storefront
   commerce runtime, payments, and storage are still pending beyond the current
   platform and integration scaffolding.
+- Tenant Owner-managed Staff catalog permissions and Tenant-scoped Customer
+  sign-in/order reads are now server-enforced; isolated demo credentials and
+  sample Customer orders support local testing.
 
 ### Completed
 
@@ -80,12 +83,18 @@ Status snapshot as of 2026-10-21:
 - [x] Versioned REST catalog adapter for product list/read/create/update/delete
       with server-only API-key access, tenant-scoped BFF routes, contract
       validation, and mutation rate limits.
-- [x] Server-enforced permissions for the implemented Super Admin, Host Owner,
-      and Tenant Owner roles, including tenant/host scope checks on privileged
-      API operations. Staff and customer roles are not yet implemented.
+- [x] Server-enforced permissions for Super Admin, Host Owner, Tenant Owner,
+      Tenant Staff, and Customer roles. Staff catalog permissions, Tenant
+      boundaries, Customer-owned order reads, and owner-only Staff management
+      are checked on the server.
+- [x] Tenant Staff login and Tenant Owner-managed Staff accounts with catalog
+      read/write permissions; Tenant-specific Customer registration/login and
+      own-order views are available on active Tenant domains.
+- [x] Demo Staff and Customer fixtures, two sample Customer orders, and
+      additive seeding for existing isolated demo stores.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
       Owner/tenant portal, Tenant Owner accounts/invitations, and tenant
-      settings.
+      settings, Staff, Customers, and tenant-scoped Customer orders.
 - [x] Data and storage port/factory contracts. These are extension points, not
       complete tenant provider implementations.
 - [x] Host and tenant configuration lookup ports, backed by the existing
@@ -114,7 +123,7 @@ Status snapshot as of 2026-10-21:
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, tenant storefront
-      routing and provisioning, tenant backends, staff/customer roles, and
+      routing and provisioning, tenant backends, Staff lifecycle controls, and
       expanded RBAC remain. Branding/locale settings now flow into the tenant
       domain landing preview, the catalog listing, and product detail pages when
       a backend is configured; the full customer storefront, custom domain
@@ -136,8 +145,8 @@ Status snapshot as of 2026-10-21:
 #### Recommended next implementation sequence (priority-ordered)
 
 1. **P1 — Security and scope hardening**
-   - Complete server-enforced RBAC and scoped access checks for platform,
-     host, tenant, staff, and customer roles.
+   - Continue hardening auth/session boundaries and add regression coverage
+     for platform, host, tenant, staff, and customer scopes.
    - Add tenant-aware cache invalidation and prevent cross-tenant cache reuse.
    - Harden auth/session boundaries for tenant storefront and portal routes.
 
@@ -166,7 +175,8 @@ Status snapshot as of 2026-10-21:
    - Replace frontend preview-only cart/checkout flows with real backend-backed
      order creation, payment sessioning, and confirmation states.
    - Add storefront search, category browsing, and richer catalog experience.
-   - Extend customer account pages into authenticated order/history flows.
+   - Connect authenticated Customer history to real order creation and
+     fulfillment.
 
 6. **P3 — Platform operations and scale**
    - Add observability, CI/CD, automated migration deployment, audit tooling,
@@ -190,8 +200,10 @@ Status snapshot as of 2026-10-21:
       platform, host, and tenant requests.
 - [ ] Add tenant-aware cache invalidation and prevent cross-tenant cache reuse
       when tenant data is introduced into a cache.
-- [ ] Complete server-enforced RBAC and scoped access checks for platform,
-      host, tenant, staff, and customer roles.
+- [x] Enforce role permissions and scopes for platform, host, tenant, Staff,
+      and Customer operations on the server.
+- [ ] Add Staff account disable/reset flows and broader Staff-management
+      controls.
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
       portal with backend, storage, payment, catalog, and staff settings.
 - [ ] Complete the setup wizard's connection check, reserved-domain
@@ -221,6 +233,8 @@ Status snapshot as of 2026-10-21:
 - [ ] Orders, customers, inventory, discounts, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog, cart, checkout confirmation, and
       customer account overview are implemented as frontend flows.
+- [x] Tenant-specific Customer authentication and own-order read access;
+      checkout preview does not yet create real server-side orders.
 - [ ] Full tenant commerce runtime: real backend orders, inventory, search,
       shipping/tax handling, and production checkout orchestration remain.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,

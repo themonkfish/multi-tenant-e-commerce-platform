@@ -125,4 +125,46 @@ describe("canAccessScope", () => {
       ),
     ).toBe(false);
   });
+
+  it("limits Staff to assigned catalog permissions", () => {
+    const staff: Principal = {
+      userId: "staff-a",
+      role: "tenant_staff",
+      scope: { kind: "tenant", id: "tenant-a", hostId: "host-a" },
+      permissions: ["catalog:read", "catalog:write"],
+    };
+
+    expect(canAccessPermission(staff, "catalog:read")).toBe(true);
+    expect(canAccessPermission(staff, "catalog:write")).toBe(true);
+    expect(canAccessPermission(staff, "settings:write")).toBe(false);
+    expect(canAccessPermission(staff, "tenant:write")).toBe(false);
+    expect(canAccessPermission(staff, "staff:manage")).toBe(false);
+    expect(
+      canAccessPermission(staff, "catalog:read", {
+        kind: "tenant",
+        id: "tenant-b",
+        hostId: "host-a",
+      }),
+    ).toBe(false);
+  });
+
+  it("limits Customers to tenant-scoped order reads", () => {
+    const customer: Principal = {
+      userId: "customer-a",
+      role: "customer",
+      scope: { kind: "tenant", id: "tenant-a", hostId: "host-a" },
+      permissions: ["customer:orders:read"],
+    };
+
+    expect(canAccessPermission(customer, "customer:orders:read")).toBe(true);
+    expect(canAccessPermission(customer, "catalog:read")).toBe(false);
+    expect(canAccessPermission(customer, "settings:read")).toBe(false);
+    expect(
+      canAccessPermission(customer, "customer:orders:read", {
+        kind: "tenant",
+        id: "tenant-b",
+        hostId: "host-a",
+      }),
+    ).toBe(false);
+  });
 });

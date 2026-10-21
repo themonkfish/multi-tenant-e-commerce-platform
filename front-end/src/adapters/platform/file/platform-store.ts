@@ -25,6 +25,16 @@ import {
   type TenantStatus,
 } from "@/core/domain/host-portal";
 import {
+  CustomerAccountSchema,
+  CustomerOrderSchema,
+  TenantStaffSchema,
+  TenantStaffViewSchema,
+  type CustomerAccount,
+  type CustomerOrder,
+  type TenantStaff,
+  type TenantStaffPermission,
+} from "@/core/domain/tenant-identities";
+import {
   TenantRestDataProviderConfigSchema,
   type TenantRestDataProviderConfig,
 } from "@/core/domain/tenant-config";
@@ -82,6 +92,9 @@ const FileStateSchema = z.object({
   hostOwners: z.array(HostOwnerSchema).default([]),
   tenantOwnerInvites: z.array(TenantOwnerInviteSchema).default([]),
   tenantOwners: z.array(TenantOwnerSchema).default([]),
+  tenantStaff: z.array(TenantStaffSchema).default([]),
+  customerAccounts: z.array(CustomerAccountSchema).default([]),
+  customerOrders: z.array(CustomerOrderSchema).default([]),
   tenants: z.array(TenantRecordSchema).default([]),
   tenantStoreSettings: z
     .array(
@@ -124,6 +137,9 @@ const EMPTY_STATE: FileState = {
   hostOwners: [],
   tenantOwnerInvites: [],
   tenantOwners: [],
+  tenantStaff: [],
+  customerAccounts: [],
+  customerOrders: [],
   tenants: [],
   tenantStoreSettings: [],
   tenantRestConnections: [],
@@ -560,6 +576,166 @@ export class FilePlatformStore implements PlatformStore {
         candidate.id === ownerId && candidate.tenantId === tenantId,
     );
     return owner ?? null;
+  }
+
+  async listTenantStaff(
+    tenantId: string,
+  ): Promise<Omit<TenantStaff, "passwordHash">[]> {
+    return (await this.readState()).tenantStaff
+      .filter((staff) => staff.tenantId === tenantId)
+      .map((staff) => TenantStaffViewSchema.parse(staff));
+  }
+
+  async createTenantStaff(input: {
+    id: string;
+    tenantId: string;
+    hostId: string;
+    email: string;
+    passwordHash: string;
+    permissions: TenantStaffPermission[];
+    createdAt: string;
+  }): Promise<TenantStaff> {
+    const staff = TenantStaffSchema.parse({
+      ...input,
+      email: input.email.trim().toLowerCase(),
+      active: true,
+    });
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === staff.tenantId &&
+          candidate.hostId === staff.hostId &&
+          candidate.status === "active",
+      );
+      const host = state.hosts.find(
+        (candidate) =>
+          candidate.id === staff.hostId && candidate.status === "active",
+      );
+      if (!tenant || !host) {
+        throw new Error("Tenant is unavailable");
+      }
+      if (
+        state.tenantOwners.some(
+          (owner) =>
+            owner.email === staff.email && owner.tenantId === staff.tenantId,
+        ) ||
+        state.tenantStaff.some(
+          (owner) =>
+            owner.email === staff.email && owner.tenantId === staff.tenantId,
+        )
+      ) {
+        throw new Error(
+          "An account with this email already exists for the tenant",
+        );
+      }
+      state.tenantStaff.push(staff);
+      await this.writeState(state);
+      return staff;
+    });
+  }
+
+  async getTenantStaffByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<TenantStaff | null> {
+    return (
+      (await this.readState()).tenantStaff.find(
+        (staff) =>
+          staff.tenantId === tenantId &&
+          staff.email === email.trim().toLowerCase() &&
+          staff.active,
+      ) ?? null
+    );
+  }
+
+  async getTenantStaffForTenant(
+    staffId: string,
+    tenantId: string,
+  ): Promise<TenantStaff | null> {
+    return (
+      (await this.readState()).tenantStaff.find(
+        (staff) =>
+          staff.id === staffId && staff.tenantId === tenantId && staff.active,
+      ) ?? null
+    );
+  }
+
+  async getCustomerAccountByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<CustomerAccount | null> {
+    return (
+      (await this.readState()).customerAccounts.find(
+        (account) =>
+          account.tenantId === tenantId &&
+          account.email === email.trim().toLowerCase(),
+      ) ?? null
+    );
+  }
+
+  async getCustomerAccountForTenant(
+    tenantId: string,
+    customerId: string,
+  ): Promise<CustomerAccount | null> {
+    return (
+      (await this.readState()).customerAccounts.find(
+        (account) => account.tenantId === tenantId && account.id === customerId,
+      ) ?? null
+    );
+  }
+
+  async createCustomerAccount(input: {
+    id: string;
+    tenantId: string;
+    email: string;
+    passwordHash: string;
+    createdAt: string;
+  }): Promise<CustomerAccount> {
+    const account = CustomerAccountSchema.parse({
+      ...input,
+      email: input.email.trim().toLowerCase(),
+    });
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === account.tenantId && candidate.status === "active",
+      );
+      const host = tenant
+        ? state.hosts.find(
+            (candidate) =>
+              candidate.id === tenant.hostId && candidate.status === "active",
+          )
+        : null;
+      if (!tenant || !host) {
+        throw new Error("Tenant is unavailable");
+      }
+      if (
+        state.customerAccounts.some(
+          (candidate) =>
+            candidate.tenantId === account.tenantId &&
+            candidate.email === account.email,
+        )
+      ) {
+        throw new Error("A customer account already exists for this email");
+      }
+      state.customerAccounts.push(account);
+      await this.writeState(state);
+      return account;
+    });
+  }
+
+  async listCustomerOrders(
+    tenantId: string,
+    customerId: string,
+  ): Promise<CustomerOrder[]> {
+    return (await this.readState()).customerOrders
+      .filter(
+        (order) =>
+          order.tenantId === tenantId && order.customerId === customerId,
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
   async getTenantStoreSettings(

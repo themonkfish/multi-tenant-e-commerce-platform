@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { StorefrontCustomerAccount } from "@/features/storefront/customer-account";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
+import { getCustomerSession } from "@/lib/server/session";
 
 type AccountPageProps = {
   params: Promise<{ locale: string }>;
@@ -21,6 +22,20 @@ export default async function AccountPage({ params }: AccountPageProps) {
     requestScope.host.id,
     requestScope.tenant.name,
   );
+  const customerSession = await getCustomerSession();
+  const customer = customerSession
+    ? await getPlatformStore().getCustomerAccountForTenant(
+        requestScope.tenant.id,
+        customerSession.userId,
+      )
+    : null;
+  const customerOrders =
+    customerSession && customer
+      ? await getPlatformStore().listCustomerOrders(
+          requestScope.tenant.id,
+          customerSession.userId,
+        )
+      : [];
 
   return (
     <main
@@ -76,7 +91,12 @@ export default async function AccountPage({ params }: AccountPageProps) {
         </div>
       </header>
 
-      <StorefrontCustomerAccount locale={locale} />
+      <StorefrontCustomerAccount
+        locale={locale}
+        customer={
+          customer ? { email: customer.email, orders: customerOrders } : null
+        }
+      />
     </main>
   );
 }

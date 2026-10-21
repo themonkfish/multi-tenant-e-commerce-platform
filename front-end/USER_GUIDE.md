@@ -1,7 +1,7 @@
 # Website User Guide
 
 This guide covers setting up the website and using the platform as a Super
-Admin, Host Owner, Tenant Owner, or storefront visitor. The current product is
+Admin, Host Owner, Tenant Owner, Tenant Staff member, Customer, or storefront visitor. The current product is
 a platform and storefront preview: several production commerce features are
 not implemented yet. Read [Current limitations](#current-limitations) before
 using it with real customers.
@@ -59,7 +59,8 @@ unless the current request hostname resolves to an active tenant.
 
 From the repository root, run `npm run seed:demo`. This creates a separate
 demo-only platform store, SQLite tenant catalog, matching API key, sample
-products, three owner accounts, and private local credentials. It refuses to
+products, owner accounts, a catalog Staff account, a Customer account with
+sample orders, and private local credentials. It refuses to
 overwrite demo files and does not change your normal platform store or
 `.env.local`.
 
@@ -75,7 +76,13 @@ Use the port printed by Next.js. The storefront is
 `store.localhost`, add `127.0.0.1 store.localhost host.localhost` to the
 Windows hosts file using an elevated editor. Demo account passwords and the
 Super Admin TOTP secret are stored in
-`front-end/.local/demo-credentials.txt`. To reset the fixture, stop both demo
+`front-end/.local/demo-credentials.txt`. The file includes the Staff and
+Customer demo credentials and the account URLs below. If you already created
+the demo data before these roles were added, run `npm run seed:demo:roles`
+once from the repository root. This additive command only updates the isolated
+demo store, refuses to overwrite existing role accounts, and writes credentials
+to `front-end/.local/demo-role-credentials.txt`; it does not reset your existing
+demo data. To reset the fixture, stop both demo
 servers and manually remove only the demo-specific files listed in the
 frontend README; leave your ordinary `.env.local` and `.local/platform-store.json`
 untouched.
@@ -234,7 +241,34 @@ will fail or the storefront will show no active products. Product data is
 managed by the connected tenant backend, not by the platform's file/Supabase
 platform store.
 
-## 6. Storefront visitor: browse and preview checkout
+### Manage Staff
+
+On the Tenant dashboard, use **Staff accounts** to create a Staff login. Set
+an email, an initial password of at least 14 characters, and catalog read/write
+permissions. Share the initial password securely. Password change/reset and
+account-disable controls are not implemented yet.
+
+Staff sign in at `/en/tenant/staff/login` on the Tenant's active domain. They
+can open the product manager only with `catalog:read`; `catalog:write` enables
+product changes and automatically includes catalog read. Staff cannot manage
+other accounts, change store settings, or change backend connections. These
+limits are enforced by the server, not only by the interface.
+
+## 6. Customer: register and view account orders
+
+On the Tenant storefront domain, open `/en/customer/login` to register with an
+email and password of at least 14 characters, or sign in to an existing account.
+Registration is Tenant-specific. After signing in, open `/en/account` to view
+orders associated with that Customer account in that Tenant. A Customer cannot
+read another customer's orders or access another Tenant's account data.
+
+In the demo fixture, use the Customer credentials from
+`front-end/.local/demo-credentials.txt` (or
+`front-end/.local/demo-role-credentials.txt` when using the additive fixture
+command). The demo account has two sample orders. The checkout flow below is
+still a browser-only preview and does not create these server-side orders.
+
+## 7. Storefront visitor: browse and preview checkout
 
 The storefront pages are resolved using the exact request hostname. Once a
 tenant hostname is registered, active, pointed to this application, and served
@@ -260,13 +294,13 @@ This checkout does not collect customer details, charge a payment method,
 create an order in the tenant backend, reserve inventory, or send a receipt.
 Cart and order preview data is stored in the visitor's browser.
 
-## 7. Sign out
+## 8. Sign out
 
 Each management portal has a **Sign out** button in its header. Signing out
 clears that portal's session cookie. Use separate browser profiles when testing
 multiple owner roles at the same time.
 
-## 8. Production deployment
+## 9. Production deployment
 
 For production, use a dedicated Supabase project for platform-owned records;
 do not use the local file store. Configure these as server-side deployment
@@ -311,8 +345,9 @@ local file store. There is no built-in platform data export/import tool.
 - The tenant REST integration supports health checks and catalog operations;
   tenant Supabase/MongoDB provider adapters are not implemented.
 - Payment processing, real checkout/orders, inventory, shipping, taxes,
-  customer authentication, storage uploads, email invitations, staff accounts,
-  and full RBAC for staff/customer roles are not available.
+  storage uploads, email invitations, and staff password reset/disable controls
+  are not available. Staff catalog authorization and Tenant-specific Customer
+  sign-in/order reads are implemented.
 - Cart and order history are browser-local previews, not authoritative
   commerce records.
 - The Super Admin dashboard currently focuses on Host creation and status;

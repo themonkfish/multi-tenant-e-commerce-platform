@@ -9,6 +9,7 @@
     "dev": "next dev",
     "dev:demo": "node scripts/dev-demo.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
+    "seed:demo:roles": "node scripts/seed-role-demo.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src next.config.ts vitest.config.mts",

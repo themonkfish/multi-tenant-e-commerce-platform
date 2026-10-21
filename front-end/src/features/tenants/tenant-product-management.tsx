@@ -41,7 +41,11 @@ function toDraft(product?: Product | null): DraftProduct {
   };
 }
 
-export function TenantProductManagement() {
+export function TenantProductManagement({
+  canWrite = true,
+}: {
+  canWrite?: boolean;
+}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -237,143 +241,157 @@ export function TenantProductManagement() {
               : `${totalCount} product${totalCount === 1 ? "" : "s"} available`}
           </p>
         </div>
-        <button
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100"
-          onClick={() => {
-            setEditingId(null);
-            setDraft(EMPTY_DRAFT);
-            setNotice(null);
-          }}
-          type="button"
-        >
-          New product
-        </button>
+        {canWrite && (
+          <button
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100"
+            onClick={() => {
+              setEditingId(null);
+              setDraft(EMPTY_DRAFT);
+              setNotice(null);
+            }}
+            type="button"
+          >
+            New product
+          </button>
+        )}
       </div>
 
-      <form
-        className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2"
-        onSubmit={handleSubmit}
-      >
-        <label className="space-y-1 text-sm font-medium sm:col-span-2">
-          Product title
-          <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={draft.title}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, title: event.target.value }))
-            }
-            placeholder="Trail running cap"
-            required
-          />
-        </label>
+      {canWrite && (
+        <form
+          className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2"
+          onSubmit={handleSubmit}
+        >
+          <label className="space-y-1 text-sm font-medium sm:col-span-2">
+            Product title
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              value={draft.title}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
+              }
+              placeholder="Trail running cap"
+              required
+            />
+          </label>
 
-        <label className="space-y-1 text-sm font-medium">
-          Slug
-          <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={draft.slug}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, slug: event.target.value }))
-            }
-            placeholder="trail-running-cap"
-            required
-          />
-        </label>
+          <label className="space-y-1 text-sm font-medium">
+            Slug
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              value={draft.slug}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  slug: event.target.value,
+                }))
+              }
+              placeholder="trail-running-cap"
+              required
+            />
+          </label>
 
-        <label className="space-y-1 text-sm font-medium">
-          Status
-          <select
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={draft.status}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                status: event.target.value as Product["status"],
-              }))
-            }
-          >
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-          </select>
-        </label>
-
-        <label className="space-y-1 text-sm font-medium">
-          Price amount
-          <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            min={0}
-            step={1}
-            type="number"
-            value={draft.price.amount}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                price: {
-                  ...current.price,
-                  amount: Number(event.target.value),
-                },
-              }))
-            }
-            required
-          />
-        </label>
-
-        <label className="space-y-1 text-sm font-medium">
-          Currency
-          <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
-            maxLength={3}
-            value={draft.price.currency}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                price: {
-                  ...current.price,
-                  currency: event.target.value,
-                },
-              }))
-            }
-            placeholder="USD"
-            required
-          />
-        </label>
-
-        <label className="space-y-1 text-sm font-medium sm:col-span-2">
-          SKU (optional)
-          <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={draft.sku}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, sku: event.target.value }))
-            }
-            placeholder="SKU-001"
-          />
-        </label>
-
-        <div className="flex flex-wrap gap-3 sm:col-span-2">
-          <button
-            className="rounded-md bg-indigo-700 px-4 py-2 font-medium text-white hover:bg-indigo-800 disabled:opacity-60"
-            disabled={saving}
-            type="submit"
-          >
-            {saving ? "Saving…" : editingId ? "Save changes" : "Create product"}
-          </button>
-          {editingId && (
-            <button
-              className="rounded-md border border-slate-300 px-4 py-2 font-medium hover:bg-slate-100"
-              disabled={saving}
-              onClick={() => {
-                setEditingId(null);
-                setDraft(EMPTY_DRAFT);
-              }}
-              type="button"
+          <label className="space-y-1 text-sm font-medium">
+            Status
+            <select
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              value={draft.status}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  status: event.target.value as Product["status"],
+                }))
+              }
             >
-              Cancel edit
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm font-medium">
+            Price amount
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              min={0}
+              step={1}
+              type="number"
+              value={draft.price.amount}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  price: {
+                    ...current.price,
+                    amount: Number(event.target.value),
+                  },
+                }))
+              }
+              required
+            />
+          </label>
+
+          <label className="space-y-1 text-sm font-medium">
+            Currency
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
+              maxLength={3}
+              value={draft.price.currency}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  price: {
+                    ...current.price,
+                    currency: event.target.value,
+                  },
+                }))
+              }
+              placeholder="USD"
+              required
+            />
+          </label>
+
+          <label className="space-y-1 text-sm font-medium sm:col-span-2">
+            SKU (optional)
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              value={draft.sku}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, sku: event.target.value }))
+              }
+              placeholder="SKU-001"
+            />
+          </label>
+
+          <div className="flex flex-wrap gap-3 sm:col-span-2">
+            <button
+              className="rounded-md bg-indigo-700 px-4 py-2 font-medium text-white hover:bg-indigo-800 disabled:opacity-60"
+              disabled={saving}
+              type="submit"
+            >
+              {saving
+                ? "Saving…"
+                : editingId
+                  ? "Save changes"
+                  : "Create product"}
             </button>
-          )}
-        </div>
-      </form>
+            {editingId && (
+              <button
+                className="rounded-md border border-slate-300 px-4 py-2 font-medium hover:bg-slate-100"
+                disabled={saving}
+                onClick={() => {
+                  setEditingId(null);
+                  setDraft(EMPTY_DRAFT);
+                }}
+                type="button"
+              >
+                Cancel edit
+              </button>
+            )}
+          </div>
+        </form>
+      )}
 
       {(error || notice) && (
         <p
@@ -400,22 +418,26 @@ export function TenantProductManagement() {
                   <th className="px-4 py-3 font-medium">Slug</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Price</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                  {canWrite && (
+                    <th className="px-4 py-3 font-medium">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {products.map((product) => (
                   <tr className="border-t border-slate-200" key={product.id}>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">
-                        {product.title}
-                      </div>
-                      {product.sku && (
-                        <div className="text-xs text-slate-500">
-                          {product.sku}
+                    {canWrite && (
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-900">
+                          {product.title}
                         </div>
-                      )}
-                    </td>
+                        {product.sku && (
+                          <div className="text-xs text-slate-500">
+                            {product.sku}
+                          </div>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-slate-600">{product.slug}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-700">

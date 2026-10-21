@@ -8,6 +8,7 @@
     "dev": "npm --prefix front-end run dev",
     "dev:demo": "npm --prefix front-end run dev:demo",
     "seed:demo": "npm --prefix front-end run seed:demo",
+    "seed:demo:roles": "npm --prefix front-end run seed:demo:roles",
     "build": "npm --prefix front-end run build",
     "start": "npm --prefix front-end run start",
     "lint": "npm --prefix front-end run lint",

@@ -18,9 +18,14 @@ import { FilePlatformStore } from "./platform-store";
 const temporaryDirectories: string[] = [];
 
 async function createStore() {
+  return (await createStoreWithPath()).store;
+}
+
+async function createStoreWithPath() {
   const directory = await mkdtemp(join(tmpdir(), "platform-store-test-"));
   temporaryDirectories.push(directory);
-  return new FilePlatformStore(join(directory, "platform.json"));
+  const filePath = join(directory, "platform.json");
+  return { store: new FilePlatformStore(filePath), filePath };
 }
 
 function bootstrapInput(token: string): BootstrapInput {
@@ -660,5 +665,125 @@ describe("FilePlatformStore", () => {
     await expect(
       store.getTenantRestConnection(tenant.id, host.id),
     ).resolves.toEqual(config);
+  });
+
+  it("scopes Staff creation and customer order reads to their tenant and account", async () => {
+    const { store, filePath } = await createStoreWithPath();
+    const host = hostConfig({ status: "active" });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ hostId: host.id, status: "active" });
+    const otherTenant = tenantRecord({
+      hostId: host.id,
+      status: "active",
+      domains: ["other.example.com"],
+    });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+    await store.createTenantForHost(
+      otherTenant,
+      hostScopedAudit("tenant.created", "tenant", otherTenant.id),
+    );
+
+    const staff = await store.createTenantStaff({
+      id: randomUUID(),
+      tenantId: tenant.id,
+      hostId: host.id,
+      email: " STAFF@EXAMPLE.COM ",
+      passwordHash: "staff-hash",
+      permissions: ["catalog:read", "catalog:write"],
+      createdAt: new Date().toISOString(),
+    });
+    expect(staff.email).toBe("staff@example.com");
+    expect(await store.listTenantStaff(tenant.id)).toEqual([
+      expect.objectContaining({
+        id: staff.id,
+        email: "staff@example.com",
+        permissions: ["catalog:read", "catalog:write"],
+      }),
+    ]);
+    expect(await store.listTenantStaff(otherTenant.id)).toEqual([]);
+    await expect(
+      store.createTenantStaff({
+        id: randomUUID(),
+        tenantId: tenant.id,
+        hostId: host.id,
+        email: "staff@example.com",
+        passwordHash: "another-hash",
+        permissions: ["catalog:read"],
+        createdAt: new Date().toISOString(),
+      }),
+    ).rejects.toThrow("An account with this email already exists");
+
+    const customer = await store.createCustomerAccount({
+      id: randomUUID(),
+      tenantId: tenant.id,
+      email: "customer@example.com",
+      passwordHash: "customer-hash",
+      createdAt: new Date().toISOString(),
+    });
+    const otherCustomer = await store.createCustomerAccount({
+      id: randomUUID(),
+      tenantId: tenant.id,
+      email: "other@example.com",
+      passwordHash: "other-hash",
+      createdAt: new Date().toISOString(),
+    });
+    const otherTenantCustomer = await store.createCustomerAccount({
+      id: randomUUID(),
+      tenantId: otherTenant.id,
+      email: "customer@example.com",
+      passwordHash: "other-tenant-hash",
+      createdAt: new Date().toISOString(),
+    });
+    const state = JSON.parse(await readFile(filePath, "utf8"));
+    const createdAt = new Date().toISOString();
+    state.customerOrders.push(
+      {
+        id: "ORDER-CUSTOMER-1",
+        tenantId: tenant.id,
+        customerId: customer.id,
+        status: "Confirmed",
+        createdAt,
+        total: 2400,
+        currency: "USD",
+        itemCount: 1,
+      },
+      {
+        id: "ORDER-CUSTOMER-2",
+        tenantId: tenant.id,
+        customerId: otherCustomer.id,
+        status: "Processing",
+        createdAt,
+        total: 3200,
+        currency: "USD",
+        itemCount: 1,
+      },
+      {
+        id: "ORDER-OTHER-TENANT",
+        tenantId: otherTenant.id,
+        customerId: otherTenantCustomer.id,
+        status: "Shipped",
+        createdAt,
+        total: 4100,
+        currency: "USD",
+        itemCount: 2,
+      },
+    );
+    await writeFile(filePath, JSON.stringify(state));
+
+    await expect(
+      store.listCustomerOrders(tenant.id, customer.id),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: "ORDER-CUSTOMER-1",
+        tenantId: tenant.id,
+        customerId: customer.id,
+      }),
+    ]);
+    await expect(
+      store.listCustomerOrders(otherTenant.id, customer.id),
+    ).resolves.toEqual([]);
   });
 });

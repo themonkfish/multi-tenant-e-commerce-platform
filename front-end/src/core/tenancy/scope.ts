@@ -16,6 +16,8 @@ export const PrincipalRoleSchema = z.enum([
   "super_admin",
   "host_owner",
   "tenant_owner",
+  "tenant_staff",
+  "customer",
 ]);
 export type PrincipalRole = z.infer<typeof PrincipalRoleSchema>;
 
@@ -26,6 +28,10 @@ export const PermissionSchema = z.enum([
   "tenant:write",
   "settings:read",
   "settings:write",
+  "catalog:read",
+  "catalog:write",
+  "customer:orders:read",
+  "staff:manage",
 ]);
 export type Permission = z.infer<typeof PermissionSchema>;
 
@@ -37,7 +43,12 @@ export const ROLE_PERMISSIONS = {
     "tenant:write",
     "settings:read",
     "settings:write",
+    "catalog:read",
+    "catalog:write",
+    "staff:manage",
   ],
+  tenant_staff: ["catalog:read", "catalog:write"],
+  customer: ["customer:orders:read"],
 } as const satisfies Record<PrincipalRole, readonly Permission[]>;
 
 export const PrincipalSchema = z.object({
