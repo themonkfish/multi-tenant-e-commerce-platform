@@ -7,10 +7,14 @@ import { getCustomerSession } from "@/lib/server/session";
 
 type CartPageProps = {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ payment?: string }>;
 };
 
-export default async function CartPage({ params }: CartPageProps) {
-  const { locale } = await params;
+export default async function CartPage({
+  params,
+  searchParams,
+}: CartPageProps) {
+  const [{ locale }, { payment }] = await Promise.all([params, searchParams]);
   const requestScope = await getRequestDomainScope();
 
   if (requestScope?.kind !== "tenant") {
@@ -87,6 +91,7 @@ export default async function CartPage({ params }: CartPageProps) {
       <StorefrontCartPage
         locale={locale}
         signedIn={customerSession?.scope.kind === "tenant"}
+        paymentFailed={payment === "failed"}
       />
     </main>
   );

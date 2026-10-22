@@ -236,6 +236,8 @@ Status snapshot as of 2026-10-22:
       workflows. REST API-key replacement is supported; OAuth/JWT are not.
 - [x] Add Stripe test-mode Checkout, signature verification, idempotent payment
       state updates, retryable order delivery, and Customer payment states.
+- [x] Add a local-only simulated checkout for testing success, failure, and
+      Tenant order delivery without payment-provider credentials.
 - [ ] Add production Stripe Connect, regional payment gateways, and Cash on
       Delivery after provider-specific onboarding and compliance work.
 - [ ] Implement a storage adapter (initial target: S3-compatible), upload

@@ -10,9 +10,11 @@ import { useCartStore } from "@/features/storefront/cart-store";
 export function StorefrontCartPage({
   locale,
   signedIn,
+  paymentFailed,
 }: {
   locale: string;
   signedIn: boolean;
+  paymentFailed: boolean;
 }) {
   const router = useRouter();
   const items = useCartStore((state) => state.items);
@@ -111,11 +113,15 @@ export function StorefrontCartPage({
         return;
       }
       const checkout = new URL(checkoutUrl);
-      if (
-        checkout.protocol !== "https:" ||
-        checkout.hostname !== "checkout.stripe.com"
-      ) {
-        setError("The server returned an invalid Stripe Checkout link.");
+      if (!(
+        (checkout.protocol === "https:" &&
+          checkout.hostname === "checkout.stripe.com") ||
+        (checkout.origin === window.location.origin &&
+          checkout.pathname ===
+            `/${encodeURIComponent(locale)}/checkout/demo` &&
+          checkout.searchParams.get("orderId") === order.data.id)
+      )) {
+        setError("The server returned an invalid checkout link.");
         return;
       }
       window.location.assign(checkout.toString());
@@ -189,6 +195,12 @@ export function StorefrontCartPage({
 
       <aside className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
         <h3 className="text-lg font-semibold text-slate-900">Order summary</h3>
+        {paymentFailed && (
+          <p className="mt-4 text-sm text-red-700" role="alert">
+            The demo payment failed. Your order was not sent to the store; you
+            can try checkout again.
+          </p>
+        )}
         <div className="mt-4 space-y-3 text-sm text-slate-700">
           <div className="flex items-center justify-between">
             <span>Subtotal</span>

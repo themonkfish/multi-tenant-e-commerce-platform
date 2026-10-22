@@ -297,10 +297,16 @@ To place an order:
 5. Choose **Continue to payment**. The server reloads each product from the connected
    Tenant catalog, rejects unavailable products, and calculates the total from
    current prices rather than trusting the browser's cart values. It creates
-   an unpaid order and redirects you to Stripe-hosted Checkout.
-6. Complete payment using a Stripe test card when the application is configured
-   with test keys. The confirmation page waits for the signed Stripe webhook;
-   returning from Checkout alone does not mark an order paid.
+   an unpaid order and opens either Stripe-hosted Checkout or the local demo
+   checkout, depending on the server configuration.
+6. In the isolated demo started with `npm run dev:demo`, choose **Simulate
+   successful payment** or **Simulate failed payment**. Success exercises the
+   paid-order delivery flow; failure leaves the order unpaid and returns to the
+   cart for a retry. This simulation does not charge a card. For provider-backed
+   testing, use a Stripe test card and configure the Stripe test keys and
+   webhook forwarding described in the README. The confirmation page trusts
+   only Stripe's signed webhook for real Stripe checkout; returning from
+   Checkout alone does not mark an order paid.
 7. Review the confirmed order or open **My account** to view its payment and
    delivery status. Paid orders are delivered to the connected Tenant backend.
    If backend delivery failed, use **Retry delivery** on the confirmation or
@@ -312,8 +318,9 @@ submission of the same checkout request does not create a duplicate order.
 Orders are also sent to the connected Tenant backend using the same order ID
 as an idempotency key only after Stripe's signature-verified webhook confirms
 payment. The platform retains the order as its source of truth and records
-payment and delivery status. This initial integration requires Stripe test-mode
-keys. It does not support live charges, tenant-specific Stripe Connect
+payment and delivery status. The isolated demo supports simulated success and
+failure without Stripe keys. Provider-backed integration requires Stripe
+test-mode keys. It does not support live charges, tenant-specific Stripe Connect
 accounts, inventory reservation, tax/shipping calculation, refunds, or
 receipts. Do not treat the browser's return from Checkout as payment proof.
 

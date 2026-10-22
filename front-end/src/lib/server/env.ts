@@ -13,6 +13,10 @@ const ServerEnvSchema = z.object({
   SESSION_SECRET: z.string().min(32).optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  DEMO_CHECKOUT_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   TENANT_REST_ALLOW_LOCAL_HTTP: z
     .enum(["true", "false"])
     .default("false")

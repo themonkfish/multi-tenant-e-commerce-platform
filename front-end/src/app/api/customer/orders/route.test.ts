@@ -6,12 +6,18 @@ const {
   createTenantCatalogAdapter,
   createStripeCheckoutSession,
   retrieveStripeCheckoutSession,
+  createDemoCheckoutSessionId,
+  isDemoCheckoutSession,
+  isLocalDemoCheckoutEnabled,
 } = vi.hoisted(() => ({
   getCustomerSession: vi.fn(),
   getPlatformStore: vi.fn(),
   createTenantCatalogAdapter: vi.fn(),
   createStripeCheckoutSession: vi.fn(),
   retrieveStripeCheckoutSession: vi.fn(),
+  createDemoCheckoutSessionId: vi.fn(),
+  isDemoCheckoutSession: vi.fn(),
+  isLocalDemoCheckoutEnabled: vi.fn(),
 }));
 
 vi.mock("@/lib/server/session", () => ({ getCustomerSession }));
@@ -23,6 +29,11 @@ vi.mock("@/lib/server/stripe-payments", () => ({
   createStripeCheckoutSession,
   retrieveStripeCheckoutSession,
   StripePaymentConfigurationError: class StripePaymentConfigurationError extends Error {},
+}));
+vi.mock("@/lib/server/demo-checkout", () => ({
+  createDemoCheckoutSessionId,
+  isDemoCheckoutSession,
+  isLocalDemoCheckoutEnabled,
 }));
 
 import { POST } from "./route";
@@ -86,7 +97,13 @@ function checkoutRequest() {
 }
 
 describe("POST /api/customer/orders Stripe checkout", () => {
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    isLocalDemoCheckoutEnabled.mockReturnValue(false);
+    isDemoCheckoutSession.mockImplementation((sessionId: string) =>
+      sessionId.startsWith("demo_"),
+    );
+    vi.clearAllMocks();
+  });
 
   it("creates a server-priced unpaid order and returns a hosted Stripe URL", async () => {
     const order = makeOrder();
@@ -186,6 +203,60 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     expect(await response.json()).toMatchObject({
       order,
       checkoutUrl,
+    });
+    expect(createStripeCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("returns a local demo checkout link when demo mode is enabled", async () => {
+    const order = makeOrder();
+    const store = {
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getCustomerOrder: vi.fn().mockResolvedValue(null),
+      createCustomerOrder: vi.fn().mockResolvedValue({ order, created: true }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+      prepareCustomerOrderPayment: vi.fn().mockResolvedValue({
+        order: { ...order, paymentAttempt: 1 },
+        attempt: 1,
+      }),
+      saveCustomerOrderPaymentSession: vi.fn().mockResolvedValue({
+        ...order,
+        paymentAttempt: 1,
+        paymentSessionId: "demo_1_test",
+      }),
+    };
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue(product),
+    });
+    isLocalDemoCheckoutEnabled.mockReturnValue(true);
+    createDemoCheckoutSessionId.mockReturnValue("demo_1_test");
+    isDemoCheckoutSession.mockImplementation((sessionId: string) =>
+      sessionId.startsWith("demo_"),
+    );
+
+    const response = await POST(checkoutRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.checkoutUrl).toBe(
+      `http://store.localhost:3000/en/checkout/demo?orderId=${encodeURIComponent(orderId)}`,
+    );
+    expect(body.order).toMatchObject({
+      paymentStatus: "pending",
+      paymentSessionId: "demo_1_test",
+    });
+    expect(store.saveCustomerOrderPaymentSession).toHaveBeenCalledWith({
+      tenantId,
+      customerId,
+      orderId,
+      attempt: 1,
+      sessionId: "demo_1_test",
     });
     expect(createStripeCheckoutSession).not.toHaveBeenCalled();
   });

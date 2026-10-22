@@ -14,6 +14,7 @@ const allowedVariables = new Set([
   "TENANT_REST_ALLOW_LOCAL_HTTP",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "DEMO_CHECKOUT_ENABLED",
 ]);
 const envLines = await readFile(envFile, "utf8");
 
@@ -27,6 +28,7 @@ for (const [index, line] of envLines.split(/\r?\n/).entries()) {
   process.env[name] = line.slice(separator + 1);
 }
 
+process.env.DEMO_CHECKOUT_ENABLED ??= "true";
 process.env.NEXT_DIST_DIR = ".next-demo";
 const nextCli = resolve(
   frontendRoot,

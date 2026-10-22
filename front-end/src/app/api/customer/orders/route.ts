@@ -9,6 +9,11 @@ import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getCustomerSession } from "@/lib/server/session";
 import {
+  createDemoCheckoutSessionId,
+  isDemoCheckoutSession,
+  isLocalDemoCheckoutEnabled,
+} from "@/lib/server/demo-checkout";
+import {
   createStripeCheckoutSession,
   retrieveStripeCheckoutSession,
   StripePaymentConfigurationError,
@@ -63,6 +68,9 @@ export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
     return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   }
+  const demoCheckoutEnabled = isLocalDemoCheckoutEnabled(
+    request.headers.get("host"),
+  );
   const session = await getCustomerSession();
   if (!session || session.scope.kind !== "tenant") {
     return NextResponse.json(
@@ -123,52 +131,74 @@ export async function POST(request: Request) {
       return NextResponse.json({ order }, { status: 200 });
     }
     if (order.paymentSessionId) {
-      try {
-        const checkout = await retrieveStripeCheckoutSession(
-          order.paymentSessionId,
-        );
-        if (checkout.status === "open" && checkout.url) {
+      if (
+        demoCheckoutEnabled &&
+        isDemoCheckoutSession(order.paymentSessionId)
+      ) {
+        if (order.paymentStatus === "pending") {
+          const origin = request.headers.get("origin");
+          if (!origin) {
+            return NextResponse.json(
+              { error: "invalid_origin" },
+              { status: 403 },
+            );
+          }
+          return NextResponse.json({
+            order,
+            checkoutUrl: getDemoCheckoutUrl(origin, order.id),
+          });
+        }
+      } else {
+        try {
+          const checkout = await retrieveStripeCheckoutSession(
+            order.paymentSessionId,
+          );
+          if (checkout.status === "open" && checkout.url) {
+            return NextResponse.json(
+              { order, checkoutUrl: checkout.url },
+              { status: 200 },
+            );
+          }
+          if (checkout.status === "complete") {
+            return NextResponse.json(
+              { error: "payment_confirmation_pending" },
+              { status: 202 },
+            );
+          }
+          await store.updateCustomerOrderPayment({
+            tenantId: order.tenantId,
+            customerId: order.customerId,
+            orderId: order.id,
+            sessionId: order.paymentSessionId,
+            status: "failed",
+          });
+          order = await store.getCustomerOrder(
+            session.scope.id,
+            session.userId,
+            orderId,
+          );
+        } catch (error) {
+          if (error instanceof StripePaymentConfigurationError) {
+            return NextResponse.json(
+              { error: "payment_not_configured" },
+              { status: 503 },
+            );
+          }
+          console.error("Could not retrieve Stripe Checkout session", error);
           return NextResponse.json(
-            { order, checkoutUrl: checkout.url },
-            { status: 200 },
+            { error: "payment_provider_unavailable" },
+            { status: 502 },
           );
         }
-        if (checkout.status === "complete") {
+        if (!order) {
           return NextResponse.json(
-            { error: "payment_confirmation_pending" },
-            { status: 202 },
+            { error: "order_not_found" },
+            { status: 404 },
           );
         }
-        await store.updateCustomerOrderPayment({
-          tenantId: order.tenantId,
-          customerId: order.customerId,
-          orderId: order.id,
-          sessionId: order.paymentSessionId,
-          status: "failed",
-        });
-        order = await store.getCustomerOrder(
-          session.scope.id,
-          session.userId,
-          orderId,
-        );
-      } catch (error) {
-        if (error instanceof StripePaymentConfigurationError) {
-          return NextResponse.json(
-            { error: "payment_not_configured" },
-            { status: 503 },
-          );
+        if (order.paymentStatus === "paid") {
+          return NextResponse.json({ order }, { status: 200 });
         }
-        console.error("Could not retrieve Stripe Checkout session", error);
-        return NextResponse.json(
-          { error: "payment_provider_unavailable" },
-          { status: 502 },
-        );
-      }
-      if (!order) {
-        return NextResponse.json({ error: "order_not_found" }, { status: 404 });
-      }
-      if (order.paymentStatus === "paid") {
-        return NextResponse.json({ order }, { status: 200 });
       }
     }
   }
@@ -340,6 +370,26 @@ export async function POST(request: Request) {
   successUrl.searchParams.set("orderId", order.id);
   successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
   const cancelUrl = new URL("/en/cart?payment=cancelled", origin);
+  if (demoCheckoutEnabled) {
+    const sessionId = createDemoCheckoutSessionId(prepared.attempt);
+    const savedOrder = await store.saveCustomerOrderPaymentSession({
+      tenantId: order.tenantId,
+      customerId: order.customerId,
+      orderId: order.id,
+      attempt: prepared.attempt,
+      sessionId,
+    });
+    if (!savedOrder) {
+      return NextResponse.json(
+        { error: "payment_session_conflict" },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({
+      order: savedOrder,
+      checkoutUrl: getDemoCheckoutUrl(origin, order.id),
+    });
+  }
   try {
     const checkout = await createStripeCheckoutSession({
       order: prepared.order,
@@ -384,4 +434,10 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
+}
+
+function getDemoCheckoutUrl(origin: string, orderId: string): string {
+  const checkoutUrl = new URL("/en/checkout/demo", origin);
+  checkoutUrl.searchParams.set("orderId", orderId);
+  return checkoutUrl.toString();
 }

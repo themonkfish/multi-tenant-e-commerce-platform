@@ -121,6 +121,14 @@ other than 3000. On Windows, if `store.localhost` does not resolve, add
 The local HTTP exception is enabled only by the generated demo environment and
 is rejected in production.
 
+The `dev-demo` launcher enables a simulated checkout for this isolated demo
+store. Place an order as the demo Customer, then choose **Simulate successful
+payment** or **Simulate failed payment** on the local checkout screen. A
+successful result exercises payment confirmation and Tenant order delivery;
+the failed result leaves the order unpaid so you can retry. This simulation
+does not contact a payment provider or charge a card. It is gated to
+development, the dedicated demo file store, and local hostnames.
+
 To reseed, stop the demo servers and manually remove only these files:
 `front-end/.local/demo-platform-store.json`,
 `front-end/.local/demo-credentials.txt`, `front-end/.env.demo`,
@@ -157,8 +165,9 @@ but the platform order-history update temporarily fails.
 
 ## Stripe test checkout
 
-Configure a Stripe test-mode secret key and webhook signing secret in the
-frontend environment:
+Without Stripe keys, use the local simulated checkout described above. For
+provider-backed payment testing, configure a Stripe test-mode secret key and
+webhook signing secret in the frontend environment:
 
 ```text
 STRIPE_SECRET_KEY=sk_test_...
@@ -171,6 +180,8 @@ card such as `4242 4242 4242 4242`. Checkout redirects to Stripe-hosted
 Checkout. The server calculates the amount from current catalog prices, and
 the order is sent to the Tenant backend only after the signed webhook confirms
 payment. The browser redirect itself is never considered payment proof.
+`DEMO_CHECKOUT_ENABLED` defaults to `false`; do not enable it outside the
+generated local demo environment.
 
 Apply `supabase/migrations/0011_customer_order_payments.sql` when using
 Supabase. The configured integration is test-mode only; live Stripe keys are

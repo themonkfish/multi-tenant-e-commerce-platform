@@ -324,6 +324,7 @@ const frontendEnv = [
   `SESSION_SECRET=${sessionSecret}`,
   "NEXT_PUBLIC_PLATFORM_DOMAIN=localhost",
   "TENANT_REST_ALLOW_LOCAL_HTTP=true",
+  "DEMO_CHECKOUT_ENABLED=true",
   "",
 ].join("\n");
 const credentials = [
