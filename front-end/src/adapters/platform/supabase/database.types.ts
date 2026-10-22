@@ -318,6 +318,10 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
+          payment_status: "pending" | "paid" | "failed";
+          payment_attempt: number;
+          payment_session_id: string | null;
+          payment_intent_id: string | null;
           backend_sync_status:
             "not_configured" | "pending" | "synced" | "failed";
           backend_sync_error: string | null;
@@ -332,11 +336,20 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
+          payment_status?: "pending" | "paid" | "failed";
+          payment_attempt?: number;
+          payment_session_id?: string | null;
+          payment_intent_id?: string | null;
           backend_sync_status?:
             "not_configured" | "pending" | "synced" | "failed";
           backend_sync_error?: string | null;
         };
         Update: {
+          status?: "Confirmed" | "Processing" | "Shipped";
+          payment_status?: "pending" | "paid" | "failed";
+          payment_attempt?: number;
+          payment_session_id?: string | null;
+          payment_intent_id?: string | null;
           backend_sync_status?:
             "not_configured" | "pending" | "synced" | "failed";
           backend_sync_error?: string | null;

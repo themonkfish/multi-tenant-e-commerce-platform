@@ -919,6 +919,10 @@ export class SupabasePlatformStore implements PlatformStore {
         total: order.total,
         currency: order.currency,
         item_count: order.itemCount,
+        payment_status: order.paymentStatus,
+        payment_attempt: order.paymentAttempt,
+        payment_session_id: order.paymentSessionId ?? null,
+        payment_intent_id: order.paymentIntentId ?? null,
         backend_sync_status: order.backendSyncStatus,
         backend_sync_error: order.backendSyncError ?? null,
       })
@@ -950,6 +954,146 @@ export class SupabasePlatformStore implements PlatformStore {
     return { order: customerOrderFromRow(data), created: true };
   }
 
+  async getCustomerOrder(
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+  ): Promise<CustomerOrder | null> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customerId)
+      .eq("id", orderId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load customer order: ${error.message}`);
+    }
+    return data ? customerOrderFromRow(data) : null;
+  }
+
+  async prepareCustomerOrderPayment(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+  }): Promise<{ order: CustomerOrder; attempt: number } | null> {
+    const current = await this.getCustomerOrder(
+      input.tenantId,
+      input.customerId,
+      input.orderId,
+    );
+    if (
+      !current ||
+      current.paymentStatus === "paid" ||
+      (current.paymentStatus === "pending" && current.paymentSessionId)
+    ) {
+      return null;
+    }
+    const nextAttempt =
+      current.paymentStatus === "failed" || current.paymentAttempt === 0
+        ? current.paymentAttempt + 1
+        : current.paymentAttempt;
+    const update = this.client
+      .from("platform_customer_orders")
+      .update({
+        payment_status: "pending",
+        payment_attempt: nextAttempt,
+        payment_session_id: null,
+        payment_intent_id: null,
+      })
+      .eq("tenant_id", input.tenantId)
+      .eq("customer_id", input.customerId)
+      .eq("id", input.orderId)
+      .eq("payment_status", current.paymentStatus)
+      .eq("payment_attempt", current.paymentAttempt);
+    const filtered = current.paymentSessionId
+      ? update.eq("payment_session_id", current.paymentSessionId)
+      : update.is("payment_session_id", null);
+    const { data, error } = await filtered.select("*").maybeSingle();
+    if (error) {
+      throw new Error(`Could not prepare customer payment: ${error.message}`);
+    }
+    if (data) {
+      const order = customerOrderFromRow(data);
+      return { order, attempt: order.paymentAttempt };
+    }
+    const latest = await this.getCustomerOrder(
+      input.tenantId,
+      input.customerId,
+      input.orderId,
+    );
+    return latest?.paymentStatus === "pending" && !latest.paymentSessionId
+      ? { order: latest, attempt: latest.paymentAttempt }
+      : null;
+  }
+
+  async saveCustomerOrderPaymentSession(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    attempt: number;
+    sessionId: string;
+  }): Promise<CustomerOrder | null> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .update({ payment_session_id: input.sessionId })
+      .eq("tenant_id", input.tenantId)
+      .eq("customer_id", input.customerId)
+      .eq("id", input.orderId)
+      .eq("payment_status", "pending")
+      .eq("payment_attempt", input.attempt)
+      .or(`payment_session_id.is.null,payment_session_id.eq.${input.sessionId}`)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not save customer payment session: ${error.message}`,
+      );
+    }
+    return data ? customerOrderFromRow(data) : null;
+  }
+
+  async updateCustomerOrderPayment(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    sessionId: string;
+    status: CustomerOrder["paymentStatus"];
+    paymentIntentId?: string;
+  }): Promise<CustomerOrder | null> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .update({
+        payment_status: input.status,
+        ...(input.paymentIntentId
+          ? { payment_intent_id: input.paymentIntentId }
+          : {}),
+      })
+      .eq("tenant_id", input.tenantId)
+      .eq("customer_id", input.customerId)
+      .eq("id", input.orderId)
+      .eq("payment_session_id", input.sessionId)
+      .in(
+        "payment_status",
+        input.status === "paid" ? ["pending", "failed", "paid"] : ["pending"],
+      )
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not update customer payment: ${error.message}`);
+    }
+    if (data) return customerOrderFromRow(data);
+    const current = await this.getCustomerOrder(
+      input.tenantId,
+      input.customerId,
+      input.orderId,
+    );
+    return current?.paymentSessionId === input.sessionId &&
+      current.paymentStatus === input.status
+      ? current
+      : null;
+  }
+
   async updateCustomerOrderSync(input: {
     tenantId: string;
     customerId: string;
@@ -971,6 +1115,26 @@ export class SupabasePlatformStore implements PlatformStore {
     if (error) {
       throw new Error(
         `Could not update customer order sync status: ${error.message}`,
+      );
+    }
+    return data ? customerOrderFromRow(data) : null;
+  }
+
+  async updateCustomerOrderStatus(input: {
+    tenantId: string;
+    orderId: string;
+    status: CustomerOrder["status"];
+  }): Promise<CustomerOrder | null> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .update({ status: input.status })
+      .eq("tenant_id", input.tenantId)
+      .eq("id", input.orderId)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not update customer order status: ${error.message}`,
       );
     }
     return data ? customerOrderFromRow(data) : null;
@@ -1340,6 +1504,10 @@ function customerOrderFromRow(row: {
   total: number;
   currency: string;
   item_count: number;
+  payment_status: string;
+  payment_attempt: number;
+  payment_session_id: string | null;
+  payment_intent_id: string | null;
   backend_sync_status: string;
   backend_sync_error: string | null;
 }): CustomerOrder {
@@ -1353,6 +1521,14 @@ function customerOrderFromRow(row: {
     total: row.total,
     currency: row.currency,
     itemCount: row.item_count,
+    paymentStatus: row.payment_status,
+    paymentAttempt: row.payment_attempt,
+    ...(row.payment_session_id
+      ? { paymentSessionId: row.payment_session_id }
+      : {}),
+    ...(row.payment_intent_id
+      ? { paymentIntentId: row.payment_intent_id }
+      : {}),
     backendSyncStatus: row.backend_sync_status,
     ...(row.backend_sync_error
       ? { backendSyncError: row.backend_sync_error }

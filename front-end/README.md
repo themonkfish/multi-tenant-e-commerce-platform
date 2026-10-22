@@ -63,10 +63,11 @@ and a host-scoped tenant management portal are available:
    below.
 
 Tenant settings are applied to the storefront preview. REST connection setup,
-health testing, and tenant-scoped catalog CRUD are implemented, including the
-product-management screen. Storefront/domain provisioning, payments, storage,
-and production checkout are not yet implemented. Invitation links must be
-shared manually until email delivery is configured.
+health testing, tenant-scoped catalog CRUD, and Stripe-hosted checkout in
+test mode are implemented. Storefront/domain provisioning, live payments,
+tenant-specific Stripe Connect accounts, storage, tax, and shipping are not
+yet implemented. Invitation links must be shared manually until email
+delivery is configured.
 
 The tenant product API supports `GET`/`POST /api/tenant/products` and
 `GET`/`PATCH`/`DELETE /api/tenant/products/:productId`. It proxies to the
@@ -142,9 +143,40 @@ the app redirects to its English locale at `/en`.
 npm run lint
 npm run typecheck
 npm test
+npm run test:e2e
 npm run format:check
 npm run build
 ```
+
+The Tenant order Playwright test starts an isolated frontend and SQLite Tenant
+backend with temporary fixture data, then removes that fixture when the test
+server exits. It covers Owner and Staff access, read-only enforcement,
+cross-Tenant order isolation, and status propagation to Customer order history.
+The API route test also verifies retry after the Tenant backend status changes
+but the platform order-history update temporarily fails.
+
+## Stripe test checkout
+
+Configure a Stripe test-mode secret key and webhook signing secret in the
+frontend environment:
+
+```text
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+For local testing, forward Stripe test events to
+`http://localhost:3000/api/webhooks/stripe` with the Stripe CLI and use a test
+card such as `4242 4242 4242 4242`. Checkout redirects to Stripe-hosted
+Checkout. The server calculates the amount from current catalog prices, and
+the order is sent to the Tenant backend only after the signed webhook confirms
+payment. The browser redirect itself is never considered payment proof.
+
+Apply `supabase/migrations/0011_customer_order_payments.sql` when using
+Supabase. The configured integration is test-mode only; live Stripe keys are
+rejected. One platform-level Stripe account is used for this initial slice;
+tenant-specific Stripe Connect onboarding and live payment operations remain
+future work.
 
 ## Architecture
 

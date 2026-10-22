@@ -791,6 +791,120 @@ export class FilePlatformStore implements PlatformStore {
     });
   }
 
+  async getCustomerOrder(
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+  ): Promise<CustomerOrder | null> {
+    return (
+      (await this.readState()).customerOrders.find(
+        (order) =>
+          order.tenantId === tenantId &&
+          order.customerId === customerId &&
+          order.id === orderId,
+      ) ?? null
+    );
+  }
+
+  async prepareCustomerOrderPayment(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+  }): Promise<{ order: CustomerOrder; attempt: number } | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const order = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.customerId === input.customerId &&
+          candidate.id === input.orderId,
+      );
+      if (
+        !order ||
+        order.paymentStatus === "paid" ||
+        (order.paymentStatus === "pending" && order.paymentSessionId)
+      ) {
+        return null;
+      }
+      if (order.paymentStatus === "failed") {
+        order.paymentAttempt += 1;
+        order.paymentStatus = "pending";
+        delete order.paymentSessionId;
+        delete order.paymentIntentId;
+      } else if (order.paymentAttempt === 0) {
+        order.paymentAttempt = 1;
+      }
+      const updated = CustomerOrderSchema.parse(order);
+      await this.writeState(state);
+      return { order: updated, attempt: updated.paymentAttempt };
+    });
+  }
+
+  async saveCustomerOrderPaymentSession(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    attempt: number;
+    sessionId: string;
+  }): Promise<CustomerOrder | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const order = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.customerId === input.customerId &&
+          candidate.id === input.orderId &&
+          candidate.paymentStatus === "pending" &&
+          candidate.paymentAttempt === input.attempt,
+      );
+      if (!order) return null;
+      if (
+        order.paymentSessionId &&
+        order.paymentSessionId !== input.sessionId
+      ) {
+        return null;
+      }
+      order.paymentSessionId = input.sessionId;
+      const updated = CustomerOrderSchema.parse(order);
+      await this.writeState(state);
+      return updated;
+    });
+  }
+
+  async updateCustomerOrderPayment(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    sessionId: string;
+    status: CustomerOrder["paymentStatus"];
+    paymentIntentId?: string;
+  }): Promise<CustomerOrder | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const order = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.customerId === input.customerId &&
+          candidate.id === input.orderId &&
+          candidate.paymentSessionId === input.sessionId,
+      );
+      if (!order) return null;
+      if (order.paymentStatus === "paid" && input.status !== "paid") {
+        return order;
+      }
+      if (input.status === "failed" && order.paymentStatus !== "pending") {
+        return order;
+      }
+      order.paymentStatus = input.status;
+      if (input.paymentIntentId) {
+        order.paymentIntentId = input.paymentIntentId;
+      }
+      const updated = CustomerOrderSchema.parse(order);
+      await this.writeState(state);
+      return updated;
+    });
+  }
+
   async listCustomerOrders(
     tenantId: string,
     customerId: string,
@@ -823,6 +937,26 @@ export class FilePlatformStore implements PlatformStore {
       order.backendSyncStatus = input.status;
       if (input.error) order.backendSyncError = input.error;
       else delete order.backendSyncError;
+      const updated = CustomerOrderSchema.parse(order);
+      await this.writeState(state);
+      return updated;
+    });
+  }
+
+  async updateCustomerOrderStatus(input: {
+    tenantId: string;
+    orderId: string;
+    status: CustomerOrder["status"];
+  }): Promise<CustomerOrder | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const order = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.id === input.orderId,
+      );
+      if (!order) return null;
+      order.status = input.status;
       const updated = CustomerOrderSchema.parse(order);
       await this.writeState(state);
       return updated;

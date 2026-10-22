@@ -109,6 +109,8 @@ All endpoints are under `/v1` and require an `X-API-Key` header except
 | `DELETE` | `/v1/products/<id>`                          | Delete product within the API-key tenant        |
 | `POST`   | `/v1/orders`                                 | Idempotently save a platform order snapshot     |
 | `GET`    | `/v1/orders/<id>`                            | Read an order within the API-key tenant          |
+| `GET`    | `/v1/orders?page=1&limit=20`                 | List tenant orders with pagination               |
+| `PATCH`  | `/v1/orders/<id>`                            | Advance an order through basic statuses           |
 
 Product fields follow the frontend catalog contract: `title`, lowercase
 hyphenated `slug`, `status` (`draft`, `active`, or `archived`), `price` with a
@@ -126,6 +128,10 @@ duplicate. Reusing an ID with different order data returns HTTP 409. The
 platform-calculated total remains authoritative; the Tenant API stores the
 received snapshot and does not process payments, reserve inventory, or fulfill
 the order.
+
+Order status can advance from `Confirmed` to `Processing` to `Shipped`. Skips
+and rollbacks return HTTP 409. These values are tracking labels; changing one
+does not charge a customer, create a shipment, or trigger fulfillment.
 
 Example create and list requests:
 

@@ -51,6 +51,10 @@ export function StorefrontCartPage({
         }),
       });
       const body: unknown = await response.json();
+      if (response.status === 202) {
+        setError("Payment is processing. Check your account before retrying.");
+        return;
+      }
       if (!response.ok) {
         const code =
           typeof body === "object" && body !== null && "error" in body
@@ -69,9 +73,17 @@ export function StorefrontCartPage({
               ? "This store has not connected a product backend, so checkout is unavailable."
               : code === "tenant_backend_unavailable"
                 ? "The store's product backend is temporarily unavailable. Try again later."
-                : code === "rate_limited"
-                  ? "Too many checkout attempts. Wait a few minutes and try again."
-                  : "The order could not be placed. Please try again.",
+                : code === "payment_not_configured"
+                  ? "Secure checkout is not configured for this store."
+                  : code === "payment_provider_unavailable"
+                    ? "Secure checkout is temporarily unavailable. Try again later."
+                    : code === "free_checkout_not_supported"
+                      ? "Free orders cannot be checked out using card payment."
+                      : code === "idempotency_key_conflict"
+                        ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
+                        : code === "rate_limited"
+                          ? "Too many checkout attempts. Wait a few minutes and try again."
+                          : "The order could not be placed. Please try again.",
         );
         return;
       }
@@ -80,13 +92,33 @@ export function StorefrontCartPage({
           ? CustomerOrderSchema.safeParse(body.order)
           : null;
       if (!order?.success) {
-        setError("The server returned an invalid order confirmation.");
+        setError("The server returned an invalid checkout response.");
         return;
       }
-      clear();
-      router.push(
-        `/${locale}/checkout/success?orderId=${encodeURIComponent(order.data.id)}`,
-      );
+      if (order.data.paymentStatus === "paid") {
+        clear();
+        router.push(
+          `/${locale}/checkout/success?orderId=${encodeURIComponent(order.data.id)}`,
+        );
+        return;
+      }
+      const checkoutUrl =
+        typeof body === "object" && body !== null && "checkoutUrl" in body
+          ? body.checkoutUrl
+          : undefined;
+      if (typeof checkoutUrl !== "string") {
+        setError("The server did not return a secure payment link.");
+        return;
+      }
+      const checkout = new URL(checkoutUrl);
+      if (
+        checkout.protocol !== "https:" ||
+        checkout.hostname !== "checkout.stripe.com"
+      ) {
+        setError("The server returned an invalid Stripe Checkout link.");
+        return;
+      }
+      window.location.assign(checkout.toString());
     } catch {
       setError("Checkout could not reach the server. Please try again.");
     } finally {
@@ -204,7 +236,7 @@ export function StorefrontCartPage({
             onClick={onCheckout}
             type="button"
           >
-            {checkingOut ? "Placing order…" : "Place order"}
+            {checkingOut ? "Preparing secure checkout…" : "Continue to payment"}
           </button>
         ) : (
           <Link

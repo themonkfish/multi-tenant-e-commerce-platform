@@ -10,6 +10,11 @@ export async function syncCustomerOrderToTenant(input: {
   hostId: string;
   order: CustomerOrder;
 }): Promise<CustomerOrder> {
+  if (input.order.paymentStatus !== "paid") {
+    throw new Error(
+      "Unpaid customer orders cannot be sent to a Tenant backend",
+    );
+  }
   let status: CustomerOrder["backendSyncStatus"] = "synced";
   let errorMessage: string | undefined;
   try {

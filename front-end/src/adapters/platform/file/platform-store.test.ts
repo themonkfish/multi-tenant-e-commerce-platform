@@ -788,6 +788,8 @@ describe("FilePlatformStore", () => {
       total: 2500,
       currency: "USD",
       itemCount: 2,
+      paymentStatus: "pending" as const,
+      paymentAttempt: 0,
       backendSyncStatus: "not_configured" as const,
     };
     await expect(store.createCustomerOrder(order)).resolves.toEqual({
@@ -804,9 +806,102 @@ describe("FilePlatformStore", () => {
       }),
     ).rejects.toThrow("already used by another customer");
     await expect(
+      store.getCustomerOrder(tenant.id, customer.id, order.id),
+    ).resolves.toEqual(order);
+    await expect(
+      store.getCustomerOrder(otherTenant.id, customer.id, order.id),
+    ).resolves.toBeNull();
+    const prepared = await store.prepareCustomerOrderPayment({
+      tenantId: tenant.id,
+      customerId: customer.id,
+      orderId: order.id,
+    });
+    expect(prepared).toMatchObject({
+      attempt: 1,
+      order: { ...order, paymentAttempt: 1 },
+    });
+    await expect(
+      store.prepareCustomerOrderPayment({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        orderId: order.id,
+      }),
+    ).resolves.toEqual(prepared);
+    await expect(
+      store.saveCustomerOrderPaymentSession({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        orderId: order.id,
+        attempt: 1,
+        sessionId: "cs_test_first",
+      }),
+    ).resolves.toMatchObject({ paymentSessionId: "cs_test_first" });
+    await expect(
+      store.updateCustomerOrderPayment({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        orderId: order.id,
+        sessionId: "cs_test_stale",
+        status: "paid",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.updateCustomerOrderPayment({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        orderId: order.id,
+        sessionId: "cs_test_first",
+        status: "failed",
+      }),
+    ).resolves.toMatchObject({ paymentStatus: "failed" });
+    const retried = await store.prepareCustomerOrderPayment({
+      tenantId: tenant.id,
+      customerId: customer.id,
+      orderId: order.id,
+    });
+    expect(retried?.attempt).toBe(2);
+    await store.saveCustomerOrderPaymentSession({
+      tenantId: tenant.id,
+      customerId: customer.id,
+      orderId: order.id,
+      attempt: 2,
+      sessionId: "cs_test_second",
+    });
+    await expect(
+      store.updateCustomerOrderPayment({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        orderId: order.id,
+        sessionId: "cs_test_first",
+        status: "paid",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.updateCustomerOrderPayment({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        orderId: order.id,
+        sessionId: "cs_test_second",
+        status: "paid",
+        paymentIntentId: "pi_test_paid",
+      }),
+    ).resolves.toMatchObject({
+      paymentStatus: "paid",
+      paymentIntentId: "pi_test_paid",
+      paymentAttempt: 2,
+    });
+    await expect(
       store.listCustomerOrders(tenant.id, customer.id),
     ).resolves.toEqual(
-      expect.arrayContaining([expect.objectContaining(order)]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: order.id,
+          paymentStatus: "paid",
+          paymentAttempt: 2,
+          paymentSessionId: "cs_test_second",
+          paymentIntentId: "pi_test_paid",
+        }),
+      ]),
     );
     await expect(
       store.updateCustomerOrderSync({
@@ -821,6 +916,23 @@ describe("FilePlatformStore", () => {
       backendSyncStatus: "failed",
       backendSyncError: "Tenant backend is unavailable.",
     });
+    await expect(
+      store.updateCustomerOrderStatus({
+        tenantId: tenant.id,
+        orderId: order.id,
+        status: "Processing",
+      }),
+    ).resolves.toMatchObject({ id: order.id, status: "Processing" });
+    await expect(
+      store.listCustomerOrders(tenant.id, customer.id),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: order.id,
+          status: "Processing",
+        }),
+      ]),
+    );
     await expect(
       store.updateCustomerOrderSync({
         tenantId: tenant.id,

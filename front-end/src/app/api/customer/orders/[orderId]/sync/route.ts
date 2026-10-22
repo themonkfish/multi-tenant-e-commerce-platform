@@ -29,6 +29,9 @@ export async function POST(request: Request, { params }: SyncOrderRouteProps) {
   if (!order) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+  if (order.paymentStatus !== "paid") {
+    return NextResponse.json({ error: "payment_required" }, { status: 409 });
+  }
   if (order.backendSyncStatus === "synced") {
     return NextResponse.json({ order });
   }

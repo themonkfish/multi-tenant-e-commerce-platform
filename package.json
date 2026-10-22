@@ -14,6 +14,7 @@
     "lint": "npm --prefix front-end run lint",
     "typecheck": "npm --prefix front-end run typecheck",
     "test": "npm --prefix front-end test",
+    "test:e2e": "npm --prefix front-end run test:e2e",
     "backend": "npm --prefix back-end run dev",
     "start:backend": "npm --prefix back-end start",
     "tenant-backend": "npm --prefix tenant-back-end run dev",

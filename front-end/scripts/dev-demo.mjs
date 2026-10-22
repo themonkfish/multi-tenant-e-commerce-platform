@@ -12,6 +12,8 @@ const allowedVariables = new Set([
   "SESSION_SECRET",
   "NEXT_PUBLIC_PLATFORM_DOMAIN",
   "TENANT_REST_ALLOW_LOCAL_HTTP",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
 ]);
 const envLines = await readFile(envFile, "utf8");
 

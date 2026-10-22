@@ -10,8 +10,13 @@ export default async function TenantStaffLoginPage({
 }) {
   await connection();
   const { locale } = await params;
-  if (await getTenantStaffSession()) {
-    redirect(`/${locale}/tenant/products`);
+  const session = await getTenantStaffSession();
+  if (session) {
+    redirect(
+      session.permissions.includes("orders:read")
+        ? `/${locale}/tenant/orders`
+        : `/${locale}/tenant/products`,
+    );
   }
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-6 py-12">
@@ -21,11 +26,11 @@ export default async function TenantStaffLoginPage({
             Staff portal
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Catalog staff sign in
+            Tenant staff sign in
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Staff access is limited to the catalog permissions granted by the
-            store owner.
+            Staff access is limited to catalog and order permissions granted by
+            the store owner.
           </p>
         </header>
         <TenantStaffLoginForm />

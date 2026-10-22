@@ -206,6 +206,14 @@ export function TenantStaffManagement({
             />
             Manage catalog
           </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="permissions" value="orders:read" />
+            Read orders
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="permissions" value="orders:write" />
+            Update order status
+          </label>
         </fieldset>
         {error && (
           <p className="text-sm text-red-700 sm:col-span-2" role="alert">

@@ -94,7 +94,9 @@ export function StorefrontCustomerAccount({
                     </h4>
                   </div>
                   <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                    {order.status}
+                    {"paymentStatus" in order && order.paymentStatus !== "paid"
+                      ? `Payment ${order.paymentStatus}`
+                      : order.status}
                   </span>
                 </div>
 

@@ -252,6 +252,58 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
   assert.equal(read.status, 200);
   assert.deepEqual((await read.json()).order, order);
 
+  const listed = await fetch(`${baseUrl}/orders?page=1&limit=10`, {
+    headers: auth(),
+  });
+  assert.equal(listed.status, 200);
+  assert.deepEqual((await listed.json()).meta, {
+    page: 1,
+    limit: 10,
+    total: 1,
+  });
+
+  const invalidSkip = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Shipped" }),
+  });
+  assert.equal(invalidSkip.status, 409);
+
+  const processing = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Processing" }),
+  });
+  assert.equal(processing.status, 200);
+  assert.equal((await processing.json()).order.status, "Processing");
+
+  const retryProcessing = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Processing" }),
+  });
+  assert.equal(retryProcessing.status, 200);
+  assert.equal((await retryProcessing.json()).order.status, "Processing");
+
+  const shipped = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Shipped" }),
+  });
+  assert.equal(shipped.status, 200);
+  assert.equal((await shipped.json()).order.status, "Shipped");
+
+  const rollback = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Processing" }),
+  });
+  assert.equal(rollback.status, 409);
+
+  const retryAfterStatusUpdate = await create(order);
+  assert.equal(retryAfterStatusUpdate.status, 200);
+  assert.equal((await retryAfterStatusUpdate.json()).order.status, "Shipped");
+
   const isolatedRead = await fetch(`${baseUrl}/orders/${order.id}`, {
     headers: auth(otherApiKey),
   });

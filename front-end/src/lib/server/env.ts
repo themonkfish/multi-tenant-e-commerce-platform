@@ -11,6 +11,8 @@ const ServerEnvSchema = z.object({
   PLATFORM_SECRET_KEY: z.string().min(1).optional(),
   SETUP_TOKEN: z.string().min(32).optional(),
   SESSION_SECRET: z.string().min(32).optional(),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   TENANT_REST_ALLOW_LOCAL_HTTP: z
     .enum(["true", "false"])
     .default("false")

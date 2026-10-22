@@ -30,7 +30,19 @@ export function TenantStaffLoginForm() {
         );
         return;
       }
-      router.push("/tenant/products");
+      const body: unknown = await response.json();
+      const permissions =
+        typeof body === "object" &&
+        body !== null &&
+        "permissions" in body &&
+        Array.isArray(body.permissions)
+          ? body.permissions
+          : [];
+      router.push(
+        permissions.includes("orders:read")
+          ? "/tenant/orders"
+          : "/tenant/products",
+      );
       router.refresh();
     } catch {
       setError("Sign-in could not reach the server. Please try again.");

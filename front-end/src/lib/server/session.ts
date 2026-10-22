@@ -387,9 +387,12 @@ export async function getTenantStaffSession(): Promise<Principal | null> {
   };
 }
 
+export async function getTenantPortalSession(): Promise<Principal | null> {
+  return (await getTenantOwnerSession()) ?? (await getTenantStaffSession());
+}
+
 export async function getTenantCatalogSession(): Promise<Principal | null> {
-  const principal =
-    (await getTenantOwnerSession()) ?? (await getTenantStaffSession());
+  const principal = await getTenantPortalSession();
   if (
     !principal ||
     principal.scope.kind !== "tenant" ||

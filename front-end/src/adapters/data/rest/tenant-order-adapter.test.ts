@@ -31,6 +31,8 @@ const order: CustomerOrder = {
   total: 2500,
   currency: "USD",
   itemCount: 2,
+  paymentStatus: "paid",
+  paymentAttempt: 0,
   backendSyncStatus: "pending",
 };
 
@@ -90,6 +92,21 @@ describe("RestTenantOrderAdapter", () => {
     expect(transport).not.toHaveBeenCalled();
   });
 
+  it("never sends an unpaid order to a Tenant backend", async () => {
+    const transport = mockTransport({ order });
+    const adapter = new RestTenantOrderAdapter(
+      config,
+      "api-secret",
+      tenantId,
+      transport,
+    );
+
+    await expect(
+      adapter.createOrder({ ...order, paymentStatus: "pending" }),
+    ).rejects.toThrow("confirmed payment");
+    expect(transport).not.toHaveBeenCalled();
+  });
+
   it("maps backend errors without exposing response content", async () => {
     const adapter = new RestTenantOrderAdapter(
       config,
@@ -104,5 +121,67 @@ describe("RestTenantOrderAdapter", () => {
     await expect(adapter.createOrder(order)).rejects.not.toThrow(
       "private backend detail",
     );
+  });
+
+  it("lists paginated orders and updates only a scoped order's status", async () => {
+    const tenantOrder = {
+      id: order.id,
+      tenantId,
+      customerId: order.customerId,
+      status: "Confirmed",
+      createdAt: order.createdAt,
+      items: order.items,
+      total: order.total,
+      currency: order.currency,
+      itemCount: order.itemCount,
+    };
+    const transport = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 200,
+        body: {
+          data: [tenantOrder],
+          meta: { page: 2, limit: 10, total: 12 },
+        },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        body: { order: { ...tenantOrder, status: "Processing" } },
+      });
+    const adapter = new RestTenantOrderAdapter(
+      config,
+      "api-secret",
+      tenantId,
+      transport,
+    );
+
+    await expect(adapter.listOrders(2, 10)).resolves.toMatchObject({
+      meta: { page: 2, limit: 10, total: 12 },
+      data: [{ id: order.id }],
+    });
+    await expect(
+      adapter.updateOrderStatus(order.id, "Processing"),
+    ).resolves.toMatchObject({ id: order.id, status: "Processing" });
+    expect(transport).toHaveBeenNthCalledWith(
+      1,
+      config,
+      "api-secret",
+      expect.objectContaining({
+        method: "GET",
+        path: "/orders",
+        query: new URLSearchParams({ page: "2", limit: "10" }),
+      }),
+    );
+    expect(transport).toHaveBeenNthCalledWith(
+      2,
+      config,
+      "api-secret",
+      expect.objectContaining({
+        method: "PATCH",
+        path: `/orders/${order.id}`,
+        body: { status: "Processing" },
+      }),
+    );
+    await expect(adapter.listOrders(0, 10)).rejects.toThrow("pagination");
   });
 });

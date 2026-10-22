@@ -14,7 +14,7 @@ import { getTenantOwnerSession } from "@/lib/server/session";
 const CreateStaffSchema = z.object({
   email: z.email().transform((email) => email.trim().toLowerCase()),
   password: z.string().min(14).max(128),
-  permissions: z.array(TenantStaffPermissionSchema).min(1).max(2),
+  permissions: z.array(TenantStaffPermissionSchema).min(1).max(4),
 });
 
 export async function GET() {
@@ -77,6 +77,9 @@ export async function POST(request: Request) {
           ...parsed.data.permissions,
           ...(parsed.data.permissions.includes("catalog:write")
             ? ["catalog:read" as const]
+            : []),
+          ...(parsed.data.permissions.includes("orders:write")
+            ? ["orders:read" as const]
             : []),
         ]),
       ],

@@ -1,6 +1,11 @@
 import "server-only";
-import { CustomerOrderSchema } from "@/core/domain/tenant-identities";
-import type { CustomerOrder } from "@/core/domain/tenant-identities";
+import { z } from "zod";
+import {
+  CustomerOrderSchema,
+  TenantOrderSchema,
+  type CustomerOrder,
+  type TenantOrder,
+} from "@/core/domain/tenant-identities";
 import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
 import {
   requestSafeRestBackend,
@@ -18,6 +23,18 @@ type RestTransport = (
 const OrderResponseSchema = CustomerOrderSchema.omit({
   backendSyncStatus: true,
   backendSyncError: true,
+  paymentStatus: true,
+  paymentAttempt: true,
+  paymentSessionId: true,
+  paymentIntentId: true,
+});
+const OrderPageSchema = z.object({
+  data: z.array(TenantOrderSchema),
+  meta: z.object({
+    page: z.number().int().positive(),
+    limit: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+  }),
 });
 
 export class RestTenantOrderAdapter {
@@ -30,8 +47,9 @@ export class RestTenantOrderAdapter {
 
   async createOrder(input: CustomerOrder): Promise<void> {
     const order = CustomerOrderSchema.parse(input);
-    if (order.tenantId !== this.tenantId) {
-      throw new Error("Order operation is outside the configured tenant scope");
+    this.assertTenant(order.tenantId);
+    if (order.paymentStatus !== "paid") {
+      throw new Error("Tenant backend orders must have confirmed payment");
     }
     const response = await this.transport(this.config, this.apiKey, {
       method: "POST",
@@ -71,6 +89,99 @@ export class RestTenantOrderAdapter {
     );
     if (result.id !== order.id || result.tenantId !== this.tenantId) {
       throw new Error("Tenant backend returned a mismatched order");
+    }
+  }
+
+  async listOrders(
+    page: number,
+    limit: number,
+  ): Promise<{
+    data: TenantOrder[];
+    meta: { page: number; limit: number; total: number };
+  }> {
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      throw new Error("Order pagination must use page >= 1 and limit 1-100");
+    }
+    const response = await this.request({
+      method: "GET",
+      path: "/orders",
+      query: new URLSearchParams({ page: String(page), limit: String(limit) }),
+    });
+    const result = OrderPageSchema.parse(response.body);
+    result.data.forEach((order) => this.assertTenant(order.tenantId));
+    return result;
+  }
+
+  async getOrder(id: string): Promise<TenantOrder> {
+    if (!/^ORD-[A-Fa-f0-9-]{36}$/.test(id)) {
+      throw new Error("Order ID is invalid");
+    }
+    const response = await this.request({
+      method: "GET",
+      path: `/orders/${id}`,
+    });
+    const order = TenantOrderSchema.parse(
+      typeof response.body === "object" &&
+        response.body !== null &&
+        "order" in response.body
+        ? response.body.order
+        : null,
+    );
+    this.assertTenant(order.tenantId);
+    return order;
+  }
+
+  async updateOrderStatus(
+    id: string,
+    status: TenantOrder["status"],
+  ): Promise<TenantOrder> {
+    if (!/^ORD-[A-Fa-f0-9-]{36}$/.test(id)) {
+      throw new Error("Order ID is invalid");
+    }
+    const response = await this.request({
+      method: "PATCH",
+      path: `/orders/${id}`,
+      body: { status },
+    });
+    const order = TenantOrderSchema.parse(
+      typeof response.body === "object" &&
+        response.body !== null &&
+        "order" in response.body
+        ? response.body.order
+        : null,
+    );
+    this.assertTenant(order.tenantId);
+    return order;
+  }
+
+  private async request(request: RestHttpRequest): Promise<RestHttpResponse> {
+    const response = await this.transport(this.config, this.apiKey, request);
+    if (response.status < 200 || response.status >= 300) {
+      throw new RestBackendError(
+        response.status,
+        response.status === 401 || response.status === 403
+          ? "Tenant backend rejected the configured API key"
+          : response.status === 404
+            ? "Tenant order was not found"
+            : response.status === 409
+              ? "Tenant backend rejected the order operation"
+              : response.status >= 500
+                ? "Tenant backend encountered an error"
+                : `Tenant backend returned HTTP ${response.status}`,
+      );
+    }
+    return response;
+  }
+
+  private assertTenant(tenantId: string): void {
+    if (tenantId !== this.tenantId) {
+      throw new Error("Order operation is outside the configured tenant scope");
     }
   }
 }

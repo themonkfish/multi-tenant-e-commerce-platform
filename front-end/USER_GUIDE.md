@@ -253,11 +253,13 @@ securely.
 Staff sign in at `/en/tenant/staff/login` on the Tenant's active domain. They
 can open the product manager only with `catalog:read`; `catalog:write` enables
 product changes and automatically includes catalog read. Staff cannot manage
-other accounts, change store settings, or change backend connections. These
-limits are enforced by the server, not only by the interface. Disabling an
-account blocks subsequent requests immediately. Password resets change the
-credential for future sign-ins; existing sessions remain valid until they
-expire (within 30 minutes).
+other accounts, change store settings, or change backend connections. Tenant
+Owners can also grant `orders:read` and `orders:write`; order write allows basic
+status updates and automatically includes order read. These limits are
+enforced by the server, not only by the interface. Disabling an account blocks
+subsequent requests immediately. Password resets change the credential for
+future sign-ins; existing sessions remain valid until they expire (within 30
+minutes).
 
 ## 6. Customer: register and view account orders
 
@@ -292,22 +294,34 @@ To place an order:
 3. In the cart, adjust quantities or remove items.
 4. Choose **Sign in to place order** and sign in or create a Customer account.
    The cart is preserved while you authenticate.
-5. Choose **Place order**. The server reloads each product from the connected
+5. Choose **Continue to payment**. The server reloads each product from the connected
    Tenant catalog, rejects unavailable products, and calculates the total from
-   current prices rather than trusting the browser's cart values.
-6. Review the order confirmation or open **My account** to view the order.
-   The confirmation shows whether it was delivered to the connected Tenant
-   backend. If delivery failed, use **Retry delivery** on the confirmation or
+   current prices rather than trusting the browser's cart values. It creates
+   an unpaid order and redirects you to Stripe-hosted Checkout.
+6. Complete payment using a Stripe test card when the application is configured
+   with test keys. The confirmation page waits for the signed Stripe webhook;
+   returning from Checkout alone does not mark an order paid.
+7. Review the confirmed order or open **My account** to view its payment and
+   delivery status. Paid orders are delivered to the connected Tenant backend.
+   If backend delivery failed, use **Retry delivery** on the confirmation or
    in your account's order history.
 
 Orders and product-price snapshots are stored server-side in the platform
 store and are visible only to the owning Customer in that Tenant. Repeated
 submission of the same checkout request does not create a duplicate order.
 Orders are also sent to the connected Tenant backend using the same order ID
-as an idempotency key. The platform retains the order as its source of truth
-and records delivery success or failure. This slice does not collect payment
-details, charge a payment method, reserve inventory, calculate tax/shipping,
-or send a receipt. Do not treat an order as paid or fulfilled.
+as an idempotency key only after Stripe's signature-verified webhook confirms
+payment. The platform retains the order as its source of truth and records
+payment and delivery status. This initial integration requires Stripe test-mode
+keys. It does not support live charges, tenant-specific Stripe Connect
+accounts, inventory reservation, tax/shipping calculation, refunds, or
+receipts. Do not treat the browser's return from Checkout as payment proof.
+
+Tenant Owners and Staff with order permissions can open `/en/tenant/orders` to
+review backend orders, inspect customer IDs and line-item snapshots, and
+advance status from **Confirmed** to **Processing** to **Shipped**. These
+labels do not charge or fulfill an order. Status changes are also reflected in
+the Customer's platform order history.
 
 ## 8. Sign out
 

@@ -165,12 +165,42 @@ export interface PlatformStore
   createCustomerOrder(
     order: CustomerOrder,
   ): Promise<{ order: CustomerOrder; created: boolean }>;
+  getCustomerOrder(
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+  ): Promise<CustomerOrder | null>;
+  prepareCustomerOrderPayment(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+  }): Promise<{ order: CustomerOrder; attempt: number } | null>;
+  saveCustomerOrderPaymentSession(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    attempt: number;
+    sessionId: string;
+  }): Promise<CustomerOrder | null>;
+  updateCustomerOrderPayment(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    sessionId: string;
+    status: CustomerOrder["paymentStatus"];
+    paymentIntentId?: string;
+  }): Promise<CustomerOrder | null>;
   updateCustomerOrderSync(input: {
     tenantId: string;
     customerId: string;
     orderId: string;
     status: CustomerOrder["backendSyncStatus"];
     error?: string;
+  }): Promise<CustomerOrder | null>;
+  updateCustomerOrderStatus(input: {
+    tenantId: string;
+    orderId: string;
+    status: CustomerOrder["status"];
   }): Promise<CustomerOrder | null>;
   listCustomerOrders(
     tenantId: string,

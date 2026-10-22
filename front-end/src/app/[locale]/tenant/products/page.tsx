@@ -38,6 +38,14 @@ export default async function TenantProductsPage({
         >
           {session.role === "tenant_owner" ? "Back to dashboard" : "Storefront"}
         </a>
+        {session.permissions.includes("orders:read") && (
+          <a
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            href={`/${locale}/tenant/orders`}
+          >
+            Orders
+          </a>
+        )}
         {session.role === "tenant_staff" ? (
           <form action="/api/tenant/staff/auth/logout" method="post">
             <button

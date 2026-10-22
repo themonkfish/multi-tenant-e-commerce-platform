@@ -3,6 +3,8 @@ import { z } from "zod";
 export const TenantStaffPermissionSchema = z.enum([
   "catalog:read",
   "catalog:write",
+  "orders:read",
+  "orders:write",
 ]);
 
 export const TenantStaffSchema = z.object({
@@ -16,9 +18,11 @@ export const TenantStaffSchema = z.object({
     .min(1)
     .refine(
       (permissions) =>
-        !permissions.includes("catalog:write") ||
-        permissions.includes("catalog:read"),
-      "Catalog write requires catalog read",
+        (!permissions.includes("catalog:write") ||
+          permissions.includes("catalog:read")) &&
+        (!permissions.includes("orders:write") ||
+          permissions.includes("orders:read")),
+      "Write permissions require the matching read permission",
     ),
   active: z.boolean(),
   createdAt: z.iso.datetime(),
@@ -60,6 +64,10 @@ export const CustomerOrderSchema = z.object({
   total: z.number().int().nonnegative(),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),
+  paymentStatus: z.enum(["pending", "paid", "failed"]).default("paid"),
+  paymentAttempt: z.number().int().nonnegative().default(0),
+  paymentSessionId: z.string().min(1).optional(),
+  paymentIntentId: z.string().min(1).optional(),
   backendSyncStatus: z
     .enum(["not_configured", "pending", "synced", "failed"])
     .default("not_configured"),
@@ -67,3 +75,13 @@ export const CustomerOrderSchema = z.object({
 });
 
 export type CustomerOrder = z.infer<typeof CustomerOrderSchema>;
+
+export const TenantOrderSchema = CustomerOrderSchema.omit({
+  backendSyncStatus: true,
+  backendSyncError: true,
+  paymentStatus: true,
+  paymentAttempt: true,
+  paymentSessionId: true,
+  paymentIntentId: true,
+});
+export type TenantOrder = z.infer<typeof TenantOrderSchema>;

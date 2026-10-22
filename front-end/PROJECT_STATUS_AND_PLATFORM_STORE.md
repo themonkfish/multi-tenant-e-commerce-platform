@@ -23,14 +23,16 @@ Status snapshot as of 2026-10-22:
   authenticated, server-validated orders; custom-domain provisioning and the
   full commerce runtime remain future work.
 - Tenant product and order APIs are available through the standalone backend;
-  tenant database providers, payments, and storage remain future work.
-- Tenant Owner-managed Staff catalog permissions and Tenant-scoped Customer
-  sign-in/order reads are now server-enforced; isolated demo credentials and
-  sample Customer orders support local testing.
-- Authenticated checkout creates idempotent platform order snapshots, uses
-  current catalog prices, and synchronizes snapshots to the connected Tenant
-  backend with persisted delivery state and retries. Payment, inventory, and
-  fulfillment remain unimplemented.
+  tenant database providers, live tenant-specific payments, and storage remain
+  future work.
+- Tenant Owner-managed Staff catalog/order permissions and Tenant-scoped
+  Customer sign-in/order reads are now server-enforced; isolated demo
+  credentials and sample Customer orders support local testing.
+- Authenticated checkout creates idempotent platform order snapshots from
+  current catalog prices, creates Stripe test Checkout sessions, and waits for
+  signed payment webhooks before syncing orders to the Tenant backend. Payment
+  retries are idempotent. Live payments, inventory, and fulfillment remain
+  unimplemented.
 
 ### Completed
 
@@ -79,6 +81,9 @@ Status snapshot as of 2026-10-22:
 - [x] Idempotent Tenant REST order ingestion persists order snapshots in
       SQLite; delivery status is recorded in the platform store and failed or
       pending sync can be retried by the owning Customer.
+- [x] Tenant Owners and explicitly permissioned Staff can list, paginate,
+      inspect, and advance Tenant order statuses; Customer order history is
+      updated to reflect operational status changes.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
@@ -89,7 +94,7 @@ Status snapshot as of 2026-10-22:
       with server-only API-key access, tenant-scoped BFF routes, contract
       validation, and mutation rate limits.
 - [x] Server-enforced permissions for Super Admin, Host Owner, Tenant Owner,
-      Tenant Staff, and Customer roles. Staff catalog permissions, Tenant
+      Tenant Staff, and Customer roles. Staff catalog/order permissions, Tenant
       boundaries, Customer-owned order reads, and owner-only Staff management
       are checked on the server.
 - [x] Tenant Staff login and Tenant Owner-managed Staff accounts with catalog
@@ -120,7 +125,8 @@ Status snapshot as of 2026-10-22:
 - [x] **Customer storefront:** catalog browsing and cart state are in place;
       authenticated order creation, confirmation, and history are server-backed.
       Order snapshots sync to the connected Tenant backend with a visible and
-      retryable delivery status; payments and fulfillment are still pending.
+      retryable delivery status; Tenant order management supports basic status
+      transitions. Payments and fulfillment are still pending.
 - [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, but
       does not yet guide the operator through connection verification, email
       setup, theme/legal settings, or first-host creation. Platform-store
@@ -173,15 +179,16 @@ Status snapshot as of 2026-10-22:
    - Continue credential rotation and connection-validation workflows.
 
 4. **P2 — Commerce backend and fulfillment**
-   - Implement payment adapters (Stripe, regional gateway, COD) and webhook
-     verification.
+   - Add production payment operations, Stripe Connect tenant onboarding,
+     regional gateways, and COD. Stripe test-mode checkout and webhook
+     verification are implemented.
    - Add storage adapter support with upload validation and scoped file paths.
    - Build customer, inventory, shipping, tax, and discount workflows around
      synchronized Tenant backend order snapshots.
 
 5. **P2 — Storefront runtime upgrade**
-   - Add payment sessioning and production checkout states; current order
-     placement records an unpaid order in the platform store.
+   - Add production checkout settings and payment operations; the current Stripe
+     integration is restricted to test mode.
    - Add storefront search, category browsing, and richer catalog experience.
    - Connect order placement to payment, inventory, and fulfillment workflows.
 
@@ -227,9 +234,10 @@ Status snapshot as of 2026-10-22:
       provider setup, test-connection, and schema initialization.
 - [ ] Add connection testing for other providers and full credential rotation
       workflows. REST API-key replacement is supported; OAuth/JWT are not.
-- [ ] Implement payment adapters (initial targets: Stripe, a regional gateway,
-      and Cash on Delivery), server-side payment verification, and webhook
-      handling.
+- [x] Add Stripe test-mode Checkout, signature verification, idempotent payment
+      state updates, retryable order delivery, and Customer payment states.
+- [ ] Add production Stripe Connect, regional payment gateways, and Cash on
+      Delivery after provider-specific onboarding and compliance work.
 - [ ] Implement a storage adapter (initial target: S3-compatible), upload
       validation including file type/content checks, and scoped file paths.
 - [ ] Add additional storage providers based on the v1 scope.
@@ -243,9 +251,8 @@ Status snapshot as of 2026-10-22:
       confirmation/history.
 - [x] Tenant-specific Customer authentication and own-order read access;
       order totals are calculated from active Tenant catalog prices.
-- [ ] Full tenant commerce runtime: add payment processing, inventory, search,
-      shipping/tax handling, and
-      production checkout orchestration.
+- [ ] Full tenant commerce runtime: add live payment processing, inventory,
+      search, shipping/tax handling, and production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
 - [ ] Later growth work: CMS, reviews, reporting, staff permissions, webhooks,

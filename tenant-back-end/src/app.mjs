@@ -13,6 +13,12 @@ const UUID_PATTERN =
 const ORDER_ID_PATTERN =
   /^ORD-[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
+const ORDER_STATUSES = new Set(["Confirmed", "Processing", "Shipped"]);
+const ORDER_STATUS_TRANSITIONS = {
+  Confirmed: new Set(["Confirmed", "Processing"]),
+  Processing: new Set(["Processing", "Shipped"]),
+  Shipped: new Set(["Shipped"]),
+};
 
 function sendJson(response, status, body) {
   response.writeHead(status, {
@@ -266,6 +272,19 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
 
       if (orderMatch) {
         const orderId = orderMatch[1];
+        if (request.method === "GET" && orderId === undefined) {
+          const pagination = parsePagination(url);
+          if (!pagination) {
+            sendJson(response, 400, { error: "invalid_pagination" });
+            return;
+          }
+          sendJson(
+            response,
+            200,
+            repository.listOrders({ tenantId, ...pagination }),
+          );
+          return;
+        }
         if (request.method === "POST" && orderId === undefined) {
           let order;
           try {
@@ -310,7 +329,53 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
           sendJson(response, 200, { order });
           return;
         }
-        response.setHeader("allow", orderId === undefined ? "POST" : "GET");
+        if (request.method === "PATCH" && orderId !== undefined) {
+          if (!ORDER_ID_PATTERN.test(orderId)) {
+            sendJson(response, 400, { error: "invalid_order_id" });
+            return;
+          }
+          let body;
+          try {
+            body = await readJsonBody(request);
+          } catch (error) {
+            sendJson(
+              response,
+              error.status ?? 400,
+              { error: error.status === 413 ? "payload_too_large" : "invalid_json" },
+            );
+            return;
+          }
+          if (
+            typeof body !== "object" ||
+            body === null ||
+            Array.isArray(body) ||
+            Object.keys(body).length !== 1 ||
+            !ORDER_STATUSES.has(body.status)
+          ) {
+            sendJson(response, 400, { error: "invalid_order_status" });
+            return;
+          }
+          const current = repository.getOrder(tenantId, orderId);
+          if (!current) {
+            sendJson(response, 404, { error: "not_found" });
+            return;
+          }
+          if (!ORDER_STATUS_TRANSITIONS[current.status].has(body.status)) {
+            sendJson(response, 409, { error: "invalid_status_transition" });
+            return;
+          }
+          const order = repository.updateOrderStatus(
+            tenantId,
+            orderId,
+            body.status,
+          );
+          sendJson(response, 200, { order });
+          return;
+        }
+        response.setHeader(
+          "allow",
+          orderId === undefined ? "GET, POST" : "GET, PATCH",
+        );
         sendJson(response, 405, { error: "method_not_allowed" });
         return;
       }

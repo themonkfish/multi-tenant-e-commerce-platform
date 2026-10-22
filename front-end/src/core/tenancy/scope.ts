@@ -30,6 +30,8 @@ export const PermissionSchema = z.enum([
   "settings:write",
   "catalog:read",
   "catalog:write",
+  "orders:read",
+  "orders:write",
   "customer:orders:read",
   "staff:manage",
 ]);
@@ -45,9 +47,16 @@ export const ROLE_PERMISSIONS = {
     "settings:write",
     "catalog:read",
     "catalog:write",
+    "orders:read",
+    "orders:write",
     "staff:manage",
   ],
-  tenant_staff: ["catalog:read", "catalog:write"],
+  tenant_staff: [
+    "catalog:read",
+    "catalog:write",
+    "orders:read",
+    "orders:write",
+  ],
   customer: ["customer:orders:read"],
 } as const satisfies Record<PrincipalRole, readonly Permission[]>;
 

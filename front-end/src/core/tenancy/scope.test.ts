@@ -126,16 +126,23 @@ describe("canAccessScope", () => {
     ).toBe(false);
   });
 
-  it("limits Staff to assigned catalog permissions", () => {
+  it("limits Staff to assigned catalog and order permissions", () => {
     const staff: Principal = {
       userId: "staff-a",
       role: "tenant_staff",
       scope: { kind: "tenant", id: "tenant-a", hostId: "host-a" },
-      permissions: ["catalog:read", "catalog:write"],
+      permissions: [
+        "catalog:read",
+        "catalog:write",
+        "orders:read",
+        "orders:write",
+      ],
     };
 
     expect(canAccessPermission(staff, "catalog:read")).toBe(true);
     expect(canAccessPermission(staff, "catalog:write")).toBe(true);
+    expect(canAccessPermission(staff, "orders:read")).toBe(true);
+    expect(canAccessPermission(staff, "orders:write")).toBe(true);
     expect(canAccessPermission(staff, "settings:write")).toBe(false);
     expect(canAccessPermission(staff, "tenant:write")).toBe(false);
     expect(canAccessPermission(staff, "staff:manage")).toBe(false);

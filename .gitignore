@@ -3,9 +3,12 @@
 **/.pnp
 **/.next/
 **/.next-demo/
+**/.next-e2e/
 **/out/
 **/coverage/
 **/build/
+**/test-results/
+**/playwright-report/
 
 # Local configuration and platform state
 **/.env*

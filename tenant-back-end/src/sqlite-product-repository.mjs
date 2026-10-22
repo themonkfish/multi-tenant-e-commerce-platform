@@ -144,14 +144,45 @@ export async function createSqliteProductRepository(databaseFile) {
       if (!saved) {
         throw new Error("Tenant backend failed to persist the order");
       }
+      const originalSnapshot = { ...saved, status: "Confirmed" };
       return {
         order: saved,
         created: result.changes > 0,
-        conflict: JSON.stringify(saved) !== JSON.stringify(order),
+        conflict: JSON.stringify(originalSnapshot) !== JSON.stringify(order),
       };
     },
 
     getOrder(tenantId, id) {
+      return toOrder(selectOrder.get(tenantId, id));
+    },
+
+    listOrders({ tenantId, page, limit }) {
+      const offset = (page - 1) * limit;
+      const rows = database
+        .prepare(
+          `SELECT * FROM orders
+           WHERE tenant_id = ?
+           ORDER BY created_at DESC, id DESC
+           LIMIT ? OFFSET ?`,
+        )
+        .all(tenantId, limit, offset);
+      const { total } = database
+        .prepare("SELECT count(*) AS total FROM orders WHERE tenant_id = ?")
+        .get(tenantId);
+      return {
+        data: rows.map(toOrder),
+        meta: { page, limit, total },
+      };
+    },
+
+    updateOrderStatus(tenantId, id, status) {
+      const current = toOrder(selectOrder.get(tenantId, id));
+      if (!current) return null;
+      database
+        .prepare(
+          "UPDATE orders SET status = ? WHERE tenant_id = ? AND id = ?",
+        )
+        .run(status, tenantId, id);
       return toOrder(selectOrder.get(tenantId, id));
     },
 
