@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useOrderStore } from "@/features/storefront/order-store";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
+import { CustomerOrderSyncStatus } from "./order-sync-status";
 
 export function StorefrontCustomerAccount({
   locale,
@@ -73,8 +74,7 @@ export function StorefrontCustomerAccount({
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
             <p className="text-lg font-medium text-slate-900">No orders yet</p>
             <p className="mt-2 text-sm text-slate-600">
-              Checkout is currently a browser-only preview and does not create
-              an order in your account.
+              Orders you place while signed in will appear here.
             </p>
           </div>
         ) : (
@@ -113,6 +113,13 @@ export function StorefrontCustomerAccount({
                       : `${order.total} ${order.currency}`}
                   </span>
                 </div>
+                {customer &&
+                  "backendSyncStatus" in order &&
+                  order.backendSyncStatus !== "synced" && (
+                    <div className="mt-4">
+                      <CustomerOrderSyncStatus initialOrder={order} />
+                    </div>
+                  )}
               </article>
             ))}
           </div>

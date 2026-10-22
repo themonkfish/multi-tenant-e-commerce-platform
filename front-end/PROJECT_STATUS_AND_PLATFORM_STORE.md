@@ -7,7 +7,7 @@ automatically implemented just because they are listed there.
 
 ## Current status
 
-Status snapshot as of 2026-10-21:
+Status snapshot as of 2026-10-22:
 
 - The frontend platform bootstrap, Super Admin onboarding, host/tenant
   lifecycle management, and scoped portal auth flows are in place and working
@@ -22,15 +22,15 @@ Status snapshot as of 2026-10-21:
   storefront landing preview. A browser-persisted cart now submits
   authenticated, server-validated orders; custom-domain provisioning and the
   full commerce runtime remain future work.
-- The repo remains frontend-only; tenant data providers, full storefront
-  commerce runtime, payments, and storage are still pending beyond the current
-  platform and integration scaffolding.
+- Tenant product and order APIs are available through the standalone backend;
+  tenant database providers, payments, and storage remain future work.
 - Tenant Owner-managed Staff catalog permissions and Tenant-scoped Customer
   sign-in/order reads are now server-enforced; isolated demo credentials and
   sample Customer orders support local testing.
-- Authenticated checkout creates idempotent server-side order snapshots using
-  current prices from the configured Tenant catalog; payment, inventory,
-  fulfillment, and connected-backend order sync remain unimplemented.
+- Authenticated checkout creates idempotent platform order snapshots, uses
+  current catalog prices, and synchronizes snapshots to the connected Tenant
+  backend with persisted delivery state and retries. Payment, inventory, and
+  fulfillment remain unimplemented.
 
 ### Completed
 
@@ -76,6 +76,9 @@ Status snapshot as of 2026-10-21:
       with idempotency, and displays Customer-scoped confirmation/history.
 - [x] Customer order confirmation and account history use server-persisted
       orders, scoped to the signed-in Customer and Tenant.
+- [x] Idempotent Tenant REST order ingestion persists order snapshots in
+      SQLite; delivery status is recorded in the platform store and failed or
+      pending sync can be retried by the owning Customer.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
@@ -97,7 +100,8 @@ Status snapshot as of 2026-10-21:
       additive seeding for existing isolated demo stores.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
       Owner/tenant portal, Tenant Owner accounts/invitations, and tenant
-      settings, Staff, Customers, and tenant-scoped Customer orders.
+      settings, Staff, Customers, tenant-scoped Customer orders, and Tenant
+      backend order-sync state.
 - [x] Data and storage port/factory contracts. These are extension points, not
       complete tenant provider implementations.
 - [x] Host and tenant configuration lookup ports, backed by the existing
@@ -115,8 +119,8 @@ Status snapshot as of 2026-10-21:
       the tenant-scoped REST API adapter.
 - [x] **Customer storefront:** catalog browsing and cart state are in place;
       authenticated order creation, confirmation, and history are server-backed.
-      Payments, fulfillment, and syncing orders to the connected Tenant backend
-      are still pending.
+      Order snapshots sync to the connected Tenant backend with a visible and
+      retryable delivery status; payments and fulfillment are still pending.
 - [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, but
       does not yet guide the operator through connection verification, email
       setup, theme/legal settings, or first-host creation. Platform-store
@@ -172,14 +176,14 @@ Status snapshot as of 2026-10-21:
    - Implement payment adapters (Stripe, regional gateway, COD) and webhook
      verification.
    - Add storage adapter support with upload validation and scoped file paths.
-   - Sync platform order snapshots to the Tenant backend and build customer,
-     inventory, shipping, tax, and discount workflows.
+   - Build customer, inventory, shipping, tax, and discount workflows around
+     synchronized Tenant backend order snapshots.
 
 5. **P2 — Storefront runtime upgrade**
    - Add payment sessioning and production checkout states; current order
      placement records an unpaid order in the platform store.
    - Add storefront search, category browsing, and richer catalog experience.
-   - Connect order placement to fulfillment and Tenant backend order storage.
+   - Connect order placement to payment, inventory, and fulfillment workflows.
 
 6. **P3 — Platform operations and scale**
    - Add observability, CI/CD, automated migration deployment, audit tooling,
@@ -239,8 +243,8 @@ Status snapshot as of 2026-10-21:
       confirmation/history.
 - [x] Tenant-specific Customer authentication and own-order read access;
       order totals are calculated from active Tenant catalog prices.
-- [ ] Full tenant commerce runtime: sync orders to the Tenant backend, add
-      payment processing, inventory, search, shipping/tax handling, and
+- [ ] Full tenant commerce runtime: add payment processing, inventory, search,
+      shipping/tax handling, and
       production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.

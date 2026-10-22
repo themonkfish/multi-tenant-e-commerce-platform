@@ -919,6 +919,8 @@ export class SupabasePlatformStore implements PlatformStore {
         total: order.total,
         currency: order.currency,
         item_count: order.itemCount,
+        backend_sync_status: order.backendSyncStatus,
+        backend_sync_error: order.backendSyncError ?? null,
       })
       .select("*")
       .single();
@@ -946,6 +948,32 @@ export class SupabasePlatformStore implements PlatformStore {
       throw new Error(`Could not create customer order: ${error.message}`);
     }
     return { order: customerOrderFromRow(data), created: true };
+  }
+
+  async updateCustomerOrderSync(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    status: CustomerOrder["backendSyncStatus"];
+    error?: string;
+  }): Promise<CustomerOrder | null> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .update({
+        backend_sync_status: input.status,
+        backend_sync_error: input.error ?? null,
+      })
+      .eq("tenant_id", input.tenantId)
+      .eq("customer_id", input.customerId)
+      .eq("id", input.orderId)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not update customer order sync status: ${error.message}`,
+      );
+    }
+    return data ? customerOrderFromRow(data) : null;
   }
 
   async listCustomerOrders(
@@ -1312,6 +1340,8 @@ function customerOrderFromRow(row: {
   total: number;
   currency: string;
   item_count: number;
+  backend_sync_status: string;
+  backend_sync_error: string | null;
 }): CustomerOrder {
   return CustomerOrderSchema.parse({
     id: row.id,
@@ -1323,6 +1353,10 @@ function customerOrderFromRow(row: {
     total: row.total,
     currency: row.currency,
     itemCount: row.item_count,
+    backendSyncStatus: row.backend_sync_status,
+    ...(row.backend_sync_error
+      ? { backendSyncError: row.backend_sync_error }
+      : {}),
   });
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
+import { CustomerOrderSyncStatus } from "./order-sync-status";
 
 export function StorefrontCheckoutSuccess({
   locale,
@@ -29,6 +30,8 @@ export function StorefrontCheckoutSuccess({
           for this demo checkout.
         </p>
       </div>
+
+      <CustomerOrderSyncStatus initialOrder={order} />
 
       <div className="rounded-xl border border-emerald-200 bg-white p-4 text-sm text-slate-700">
         <div className="flex flex-col justify-between gap-2 sm:flex-row">

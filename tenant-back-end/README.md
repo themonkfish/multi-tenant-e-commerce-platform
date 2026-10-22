@@ -1,11 +1,11 @@
 # Tenant Backend (SQLite)
 
 This is a standalone, local tenant REST API for exercising the frontend's
-versioned catalog adapter. It uses SQLite by default, requires no database
+versioned catalog and order adapters. It uses SQLite by default, requires no database
 server, and uses Node's built-in SQLite module. SQLite is public domain and can
 be used commercially without a SQLite license fee.
 
-The database access is behind a small product-repository interface. SQLite is
+The database access is behind a small tenant-data repository interface. SQLite is
 the only implemented provider; another database can be added by implementing
 the same repository methods and registering it in `src/repository-factory.mjs`.
 
@@ -107,6 +107,8 @@ All endpoints are under `/v1` and require an `X-API-Key` header except
 | `GET`    | `/v1/products/<id>`                          | Read product within the API-key tenant          |
 | `PATCH`  | `/v1/products/<id>`                          | Update product fields within the API-key tenant |
 | `DELETE` | `/v1/products/<id>`                          | Delete product within the API-key tenant        |
+| `POST`   | `/v1/orders`                                 | Idempotently save a platform order snapshot     |
+| `GET`    | `/v1/orders/<id>`                            | Read an order within the API-key tenant          |
 
 Product fields follow the frontend catalog contract: `title`, lowercase
 hyphenated `slug`, `status` (`draft`, `active`, or `archived`), `price` with a
@@ -114,6 +116,16 @@ non-negative integer `amount` and uppercase three-letter `currency`, and an
 optional `sku`. List responses use `{ "data": [], "meta": { "page", "limit",
 "total" } }`. Duplicate slugs within a tenant return HTTP 409. Every database
 query is scoped to the tenant associated with the API key.
+
+`POST /orders` accepts an order snapshot with `id`, `tenantId`, `customerId`,
+`status`, `createdAt`, `items`, `total`, `currency`, and `itemCount`. The API
+key binds the write to one tenant; a mismatched `tenantId`, inconsistent line
+items/totals, unsupported fields, or invalid values are rejected. Sending the
+same ID and payload again returns the stored order without creating a
+duplicate. Reusing an ID with different order data returns HTTP 409. The
+platform-calculated total remains authoritative; the Tenant API stores the
+received snapshot and does not process payments, reserve inventory, or fulfill
+the order.
 
 Example create and list requests:
 
@@ -146,9 +158,8 @@ database and schema on first start; products are isolated with `tenant_id`
 and a per-tenant unique slug.
 
 The repository factory is the extension point for another database. A new
-provider must implement `health`, `listProducts`, `getProduct`,
-`createProduct`, `updateProduct`, `deleteProduct`, and `close`; it is not
-supported merely by changing `DATABASE_PROVIDER`.
+provider must implement `health`, product CRUD, `createOrder`, `getOrder`, and
+`close`; it is not supported merely by changing `DATABASE_PROVIDER`.
 
 ## Tests
 

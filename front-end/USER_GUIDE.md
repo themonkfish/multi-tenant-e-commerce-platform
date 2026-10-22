@@ -296,13 +296,18 @@ To place an order:
    Tenant catalog, rejects unavailable products, and calculates the total from
    current prices rather than trusting the browser's cart values.
 6. Review the order confirmation or open **My account** to view the order.
+   The confirmation shows whether it was delivered to the connected Tenant
+   backend. If delivery failed, use **Retry delivery** on the confirmation or
+   in your account's order history.
 
 Orders and product-price snapshots are stored server-side in the platform
 store and are visible only to the owning Customer in that Tenant. Repeated
 submission of the same checkout request does not create a duplicate order.
-This slice does not collect payment details, charge a payment method, reserve
-inventory, calculate tax/shipping, create an order in the connected Tenant
-backend, or send a receipt. Do not treat an order as paid or fulfilled.
+Orders are also sent to the connected Tenant backend using the same order ID
+as an idempotency key. The platform retains the order as its source of truth
+and records delivery success or failure. This slice does not collect payment
+details, charge a payment method, reserve inventory, calculate tax/shipping,
+or send a receipt. Do not treat an order as paid or fulfilled.
 
 ## 8. Sign out
 
@@ -352,11 +357,11 @@ local file store. There is no built-in platform data export/import tool.
   are metadata and do not translate storefront pages.
 - Tenant domain records do not automatically create DNS records, TLS
   certificates, or hosting-provider domain configuration.
-- The tenant REST integration supports health checks and catalog operations;
-  tenant Supabase/MongoDB provider adapters are not implemented.
-- Payment processing, Tenant backend order synchronization, inventory,
-  shipping, taxes, storage uploads, and email invitations are not available.
-  Orders are saved in the platform store as unpaid order records.
+- The tenant REST integration supports health checks, catalog operations, and
+  idempotent order snapshot delivery; tenant Supabase/MongoDB provider adapters
+  are not implemented.
+- Payment processing, inventory, shipping, taxes, storage uploads, and email
+  invitations are not available. Orders are saved as unpaid order records.
 - Cart contents remain browser-local until checkout. Customer orders and
   product-price snapshots are stored server-side and scoped to the Customer
   and Tenant.

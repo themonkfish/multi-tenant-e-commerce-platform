@@ -318,6 +318,9 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
+          backend_sync_status:
+            "not_configured" | "pending" | "synced" | "failed";
+          backend_sync_error: string | null;
         };
         Insert: {
           id: string;
@@ -329,8 +332,15 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
+          backend_sync_status?:
+            "not_configured" | "pending" | "synced" | "failed";
+          backend_sync_error?: string | null;
         };
-        Update: never;
+        Update: {
+          backend_sync_status?:
+            "not_configured" | "pending" | "synced" | "failed";
+          backend_sync_error?: string | null;
+        };
         Relationships: [];
       };
       platform_tenant_owner_invites: {

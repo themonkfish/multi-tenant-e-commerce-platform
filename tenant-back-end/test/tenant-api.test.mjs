@@ -73,7 +73,7 @@ test("health check returns the contract required by the frontend", async () => {
     status: "healthy",
     db: "up",
     storage: "up",
-    schemaVersion: "1",
+    schemaVersion: "2",
   });
 
   const unauthorized = await fetch(`${baseUrl}/health`);
@@ -199,6 +199,63 @@ test("rejects invalid payloads, duplicate slugs, and invalid pagination", async 
     { headers: auth() },
   );
   assert.equal(badPage.status, 400);
+});
+
+test("persists tenant orders idempotently and rejects mismatched replays", async () => {
+  const order = {
+    id: "ORD-550e8400-e29b-41d4-a716-446655440000",
+    tenantId,
+    customerId: "550e8400-e29b-41d4-a716-446655440001",
+    status: "Confirmed",
+    createdAt: "2026-10-22T12:00:00.000Z",
+    items: [
+      {
+        productId: "product-1",
+        title: "Canvas Bag",
+        slug: "canvas-bag",
+        quantity: 2,
+        unitPrice: 1250,
+        currency: "USD",
+      },
+    ],
+    total: 2500,
+    currency: "USD",
+    itemCount: 2,
+  };
+  const create = (body, key = apiKey) =>
+    fetch(`${baseUrl}/orders`, {
+      method: "POST",
+      headers: { ...auth(key), "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  const created = await create(order);
+  assert.equal(created.status, 201);
+  assert.deepEqual((await created.json()).order, order);
+
+  const replay = await create(order);
+  assert.equal(replay.status, 200);
+  assert.deepEqual((await replay.json()).order, order);
+
+  const conflict = await create({
+    ...order,
+    items: [{ ...order.items[0], title: "Renamed bag" }],
+  });
+  assert.equal(conflict.status, 409);
+
+  const wrongTenant = await create({ ...order, tenantId: otherTenantId });
+  assert.equal(wrongTenant.status, 403);
+
+  const read = await fetch(`${baseUrl}/orders/${order.id}`, {
+    headers: auth(),
+  });
+  assert.equal(read.status, 200);
+  assert.deepEqual((await read.json()).order, order);
+
+  const isolatedRead = await fetch(`${baseUrl}/orders/${order.id}`, {
+    headers: auth(otherApiKey),
+  });
+  assert.equal(isolatedRead.status, 404);
 });
 
 test("seeds products without overwriting an existing tenant catalog", () => {

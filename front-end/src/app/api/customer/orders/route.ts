@@ -8,6 +8,7 @@ import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getCustomerSession } from "@/lib/server/session";
+import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
 import { ZodError, z } from "zod";
 
 const CreateOrderSchema = z
@@ -89,7 +90,29 @@ export async function POST(request: Request) {
     await store.listCustomerOrders(session.scope.id, session.userId)
   ).find((order) => order.id === orderId);
   if (existingOrder) {
-    return NextResponse.json({ order: existingOrder }, { status: 200 });
+    if (existingOrder.backendSyncStatus === "synced") {
+      return NextResponse.json({ order: existingOrder }, { status: 200 });
+    }
+    const retryAllowed = await store.consumeRateLimit({
+      key: createRateLimitKey(
+        request,
+        "customer-order-sync-retry",
+        session.userId,
+      ),
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+      now: Date.now(),
+    });
+    if (!retryAllowed) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+    }
+    const syncedOrder = await syncCustomerOrderToTenant({
+      store,
+      tenantId: session.scope.id,
+      hostId: session.scope.hostId,
+      order: existingOrder,
+    });
+    return NextResponse.json({ order: syncedOrder }, { status: 200 });
   }
 
   const allowed = await store.consumeRateLimit({
@@ -204,6 +227,7 @@ export async function POST(request: Request) {
     total,
     currency,
     itemCount,
+    backendSyncStatus: "pending",
   });
   const result = await store.createCustomerOrder(order);
   if (result.created) {
@@ -217,8 +241,14 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     });
   }
+  const syncedOrder = await syncCustomerOrderToTenant({
+    store,
+    tenantId: session.scope.id,
+    hostId: session.scope.hostId,
+    order: result.order,
+  });
   return NextResponse.json(
-    { order: result.order },
+    { order: syncedOrder },
     { status: result.created ? 201 : 200 },
   );
 }

@@ -803,6 +803,32 @@ export class FilePlatformStore implements PlatformStore {
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
+  async updateCustomerOrderSync(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    status: CustomerOrder["backendSyncStatus"];
+    error?: string;
+  }): Promise<CustomerOrder | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const order = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.customerId === input.customerId &&
+          candidate.id === input.orderId,
+      );
+      if (!order) return null;
+
+      order.backendSyncStatus = input.status;
+      if (input.error) order.backendSyncError = input.error;
+      else delete order.backendSyncError;
+      const updated = CustomerOrderSchema.parse(order);
+      await this.writeState(state);
+      return updated;
+    });
+  }
+
   async getTenantStoreSettings(
     tenantId: string,
     hostId: string,

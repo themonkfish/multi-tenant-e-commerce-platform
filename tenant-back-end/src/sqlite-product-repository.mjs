@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const SCHEMA_VERSION = "1";
+const SCHEMA_VERSION = "2";
 
 function toProduct(row) {
   if (!row) return null;
@@ -46,6 +46,20 @@ export async function createSqliteProductRepository(databaseFile) {
     );
     CREATE INDEX IF NOT EXISTS products_tenant_created
       ON products (tenant_id, created_at, id);
+    CREATE TABLE IF NOT EXISTS orders (
+      tenant_id TEXT NOT NULL,
+      id TEXT NOT NULL,
+      customer_id TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('Confirmed', 'Processing', 'Shipped')),
+      created_at TEXT NOT NULL,
+      items_json TEXT NOT NULL CHECK (json_valid(items_json) AND json_type(items_json) = 'array'),
+      total INTEGER NOT NULL CHECK (total >= 0),
+      currency TEXT NOT NULL CHECK (length(currency) = 3),
+      item_count INTEGER NOT NULL CHECK (item_count > 0),
+      PRIMARY KEY (tenant_id, id)
+    );
+    CREATE INDEX IF NOT EXISTS orders_tenant_created
+      ON orders (tenant_id, created_at DESC, id);
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version TEXT PRIMARY KEY,
       applied_at TEXT NOT NULL
@@ -60,6 +74,24 @@ export async function createSqliteProductRepository(databaseFile) {
   const selectProduct = database.prepare(
     "SELECT * FROM products WHERE tenant_id = ? AND id = ?",
   );
+  const selectOrder = database.prepare(
+    "SELECT * FROM orders WHERE tenant_id = ? AND id = ?",
+  );
+
+  function toOrder(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      customerId: row.customer_id,
+      status: row.status,
+      createdAt: row.created_at,
+      items: JSON.parse(row.items_json),
+      total: row.total,
+      currency: row.currency,
+      itemCount: row.item_count,
+    };
+  }
 
   return {
     health() {
@@ -88,6 +120,39 @@ export async function createSqliteProductRepository(databaseFile) {
 
     getProduct(tenantId, id) {
       return toProduct(selectProduct.get(tenantId, id));
+    },
+
+    createOrder(order) {
+      const result = database
+        .prepare(
+          `INSERT OR IGNORE INTO orders
+           (tenant_id, id, customer_id, status, created_at, items_json, total, currency, item_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          order.tenantId,
+          order.id,
+          order.customerId,
+          order.status,
+          order.createdAt,
+          JSON.stringify(order.items),
+          order.total,
+          order.currency,
+          order.itemCount,
+        );
+      const saved = toOrder(selectOrder.get(order.tenantId, order.id));
+      if (!saved) {
+        throw new Error("Tenant backend failed to persist the order");
+      }
+      return {
+        order: saved,
+        created: result.changes > 0,
+        conflict: JSON.stringify(saved) !== JSON.stringify(order),
+      };
+    },
+
+    getOrder(tenantId, id) {
+      return toOrder(selectOrder.get(tenantId, id));
     },
 
     createProduct({ id, tenantId, title, slug, status, price, sku, now }) {

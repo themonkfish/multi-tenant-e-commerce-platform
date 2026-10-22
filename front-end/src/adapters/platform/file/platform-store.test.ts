@@ -788,6 +788,7 @@ describe("FilePlatformStore", () => {
       total: 2500,
       currency: "USD",
       itemCount: 2,
+      backendSyncStatus: "not_configured" as const,
     };
     await expect(store.createCustomerOrder(order)).resolves.toEqual({
       order,
@@ -807,6 +808,27 @@ describe("FilePlatformStore", () => {
     ).resolves.toEqual(
       expect.arrayContaining([expect.objectContaining(order)]),
     );
+    await expect(
+      store.updateCustomerOrderSync({
+        tenantId: tenant.id,
+        customerId: customer.id,
+        orderId: order.id,
+        status: "failed",
+        error: "Tenant backend is unavailable.",
+      }),
+    ).resolves.toMatchObject({
+      id: order.id,
+      backendSyncStatus: "failed",
+      backendSyncError: "Tenant backend is unavailable.",
+    });
+    await expect(
+      store.updateCustomerOrderSync({
+        tenantId: tenant.id,
+        customerId: otherCustomer.id,
+        orderId: order.id,
+        status: "synced",
+      }),
+    ).resolves.toBeNull();
 
     const state = JSON.parse(await readFile(filePath, "utf8"));
     const createdAt = new Date().toISOString();

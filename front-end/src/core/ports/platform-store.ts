@@ -165,6 +165,13 @@ export interface PlatformStore
   createCustomerOrder(
     order: CustomerOrder,
   ): Promise<{ order: CustomerOrder; created: boolean }>;
+  updateCustomerOrderSync(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+    status: CustomerOrder["backendSyncStatus"];
+    error?: string;
+  }): Promise<CustomerOrder | null>;
   listCustomerOrders(
     tenantId: string,
     customerId: string,

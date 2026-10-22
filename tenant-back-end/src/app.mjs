@@ -8,6 +8,11 @@ import {
 
 const MAX_BODY_BYTES = 64 * 1024;
 const PRODUCT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const UUID_PATTERN =
+  /^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$/;
+const ORDER_ID_PATTERN =
+  /^ORD-[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$/;
+const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 
 function sendJson(response, status, body) {
   response.writeHead(status, {
@@ -77,6 +82,117 @@ function validateProductId(id) {
   return typeof id === "string" && PRODUCT_ID_PATTERN.test(id);
 }
 
+function parseOrder(input, tenantId) {
+  if (
+    typeof input !== "object" ||
+    input === null ||
+    Array.isArray(input) ||
+    Object.keys(input).some(
+      (key) =>
+        ![
+          "id",
+          "tenantId",
+          "customerId",
+          "status",
+          "createdAt",
+          "items",
+          "total",
+          "currency",
+          "itemCount",
+        ].includes(key),
+    )
+  ) {
+    throw new InputError("Order must be a supported JSON object");
+  }
+  if (input.tenantId !== tenantId) {
+    throw Object.assign(new InputError("Order tenant does not match API key"), {
+      status: 403,
+    });
+  }
+  if (
+    typeof input.id !== "string" ||
+    !ORDER_ID_PATTERN.test(input.id) ||
+    typeof input.customerId !== "string" ||
+    !UUID_PATTERN.test(input.customerId) ||
+    input.status !== "Confirmed" ||
+    typeof input.createdAt !== "string" ||
+    !Number.isFinite(Date.parse(input.createdAt)) ||
+    !Array.isArray(input.items) ||
+    input.items.length < 1 ||
+    input.items.length > 20 ||
+    !Number.isSafeInteger(input.total) ||
+    input.total < 0 ||
+    typeof input.currency !== "string" ||
+    !CURRENCY_PATTERN.test(input.currency) ||
+    !Number.isSafeInteger(input.itemCount) ||
+    input.itemCount < 1 ||
+    input.itemCount > 100
+  ) {
+    throw new InputError("Order fields are invalid");
+  }
+
+  let computedTotal = 0;
+  let computedItemCount = 0;
+  const items = input.items.map((item) => {
+    if (
+      typeof item !== "object" ||
+      item === null ||
+      Array.isArray(item) ||
+      Object.keys(item).some(
+        (key) =>
+          !["productId", "title", "slug", "quantity", "unitPrice", "currency"].includes(
+            key,
+          ),
+      ) ||
+      typeof item.productId !== "string" ||
+      !PRODUCT_ID_PATTERN.test(item.productId) ||
+      typeof item.title !== "string" ||
+      item.title.trim().length < 1 ||
+      item.title.length > 200 ||
+      typeof item.slug !== "string" ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.slug) ||
+      !Number.isSafeInteger(item.quantity) ||
+      item.quantity < 1 ||
+      item.quantity > 100 ||
+      !Number.isSafeInteger(item.unitPrice) ||
+      item.unitPrice < 0 ||
+      item.currency !== input.currency
+    ) {
+      throw new InputError("Order item fields are invalid");
+    }
+    computedTotal += item.quantity * item.unitPrice;
+    computedItemCount += item.quantity;
+    return {
+      productId: item.productId,
+      title: item.title.trim(),
+      slug: item.slug,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      currency: item.currency,
+    };
+  });
+  if (
+    new Set(items.map((item) => item.productId)).size !== items.length ||
+    computedTotal !== input.total ||
+    computedItemCount !== input.itemCount ||
+    !Number.isSafeInteger(computedTotal)
+  ) {
+    throw new InputError("Order totals or line items do not match");
+  }
+
+  return {
+    id: input.id,
+    tenantId,
+    customerId: input.customerId,
+    status: input.status,
+    createdAt: new Date(input.createdAt).toISOString(),
+    items,
+    total: input.total,
+    currency: input.currency,
+    itemCount: input.itemCount,
+  };
+}
+
 function parsePagination(url) {
   const pageText = url.searchParams.get("page") ?? "1";
   const limitText = url.searchParams.get("limit") ?? "20";
@@ -107,6 +223,7 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
     try {
       const url = new URL(request.url ?? "/", "http://localhost");
       const match = url.pathname.match(/^\/v1\/products(?:\/([^/]+))?$/);
+      const orderMatch = url.pathname.match(/^\/v1\/orders(?:\/([^/]+))?$/);
 
       if (url.pathname === "/v1/health") {
         if (request.method !== "GET") {
@@ -136,7 +253,7 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
         return;
       }
 
-      if (!match) {
+      if (!match && !orderMatch) {
         sendJson(response, 404, { error: "not_found" });
         return;
       }
@@ -144,6 +261,57 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
       const tenantId = authenticatedTenant(request, tenantApiKeys);
       if (!tenantId) {
         sendJson(response, 401, { error: "unauthorized" });
+        return;
+      }
+
+      if (orderMatch) {
+        const orderId = orderMatch[1];
+        if (request.method === "POST" && orderId === undefined) {
+          let order;
+          try {
+            order = parseOrder(await readJsonBody(request), tenantId);
+          } catch (error) {
+            sendJson(
+              response,
+              error instanceof InputError ? (error.status ?? 400) : (error.status ?? 400),
+              {
+                error:
+                  error instanceof InputError && error.status === 403
+                    ? "tenant_scope_mismatch"
+                    : error instanceof InputError
+                      ? "invalid_order"
+                      : error.status === 413
+                        ? "payload_too_large"
+                        : "invalid_json",
+              },
+            );
+            return;
+          }
+          const result = repository.createOrder(order);
+          if (result.conflict) {
+            sendJson(response, 409, { error: "order_id_conflict" });
+            return;
+          }
+          sendJson(response, result.created ? 201 : 200, {
+            order: result.order,
+          });
+          return;
+        }
+        if (request.method === "GET" && orderId !== undefined) {
+          if (!ORDER_ID_PATTERN.test(orderId)) {
+            sendJson(response, 400, { error: "invalid_order_id" });
+            return;
+          }
+          const order = repository.getOrder(tenantId, orderId);
+          if (!order) {
+            sendJson(response, 404, { error: "not_found" });
+            return;
+          }
+          sendJson(response, 200, { order });
+          return;
+        }
+        response.setHeader("allow", orderId === undefined ? "POST" : "GET");
+        sendJson(response, 405, { error: "method_not_allowed" });
         return;
       }
 

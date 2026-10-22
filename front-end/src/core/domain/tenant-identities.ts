@@ -60,6 +60,10 @@ export const CustomerOrderSchema = z.object({
   total: z.number().int().nonnegative(),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),
+  backendSyncStatus: z
+    .enum(["not_configured", "pending", "synced", "failed"])
+    .default("not_configured"),
+  backendSyncError: z.string().max(200).optional(),
 });
 
 export type CustomerOrder = z.infer<typeof CustomerOrderSchema>;
