@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useOrderStore } from "@/features/storefront/order-store";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
+import { formatCurrencyAmount } from "@/core/domain/money";
 
 export function StorefrontCustomerAccount({
   locale,
@@ -104,7 +105,11 @@ export function StorefrontCustomerAccount({
                   </span>
                   <span className="font-semibold text-slate-900">
                     {customer
-                      ? `${(order.total / 100).toFixed(2)} ${order.currency}`
+                      ? formatCurrencyAmount(
+                          order.total,
+                          order.currency,
+                          locale,
+                        )
                       : `${order.total} ${order.currency}`}
                   </span>
                 </div>

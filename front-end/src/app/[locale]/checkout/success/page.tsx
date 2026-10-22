@@ -3,20 +3,40 @@ import { notFound } from "next/navigation";
 import { StorefrontCheckoutSuccess } from "@/features/storefront/checkout-success";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
+import { getCustomerSession } from "@/lib/server/session";
 
 type CheckoutSuccessPageProps = {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ orderId?: string }>;
 };
 
 export default async function CheckoutSuccessPage({
   params,
+  searchParams,
 }: CheckoutSuccessPageProps) {
-  const { locale } = await params;
+  const [{ locale }, { orderId }] = await Promise.all([params, searchParams]);
   const requestScope = await getRequestDomainScope();
 
   if (requestScope?.kind !== "tenant") {
     notFound();
   }
+  const customerSession = await getCustomerSession();
+  if (
+    !customerSession ||
+    customerSession.scope.kind !== "tenant" ||
+    customerSession.scope.id !== requestScope.tenant.id
+  ) {
+    notFound();
+  }
+  const order = orderId
+    ? (
+        await getPlatformStore().listCustomerOrders(
+          requestScope.tenant.id,
+          customerSession.userId,
+        )
+      ).find((candidate) => candidate.id === orderId)
+    : null;
+  if (!order) notFound();
 
   const settings = await getPlatformStore().getTenantStoreSettings(
     requestScope.tenant.id,
@@ -78,7 +98,7 @@ export default async function CheckoutSuccessPage({
         </div>
       </header>
 
-      <StorefrontCheckoutSuccess locale={locale} />
+      <StorefrontCheckoutSuccess locale={locale} order={order} />
     </main>
   );
 }

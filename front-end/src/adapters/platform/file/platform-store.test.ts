@@ -705,6 +705,38 @@ describe("FilePlatformStore", () => {
     ]);
     expect(await store.listTenantStaff(otherTenant.id)).toEqual([]);
     await expect(
+      store.updateTenantStaff({
+        staffId: staff.id,
+        tenantId: otherTenant.id,
+        active: false,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.updateTenantStaff({
+        staffId: staff.id,
+        tenantId: tenant.id,
+        active: false,
+      }),
+    ).resolves.toMatchObject({ id: staff.id, active: false });
+    expect(
+      await store.getTenantStaffByEmail(tenant.id, "staff@example.com"),
+    ).toBeNull();
+    await expect(
+      store.updateTenantStaff({
+        staffId: staff.id,
+        tenantId: tenant.id,
+        active: true,
+        passwordHash: "reset-hash",
+      }),
+    ).resolves.toMatchObject({
+      id: staff.id,
+      active: true,
+      passwordHash: "reset-hash",
+    });
+    expect(
+      await store.getTenantStaffByEmail(tenant.id, "staff@example.com"),
+    ).toMatchObject({ id: staff.id, passwordHash: "reset-hash", active: true });
+    await expect(
       store.createTenantStaff({
         id: randomUUID(),
         tenantId: tenant.id,
@@ -737,6 +769,45 @@ describe("FilePlatformStore", () => {
       passwordHash: "other-tenant-hash",
       createdAt: new Date().toISOString(),
     });
+    const order = {
+      id: "ORDER-IDEMPOTENT-001",
+      tenantId: tenant.id,
+      customerId: customer.id,
+      status: "Confirmed" as const,
+      createdAt: new Date().toISOString(),
+      items: [
+        {
+          productId: "catalog-product-1",
+          title: "Sample product",
+          slug: "sample-product",
+          quantity: 2,
+          unitPrice: 1250,
+          currency: "USD",
+        },
+      ],
+      total: 2500,
+      currency: "USD",
+      itemCount: 2,
+    };
+    await expect(store.createCustomerOrder(order)).resolves.toEqual({
+      order,
+      created: true,
+    });
+    await expect(
+      store.createCustomerOrder({ ...order, total: 1 }),
+    ).resolves.toEqual({ order, created: false });
+    await expect(
+      store.createCustomerOrder({
+        ...order,
+        customerId: otherCustomer.id,
+      }),
+    ).rejects.toThrow("already used by another customer");
+    await expect(
+      store.listCustomerOrders(tenant.id, customer.id),
+    ).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining(order)]),
+    );
+
     const state = JSON.parse(await readFile(filePath, "utf8"));
     const createdAt = new Date().toISOString();
     state.customerOrders.push(
@@ -775,13 +846,20 @@ describe("FilePlatformStore", () => {
 
     await expect(
       store.listCustomerOrders(tenant.id, customer.id),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        id: "ORDER-CUSTOMER-1",
-        tenantId: tenant.id,
-        customerId: customer.id,
-      }),
-    ]);
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "ORDER-CUSTOMER-1",
+          tenantId: tenant.id,
+          customerId: customer.id,
+        }),
+        expect.objectContaining({
+          id: "ORDER-IDEMPOTENT-001",
+          tenantId: tenant.id,
+          customerId: customer.id,
+        }),
+      ]),
+    );
     await expect(
       store.listCustomerOrders(otherTenant.id, customer.id),
     ).resolves.toEqual([]);

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-export function CustomerAuthForm() {
+export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
   const [register, setRegister] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +43,7 @@ export function CustomerAuthForm() {
         );
         return;
       }
-      router.push("/account");
+      router.push(redirectTo);
       router.refresh();
     } catch {
       setError("The request could not reach the server. Please try again.");

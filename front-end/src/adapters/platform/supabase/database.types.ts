@@ -314,6 +314,7 @@ export type PlatformDatabase = {
           customer_id: string;
           status: "Confirmed" | "Processing" | "Shipped";
           created_at: string;
+          items: Json;
           total: number;
           currency: string;
           item_count: number;
@@ -324,6 +325,7 @@ export type PlatformDatabase = {
           customer_id: string;
           status: "Confirmed" | "Processing" | "Shipped";
           created_at: string;
+          items?: Json;
           total: number;
           currency: string;
           item_count: number;

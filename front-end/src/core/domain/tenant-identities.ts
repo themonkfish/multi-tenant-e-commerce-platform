@@ -41,12 +41,22 @@ export const CustomerAccountSchema = z.object({
 
 export type CustomerAccount = z.infer<typeof CustomerAccountSchema>;
 
+export const CustomerOrderItemSchema = z.object({
+  productId: z.string().min(1).max(128),
+  title: z.string().min(1),
+  slug: z.string().min(1),
+  quantity: z.number().int().positive(),
+  unitPrice: z.number().int().nonnegative(),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+});
+
 export const CustomerOrderSchema = z.object({
   id: z.string().min(1).max(100),
   tenantId: z.uuid(),
   customerId: z.uuid(),
   status: z.enum(["Confirmed", "Processing", "Shipped"]),
   createdAt: z.iso.datetime(),
+  items: z.array(CustomerOrderItemSchema).default([]),
   total: z.number().int().nonnegative(),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),

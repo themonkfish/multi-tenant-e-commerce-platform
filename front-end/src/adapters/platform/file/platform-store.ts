@@ -635,6 +635,31 @@ export class FilePlatformStore implements PlatformStore {
     });
   }
 
+  async updateTenantStaff(input: {
+    staffId: string;
+    tenantId: string;
+    active?: boolean;
+    passwordHash?: string;
+  }): Promise<TenantStaff | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const staff = state.tenantStaff.find(
+        (candidate) =>
+          candidate.id === input.staffId &&
+          candidate.tenantId === input.tenantId,
+      );
+      if (!staff) return null;
+
+      if (input.active !== undefined) staff.active = input.active;
+      if (input.passwordHash !== undefined) {
+        staff.passwordHash = input.passwordHash;
+      }
+      const updated = TenantStaffSchema.parse(staff);
+      await this.writeState(state);
+      return updated;
+    });
+  }
+
   async getTenantStaffByEmail(
     tenantId: string,
     email: string,
@@ -723,6 +748,46 @@ export class FilePlatformStore implements PlatformStore {
       state.customerAccounts.push(account);
       await this.writeState(state);
       return account;
+    });
+  }
+
+  async createCustomerOrder(
+    input: CustomerOrder,
+  ): Promise<{ order: CustomerOrder; created: boolean }> {
+    const order = CustomerOrderSchema.parse(input);
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const existing = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === order.tenantId && candidate.id === order.id,
+      );
+      if (existing) {
+        if (existing.customerId !== order.customerId) {
+          throw new Error("Order ID is already used by another customer");
+        }
+        return { order: existing, created: false };
+      }
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === order.tenantId && candidate.status === "active",
+      );
+      const host = tenant
+        ? state.hosts.find(
+            (candidate) =>
+              candidate.id === tenant.hostId && candidate.status === "active",
+          )
+        : null;
+      const customer = state.customerAccounts.find(
+        (candidate) =>
+          candidate.id === order.customerId &&
+          candidate.tenantId === order.tenantId,
+      );
+      if (!tenant || !host || !customer) {
+        throw new Error("Customer or tenant is unavailable");
+      }
+      state.customerOrders.push(order);
+      await this.writeState(state);
+      return { order, created: true };
     });
   }
 

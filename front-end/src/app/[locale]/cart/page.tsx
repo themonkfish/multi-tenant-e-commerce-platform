@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { StorefrontCartPage } from "@/features/storefront/cart-page";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
+import { getCustomerSession } from "@/lib/server/session";
 
 type CartPageProps = {
   params: Promise<{ locale: string }>;
@@ -21,6 +22,7 @@ export default async function CartPage({ params }: CartPageProps) {
     requestScope.host.id,
     requestScope.tenant.name,
   );
+  const customerSession = await getCustomerSession();
 
   return (
     <main
@@ -82,7 +84,10 @@ export default async function CartPage({ params }: CartPageProps) {
         </div>
       </header>
 
-      <StorefrontCartPage locale={locale} />
+      <StorefrontCartPage
+        locale={locale}
+        signedIn={customerSession?.scope.kind === "tenant"}
+      />
     </main>
   );
 }

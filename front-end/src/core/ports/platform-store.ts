@@ -133,6 +133,12 @@ export interface PlatformStore
     permissions: TenantStaffPermission[];
     createdAt: string;
   }): Promise<TenantStaff>;
+  updateTenantStaff(input: {
+    staffId: string;
+    tenantId: string;
+    active?: boolean;
+    passwordHash?: string;
+  }): Promise<TenantStaff | null>;
   getTenantStaffByEmail(
     tenantId: string,
     email: string,
@@ -156,6 +162,9 @@ export interface PlatformStore
     passwordHash: string;
     createdAt: string;
   }): Promise<CustomerAccount>;
+  createCustomerOrder(
+    order: CustomerOrder,
+  ): Promise<{ order: CustomerOrder; created: boolean }>;
   listCustomerOrders(
     tenantId: string,
     customerId: string,

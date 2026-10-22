@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import { formatCurrencyAmount } from "@/core/domain/money";
 import {
   StorefrontAddToCartButton,
   StorefrontCartButton,
@@ -152,7 +153,11 @@ export default async function TenantProductCatalogPage({
 
                 <div className="flex items-center justify-between gap-2 pt-2">
                   <span className="text-xl font-semibold text-slate-900">
-                    {product.price.amount} {product.price.currency}
+                    {formatCurrencyAmount(
+                      product.price.amount,
+                      product.price.currency,
+                      locale,
+                    )}
                   </span>
                   <div className="flex items-center gap-2">
                     <StorefrontAddToCartButton

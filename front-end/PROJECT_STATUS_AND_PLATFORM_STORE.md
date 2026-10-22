@@ -19,15 +19,18 @@ Status snapshot as of 2026-10-21:
   tenant product API are implemented and protected by tenant-scoped server-side
   checks.
 - Tenant branding/locale metadata is persisted and applied to the tenant
-  storefront landing preview, and a frontend cart/checkout preview is now wired
-  into the product catalog and detail flows; custom-domain provisioning,
-  commerce runtime, and provider-level storefront setup remain future work.
+  storefront landing preview. A browser-persisted cart now submits
+  authenticated, server-validated orders; custom-domain provisioning and the
+  full commerce runtime remain future work.
 - The repo remains frontend-only; tenant data providers, full storefront
   commerce runtime, payments, and storage are still pending beyond the current
   platform and integration scaffolding.
 - Tenant Owner-managed Staff catalog permissions and Tenant-scoped Customer
   sign-in/order reads are now server-enforced; isolated demo credentials and
   sample Customer orders support local testing.
+- Authenticated checkout creates idempotent server-side order snapshots using
+  current prices from the configured Tenant catalog; payment, inventory,
+  fulfillment, and connected-backend order sync remain unimplemented.
 
 ### Completed
 
@@ -66,14 +69,13 @@ Status snapshot as of 2026-10-21:
       public catalog cards with linked product detail pages when active products
       are available from the tenant backend while the full commerce experience
       remains intentionally unavailable.
-- [x] Tenant storefront cart and checkout preview: persisted cart state,
-      add-to-cart actions, a focused cart page, and a checkout confirmation
-      flow are now wired into the storefront catalog and product detail flows
-      while the underlying commerce runtime remains future work.
-- [x] Customer order confirmation and account preview: recent orders persist
-      locally in the storefront and are visible on dedicated confirmation and
-      account pages, completing the next frontend commerce milestone before the
-      full backend checkout/runtime is implemented.
+- [x] Tenant storefront cart: persisted cart state, add-to-cart actions, and a
+      focused cart page are wired to the storefront.
+- [x] Authenticated server-side order creation revalidates active catalog
+      products, calculates totals on the server, persists line-item snapshots
+      with idempotency, and displays Customer-scoped confirmation/history.
+- [x] Customer order confirmation and account history use server-persisted
+      orders, scoped to the signed-in Customer and Tenant.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
@@ -88,8 +90,9 @@ Status snapshot as of 2026-10-21:
       boundaries, Customer-owned order reads, and owner-only Staff management
       are checked on the server.
 - [x] Tenant Staff login and Tenant Owner-managed Staff accounts with catalog
-      read/write permissions; Tenant-specific Customer registration/login and
-      own-order views are available on active Tenant domains.
+      read/write permissions, disable/reactivate, and password-reset controls;
+      Tenant-specific Customer registration/login and own-order views are
+      available on active Tenant domains.
 - [x] Demo Staff and Customer fixtures, two sample Customer orders, and
       additive seeding for existing isolated demo stores.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
@@ -110,9 +113,10 @@ Status snapshot as of 2026-10-21:
 - [x] **Tenant product management:** the tenant portal now includes a
       catalog screen for listing, creating, editing, and deleting products via
       the tenant-scoped REST API adapter.
-- [x] **Customer storefront preview:** catalog browsing, cart state, checkout
-      confirmation, and account-history views are in place as frontend preview
-      flows; the real backend commerce runtime is still pending.
+- [x] **Customer storefront:** catalog browsing and cart state are in place;
+      authenticated order creation, confirmation, and history are server-backed.
+      Payments, fulfillment, and syncing orders to the connected Tenant backend
+      are still pending.
 - [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, but
       does not yet guide the operator through connection verification, email
       setup, theme/legal settings, or first-host creation. Platform-store
@@ -168,15 +172,14 @@ Status snapshot as of 2026-10-21:
    - Implement payment adapters (Stripe, regional gateway, COD) and webhook
      verification.
    - Add storage adapter support with upload validation and scoped file paths.
-   - Build full order, customer, inventory, shipping, tax, and discount
-     workflows behind the storefront preview.
+   - Sync platform order snapshots to the Tenant backend and build customer,
+     inventory, shipping, tax, and discount workflows.
 
 5. **P2 — Storefront runtime upgrade**
-   - Replace frontend preview-only cart/checkout flows with real backend-backed
-     order creation, payment sessioning, and confirmation states.
+   - Add payment sessioning and production checkout states; current order
+     placement records an unpaid order in the platform store.
    - Add storefront search, category browsing, and richer catalog experience.
-   - Connect authenticated Customer history to real order creation and
-     fulfillment.
+   - Connect order placement to fulfillment and Tenant backend order storage.
 
 6. **P3 — Platform operations and scale**
    - Add observability, CI/CD, automated migration deployment, audit tooling,
@@ -202,8 +205,8 @@ Status snapshot as of 2026-10-21:
       when tenant data is introduced into a cache.
 - [x] Enforce role permissions and scopes for platform, host, tenant, Staff,
       and Customer operations on the server.
-- [ ] Add Staff account disable/reset flows and broader Staff-management
-      controls.
+- [ ] Add Staff permission editing, account deletion, and broader
+      Staff-management controls.
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
       portal with backend, storage, payment, catalog, and staff settings.
 - [ ] Complete the setup wizard's connection check, reserved-domain
@@ -231,12 +234,14 @@ Status snapshot as of 2026-10-21:
 
 - [ ] Product/catalog CRUD, variants, categories, and image management.
 - [ ] Orders, customers, inventory, discounts, shipping, and tax workflows.
-- [x] Tenant storefront preview: catalog, cart, checkout confirmation, and
-      customer account overview are implemented as frontend flows.
+- [x] Tenant storefront preview: catalog and cart are implemented; authenticated
+      checkout creates server-side order records and shows Customer-scoped order
+      confirmation/history.
 - [x] Tenant-specific Customer authentication and own-order read access;
-      checkout preview does not yet create real server-side orders.
-- [ ] Full tenant commerce runtime: real backend orders, inventory, search,
-      shipping/tax handling, and production checkout orchestration remain.
+      order totals are calculated from active Tenant catalog prices.
+- [ ] Full tenant commerce runtime: sync orders to the Tenant backend, add
+      payment processing, inventory, search, shipping/tax handling, and
+      production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
 - [ ] Later growth work: CMS, reviews, reporting, staff permissions, webhooks,

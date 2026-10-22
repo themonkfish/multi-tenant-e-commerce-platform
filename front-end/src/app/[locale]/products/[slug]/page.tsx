@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import { formatCurrencyAmount } from "@/core/domain/money";
 import {
   StorefrontAddToCartButton,
   StorefrontCartButton,
@@ -144,7 +145,11 @@ export default async function TenantProductDetailPage({
 
           <div className="flex flex-wrap items-center gap-4">
             <p className="text-3xl font-semibold text-slate-950">
-              {product.price.amount} {product.price.currency}
+              {formatCurrencyAmount(
+                product.price.amount,
+                product.price.currency,
+                locale,
+              )}
             </p>
             {product.sku && (
               <p className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-600">

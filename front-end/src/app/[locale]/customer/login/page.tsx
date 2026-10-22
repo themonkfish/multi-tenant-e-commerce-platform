@@ -5,12 +5,17 @@ import { getCustomerSession } from "@/lib/server/session";
 
 export default async function CustomerLoginPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ returnTo?: string }>;
 }) {
   await connection();
   const { locale } = await params;
-  if (await getCustomerSession()) redirect(`/${locale}/account`);
+  const { returnTo } = await searchParams;
+  const redirectTo =
+    returnTo === `/${locale}/cart` ? `/${locale}/cart` : `/${locale}/account`;
+  if (await getCustomerSession()) redirect(redirectTo);
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-6 py-12">
       <section className="w-full space-y-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
@@ -26,7 +31,7 @@ export default async function CustomerLoginPage({
             visible only to the signed-in customer.
           </p>
         </header>
-        <CustomerAuthForm />
+        <CustomerAuthForm redirectTo={redirectTo} />
       </section>
     </main>
   );

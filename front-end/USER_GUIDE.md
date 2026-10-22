@@ -245,14 +245,19 @@ platform store.
 
 On the Tenant dashboard, use **Staff accounts** to create a Staff login. Set
 an email, an initial password of at least 14 characters, and catalog read/write
-permissions. Share the initial password securely. Password change/reset and
-account-disable controls are not implemented yet.
+permissions. Share the initial password securely. Use **Disable** to revoke
+that Staff member's access, or **Reactivate** to restore it. Use the password
+reset field to set a new password of at least 14 characters and share it
+securely.
 
 Staff sign in at `/en/tenant/staff/login` on the Tenant's active domain. They
 can open the product manager only with `catalog:read`; `catalog:write` enables
 product changes and automatically includes catalog read. Staff cannot manage
 other accounts, change store settings, or change backend connections. These
-limits are enforced by the server, not only by the interface.
+limits are enforced by the server, not only by the interface. Disabling an
+account blocks subsequent requests immediately. Password resets change the
+credential for future sign-ins; existing sessions remain valid until they
+expire (within 30 minutes).
 
 ## 6. Customer: register and view account orders
 
@@ -265,10 +270,9 @@ read another customer's orders or access another Tenant's account data.
 In the demo fixture, use the Customer credentials from
 `front-end/.local/demo-credentials.txt` (or
 `front-end/.local/demo-role-credentials.txt` when using the additive fixture
-command). The demo account has two sample orders. The checkout flow below is
-still a browser-only preview and does not create these server-side orders.
+command). The fixture has two Customers with separate sample orders.
 
-## 7. Storefront visitor: browse and preview checkout
+## 7. Customer: place an order
 
 The storefront pages are resolved using the exact request hostname. Once a
 tenant hostname is registered, active, pointed to this application, and served
@@ -278,21 +282,27 @@ by the deployment, visitors can use:
 - `/en/products` — active product catalog
 - `/en/products/{product-slug}` — product detail
 - `/en/cart` — browser-persisted cart
-- `/en/checkout/success` — local checkout confirmation
-- `/en/account` — recent locally stored order previews
+- `/en/checkout/success?orderId=...` — signed-in Customer's order confirmation
+- `/en/account` — Customer's server-stored order history
 
-To try the preview:
+To place an order:
 
 1. Open the tenant storefront hostname.
-2. Browse the catalog and add an active product to the cart.
+2. Browse the catalog and add active products to the cart.
 3. In the cart, adjust quantities or remove items.
-4. Choose **Proceed to checkout** to create a local preview order.
-5. Review the confirmation and open **My account** to see recent preview
-   orders.
+4. Choose **Sign in to place order** and sign in or create a Customer account.
+   The cart is preserved while you authenticate.
+5. Choose **Place order**. The server reloads each product from the connected
+   Tenant catalog, rejects unavailable products, and calculates the total from
+   current prices rather than trusting the browser's cart values.
+6. Review the order confirmation or open **My account** to view the order.
 
-This checkout does not collect customer details, charge a payment method,
-create an order in the tenant backend, reserve inventory, or send a receipt.
-Cart and order preview data is stored in the visitor's browser.
+Orders and product-price snapshots are stored server-side in the platform
+store and are visible only to the owning Customer in that Tenant. Repeated
+submission of the same checkout request does not create a duplicate order.
+This slice does not collect payment details, charge a payment method, reserve
+inventory, calculate tax/shipping, create an order in the connected Tenant
+backend, or send a receipt. Do not treat an order as paid or fulfilled.
 
 ## 8. Sign out
 
@@ -344,12 +354,12 @@ local file store. There is no built-in platform data export/import tool.
   certificates, or hosting-provider domain configuration.
 - The tenant REST integration supports health checks and catalog operations;
   tenant Supabase/MongoDB provider adapters are not implemented.
-- Payment processing, real checkout/orders, inventory, shipping, taxes,
-  storage uploads, email invitations, and staff password reset/disable controls
-  are not available. Staff catalog authorization and Tenant-specific Customer
-  sign-in/order reads are implemented.
-- Cart and order history are browser-local previews, not authoritative
-  commerce records.
+- Payment processing, Tenant backend order synchronization, inventory,
+  shipping, taxes, storage uploads, and email invitations are not available.
+  Orders are saved in the platform store as unpaid order records.
+- Cart contents remain browser-local until checkout. Customer orders and
+  product-price snapshots are stored server-side and scoped to the Customer
+  and Tenant.
 - The Super Admin dashboard currently focuses on Host creation and status;
   broader platform administration remains on the roadmap.
 

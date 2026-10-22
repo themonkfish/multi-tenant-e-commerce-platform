@@ -723,6 +723,45 @@ export class SupabasePlatformStore implements PlatformStore {
     });
   }
 
+  async updateTenantStaff(input: {
+    staffId: string;
+    tenantId: string;
+    active?: boolean;
+    passwordHash?: string;
+  }): Promise<TenantStaff | null> {
+    const updates: { active?: boolean; password_hash?: string } = {};
+    if (input.active !== undefined) updates.active = input.active;
+    if (input.passwordHash !== undefined) {
+      updates.password_hash = input.passwordHash;
+    }
+    const { data, error } = await this.client
+      .from("platform_tenant_staff")
+      .update(updates)
+      .eq("id", input.staffId)
+      .eq("tenant_id", input.tenantId)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not update tenant staff account: ${error.message}`,
+      );
+    }
+    return data
+      ? TenantStaffSchema.parse({
+          id: data.id,
+          tenantId: data.tenant_id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          permissions: TenantStaffPermissionSchema.array().parse(
+            data.permissions,
+          ),
+          active: data.active,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
   async getTenantStaffByEmail(
     tenantId: string,
     email: string,
@@ -864,6 +903,51 @@ export class SupabasePlatformStore implements PlatformStore {
     });
   }
 
+  async createCustomerOrder(
+    input: CustomerOrder,
+  ): Promise<{ order: CustomerOrder; created: boolean }> {
+    const order = CustomerOrderSchema.parse(input);
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .insert({
+        id: order.id,
+        tenant_id: order.tenantId,
+        customer_id: order.customerId,
+        status: order.status,
+        created_at: order.createdAt,
+        items: order.items,
+        total: order.total,
+        currency: order.currency,
+        item_count: order.itemCount,
+      })
+      .select("*")
+      .single();
+    if (error?.code === "23505") {
+      const { data: existing, error: lookupError } = await this.client
+        .from("platform_customer_orders")
+        .select("*")
+        .eq("tenant_id", order.tenantId)
+        .eq("id", order.id)
+        .eq("customer_id", order.customerId)
+        .maybeSingle();
+      if (lookupError) {
+        throw new Error(
+          `Could not check an existing customer order: ${lookupError.message}`,
+        );
+      }
+      if (existing) {
+        return {
+          order: customerOrderFromRow(existing),
+          created: false,
+        };
+      }
+    }
+    if (error) {
+      throw new Error(`Could not create customer order: ${error.message}`);
+    }
+    return { order: customerOrderFromRow(data), created: true };
+  }
+
   async listCustomerOrders(
     tenantId: string,
     customerId: string,
@@ -877,18 +961,7 @@ export class SupabasePlatformStore implements PlatformStore {
     if (error) {
       throw new Error(`Could not load customer orders: ${error.message}`);
     }
-    return data.map((row) =>
-      CustomerOrderSchema.parse({
-        id: row.id,
-        tenantId: row.tenant_id,
-        customerId: row.customer_id,
-        status: row.status,
-        createdAt: row.created_at,
-        total: row.total,
-        currency: row.currency,
-        itemCount: row.item_count,
-      }),
-    );
+    return data.map(customerOrderFromRow);
   }
 
   async getTenantStoreSettings(
@@ -1227,6 +1300,30 @@ export class SupabasePlatformStore implements PlatformStore {
 
     return data;
   }
+}
+
+function customerOrderFromRow(row: {
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  status: string;
+  created_at: string;
+  items: unknown;
+  total: number;
+  currency: string;
+  item_count: number;
+}): CustomerOrder {
+  return CustomerOrderSchema.parse({
+    id: row.id,
+    tenantId: row.tenant_id,
+    customerId: row.customer_id,
+    status: row.status,
+    createdAt: row.created_at,
+    items: row.items,
+    total: row.total,
+    currency: row.currency,
+    itemCount: row.item_count,
+  });
 }
 
 function fromAdminRow(row: {
