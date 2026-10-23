@@ -5,7 +5,10 @@ import QRCode from "qrcode";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPlatformStore } from "@/adapters/platform/factory";
-import { getReservedPlatformDomains } from "@/core/domain/host-config";
+import {
+  normalizeHostDomain,
+  normalizeReservedSubdomains,
+} from "@/core/domain/host-config";
 import {
   decryptSecret,
   EncryptedSecretSchema,
@@ -22,7 +25,12 @@ const BootstrapSchema = z.object({
   password: z.string().min(14).max(128),
   platformDomain: z.string().min(1).max(253),
   reservedSubdomains: z
-    .array(z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/))
+    .array(
+      z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/),
+    )
     .max(32)
     .default(["admin", "www", "api"]),
 });
@@ -82,7 +90,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_setup_token" }, { status: 401 });
   }
 
-  const domain = parseDomain(parsed.data.platformDomain);
+  const domain = normalizeHostDomain(parsed.data.platformDomain);
   if (!domain) {
     return NextResponse.json(
       { error: "invalid_platform_domain" },
@@ -90,15 +98,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const reservedSubdomains = [...new Set(parsed.data.reservedSubdomains.map((item) => item.trim().toLowerCase()))];
-  if (
-    reservedSubdomains.some(
-      (subdomain) =>
-        !subdomain ||
-        !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain) ||
-        subdomain === domain,
-    )
-  ) {
+  const reservedSubdomains = normalizeReservedSubdomains(
+    parsed.data.reservedSubdomains,
+  );
+  if (reservedSubdomains.some((subdomain) => subdomain === domain)) {
     return NextResponse.json(
       { error: "invalid_reserved_subdomain" },
       { status: 400 },
@@ -181,22 +184,4 @@ export async function POST(request: Request) {
     secret: base32Secret,
     qrCodeDataUrl: await QRCode.toDataURL(otpauthUrl),
   });
-}
-
-function parseDomain(input: string): string | null {
-  try {
-    const url = new URL(`https://${input}`);
-    if (
-      url.hostname !== input.toLowerCase() ||
-      url.pathname !== "/" ||
-      url.port ||
-      url.username ||
-      url.password
-    ) {
-      return null;
-    }
-    return url.hostname;
-  } catch {
-    return null;
-  }
 }

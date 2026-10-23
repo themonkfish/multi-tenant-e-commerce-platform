@@ -36,6 +36,10 @@ export function SetupWizard() {
     setError("");
     setBusy(true);
     try {
+      const parsedReserved = String(form.get("reservedSubdomains") ?? "")
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
       const response = await fetch("/api/setup/bootstrap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,7 +48,9 @@ export function SetupWizard() {
           email: form.get("email"),
           password: form.get("password"),
           platformDomain: form.get("platformDomain"),
-          reservedSubdomains: ["admin", "www", "api"],
+          reservedSubdomains: parsedReserved.length
+            ? parsedReserved
+            : ["admin", "www", "api"],
         }),
       });
       const body: unknown = await response.json();
@@ -234,6 +240,20 @@ export function SetupWizard() {
           required
         />
       </Field>
+      <Field id="reservedSubdomains" label="Reserved subdomains">
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          id="reservedSubdomains"
+          name="reservedSubdomains"
+          defaultValue="admin, www, api"
+          placeholder="admin, www, api"
+          autoComplete="off"
+        />
+      </Field>
+      <p className="text-sm leading-6 text-slate-600">
+        Use a comma-separated list of host labels to reserve, such as admin,
+        www, and api.
+      </p>
       {error && (
         <p className="text-sm text-red-700" role="alert">
           {error}

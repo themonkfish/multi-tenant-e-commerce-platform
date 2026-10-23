@@ -62,6 +62,28 @@ export function normalizeHostDomain(input: string): string | null {
   }
 }
 
+export function normalizeReservedSubdomains(
+  input: readonly string[],
+): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const item of input) {
+    const normalizedItem = item.trim().toLowerCase();
+    if (
+      !normalizedItem ||
+      !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(normalizedItem) ||
+      seen.has(normalizedItem)
+    ) {
+      continue;
+    }
+    seen.add(normalizedItem);
+    normalized.push(normalizedItem);
+  }
+
+  return normalized;
+}
+
 export function getReservedPlatformDomains(
   platformDomain: string | null,
   reservedSubdomains: readonly string[],
@@ -74,18 +96,11 @@ export function getReservedPlatformDomains(
   }
 
   const reserved = new Set<string>();
-  for (const subdomain of reservedSubdomains) {
-    const normalizedSubdomain = subdomain.trim().toLowerCase();
-    if (
-      !normalizedSubdomain ||
-      !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(normalizedSubdomain)
-    ) {
+  for (const subdomain of normalizeReservedSubdomains(reservedSubdomains)) {
+    if (subdomain === normalizedDomain) {
       continue;
     }
-    if (normalizedSubdomain === normalizedDomain) {
-      continue;
-    }
-    reserved.add(`${normalizedSubdomain}.${normalizedDomain}`);
+    reserved.add(`${subdomain}.${normalizedDomain}`);
   }
   return reserved;
 }

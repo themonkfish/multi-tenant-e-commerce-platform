@@ -5,6 +5,7 @@ import type { PlatformStore } from "@/core/ports/platform-store";
 import {
   getReservedPlatformDomains,
   normalizeHostDomain,
+  normalizeReservedSubdomains,
 } from "@/core/domain/host-config";
 import {
   isScopeAllowedOnRequestDomain,
@@ -88,6 +89,21 @@ describe("normalizeHostDomain and reserved platform subdomains", () => {
     ).toEqual(
       new Set(["admin.platform.example.com", "api.platform.example.com"]),
     );
+  });
+
+  it("normalizes reserved subdomains and drops duplicate or invalid values", () => {
+    expect(
+      normalizeReservedSubdomains([
+        " API ",
+        "admin",
+        "admin",
+        "",
+        "www",
+        "example.com",
+      ]),
+    ).toEqual(["api", "admin", "www"]);
+    expect(getReservedPlatformDomains("platform.example.com.", ["API", "www"]))
+      .toEqual(new Set(["api.platform.example.com", "www.platform.example.com"]));
   });
 });
 
