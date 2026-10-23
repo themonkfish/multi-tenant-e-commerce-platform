@@ -20,6 +20,14 @@ describe("secret encryption", () => {
     expect(decryptSecret(encrypted)).toBe("integration-secret");
   });
 
+  it("avoids reusing a module-level platform store across requests", async () => {
+    const { getPlatformStore } = await import("./platform");
+    const first = getPlatformStore();
+    const second = getPlatformStore();
+
+    expect(first).not.toBe(second);
+  });
+
   it("rejects encrypted values changed after storage", () => {
     process.env.PLATFORM_SECRET_KEY = "cd".repeat(32);
     const encrypted = encryptSecret("private-value");
