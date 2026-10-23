@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   const response = NextResponse.json({ ok: true });
   response.cookies.set(
     getCustomerCookieName(),
-    await createCustomerSession(account.id, account.tenantId),
+    await createCustomerSession(account.id, account.tenantId, scope.host.id),
     customerCookieOptions(),
   );
   return response;

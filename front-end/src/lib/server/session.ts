@@ -129,9 +129,10 @@ export async function createTenantStaffSession(
 export async function createCustomerSession(
   userId: string,
   tenantId: string,
+  hostId: string,
 ): Promise<string> {
   return new SignJWT({
-    scope: { kind: "tenant", id: tenantId },
+    scope: { kind: "tenant", id: tenantId, hostId },
     role: "customer",
   })
     .setProtectedHeader({ alg: "HS256" })
@@ -425,6 +426,7 @@ export async function getCustomerSession(): Promise<Principal | null> {
       scope: z.object({
         kind: z.literal("tenant"),
         id: z.string().uuid(),
+        hostId: z.string().uuid(),
       }),
     })
     .safeParse(payload);
@@ -432,7 +434,8 @@ export async function getCustomerSession(): Promise<Principal | null> {
   const requestScope = await getRequestDomainScope();
   if (
     requestScope?.kind !== "tenant" ||
-    requestScope.tenant.id !== claims.data.scope.id
+    requestScope.tenant.id !== claims.data.scope.id ||
+    requestScope.host.id !== claims.data.scope.hostId
   ) {
     return null;
   }
