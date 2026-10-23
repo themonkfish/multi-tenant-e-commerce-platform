@@ -4,7 +4,10 @@ import {
   CreateTenantInputSchema,
   TenantRecordSchema,
 } from "@/core/domain/host-portal";
-import { normalizeHostDomain } from "@/core/domain/host-config";
+import {
+  getReservedPlatformDomains,
+  normalizeHostDomain,
+} from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -66,12 +69,9 @@ export async function POST(request: Request) {
   }
 
   const state = await store.getSetupState();
-  const reservedDomains = new Set(
-    state.reservedSubdomains.map((subdomain) =>
-      state.platformDomain
-        ? `${subdomain.toLowerCase()}.${state.platformDomain.toLowerCase()}`
-        : "",
-    ),
+  const reservedDomains = getReservedPlatformDomains(
+    state.platformDomain,
+    state.reservedSubdomains,
   );
   const currentTenants = await store.listTenantsForHost(host.id);
   const allTenants = (

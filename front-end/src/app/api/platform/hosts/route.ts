@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   CreateHostInputSchema,
+  getReservedPlatformDomains,
   HostConfigSchema,
   normalizeHostDomain,
 } from "@/core/domain/host-config";
@@ -73,12 +74,9 @@ export async function POST(request: Request) {
   const existingDomains = new Set(
     existingHosts.flatMap((host) => host.domains),
   );
-  const reservedDomains = new Set(
-    state.reservedSubdomains.map((subdomain) =>
-      state.platformDomain
-        ? `${subdomain.toLowerCase()}.${state.platformDomain.toLowerCase()}`
-        : "",
-    ),
+  const reservedDomains = getReservedPlatformDomains(
+    state.platformDomain,
+    state.reservedSubdomains,
   );
   if (
     normalizedDomains.some(

@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPlatformStore } from "@/adapters/platform/factory";
+import { getReservedPlatformDomains } from "@/core/domain/host-config";
 import {
   decryptSecret,
   EncryptedSecretSchema,
@@ -89,6 +90,21 @@ export async function POST(request: Request) {
     );
   }
 
+  const reservedSubdomains = [...new Set(parsed.data.reservedSubdomains.map((item) => item.trim().toLowerCase()))];
+  if (
+    reservedSubdomains.some(
+      (subdomain) =>
+        !subdomain ||
+        !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain) ||
+        subdomain === domain,
+    )
+  ) {
+    return NextResponse.json(
+      { error: "invalid_reserved_subdomain" },
+      { status: 400 },
+    );
+  }
+
   const tokenHash = hashToken(parsed.data.setupToken);
   let admin = await store.getBootstrapAdmin(tokenHash, parsed.data.email);
   if (admin) {
@@ -124,7 +140,7 @@ export async function POST(request: Request) {
       await store.createInitialSuperAdmin({
         setupTokenHash: tokenHash,
         platformDomain: domain,
-        reservedSubdomains: [...new Set(parsed.data.reservedSubdomains)],
+        reservedSubdomains,
         superAdmin: admin,
       });
     } catch (error) {

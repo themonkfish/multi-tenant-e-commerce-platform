@@ -3,6 +3,10 @@ import type { HostConfig } from "@/core/domain/host-config";
 import type { TenantRecord } from "@/core/domain/host-portal";
 import type { PlatformStore } from "@/core/ports/platform-store";
 import {
+  getReservedPlatformDomains,
+  normalizeHostDomain,
+} from "@/core/domain/host-config";
+import {
   isScopeAllowedOnRequestDomain,
   normalizeRequestDomain,
   resolveRequestScope,
@@ -64,12 +68,30 @@ function createStore(
   };
 }
 
-describe("normalizeRequestDomain", () => {
+describe("normalizeHostDomain and reserved platform subdomains", () => {
   it("normalizes case and removes a valid port and trailing dot", () => {
     expect(normalizeRequestDomain("Store.Example.com.:443")).toBe(
       "store.example.com",
     );
+    expect(normalizeHostDomain("STORE.EXAMPLE.COM.")).toBe("store.example.com");
   });
+
+  it("builds reserved platform domains from normalized host labels", () => {
+    expect(
+      getReservedPlatformDomains("platform.example.com", [
+        "admin",
+        "API",
+        "",
+        "api",
+        "platform.example.com",
+      ]),
+    ).toEqual(
+      new Set(["admin.platform.example.com", "api.platform.example.com"]),
+    );
+  });
+});
+
+describe("normalizeRequestDomain", () => {
 
   it.each([
     null,

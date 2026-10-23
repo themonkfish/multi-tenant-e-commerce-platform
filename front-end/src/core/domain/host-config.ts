@@ -44,7 +44,7 @@ export const HostStatusSchema = z.enum(["pending", "active", "suspended"]);
 export type HostStatus = z.infer<typeof HostStatusSchema>;
 
 export function normalizeHostDomain(input: string): string | null {
-  const domain = input.trim().toLowerCase();
+  const domain = input.trim().toLowerCase().replace(/\.$/, "");
   try {
     const url = new URL(`https://${domain}`);
     if (
@@ -60,4 +60,32 @@ export function normalizeHostDomain(input: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function getReservedPlatformDomains(
+  platformDomain: string | null,
+  reservedSubdomains: readonly string[],
+): Set<string> {
+  const normalizedDomain = platformDomain
+    ? normalizeHostDomain(platformDomain)
+    : null;
+  if (!normalizedDomain) {
+    return new Set();
+  }
+
+  const reserved = new Set<string>();
+  for (const subdomain of reservedSubdomains) {
+    const normalizedSubdomain = subdomain.trim().toLowerCase();
+    if (
+      !normalizedSubdomain ||
+      !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(normalizedSubdomain)
+    ) {
+      continue;
+    }
+    if (normalizedSubdomain === normalizedDomain) {
+      continue;
+    }
+    reserved.add(`${normalizedSubdomain}.${normalizedDomain}`);
+  }
+  return reserved;
 }

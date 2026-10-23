@@ -279,6 +279,10 @@ function describeError(body: unknown): string {
         "The deployment operator has not configured SETUP_TOKEN.",
       invalid_setup_token: "The setup token is incorrect.",
       invalid_totp_code: "That authenticator code is not valid. Try again.",
+      invalid_platform_domain:
+        "Use a valid hostname such as platform.example.com without a path, port, or scheme.",
+      invalid_reserved_subdomain:
+        "Reserved subdomains must be simple host labels, such as admin or api, and cannot match the platform domain.",
       rate_limited: "Too many attempts. Wait before trying again.",
       not_found: "Platform setup has already been completed.",
       setup_not_available: "The setup session is no longer available.",
