@@ -7,11 +7,14 @@ automatically implemented just because they are listed there.
 
 ## Current status
 
-Status snapshot as of 2026-10-22:
+Status snapshot as of 2026-10-23:
 
 - The frontend platform bootstrap, Super Admin onboarding, host/tenant
-  lifecycle management, and scoped portal auth flows are in place and working
-  for the current app surface.
+  lifecycle management, scoped portal auth flows, and tenant-scoped cache
+  hardening are in place and working for the current app surface.
+- Platform setup validation is now centralized for platform-domain and
+  reserved-subdomain checks, and the setup wizard accepts a custom reserved
+  subdomain list to avoid deployment misconfiguration.
 - The file-store developer path is fully usable locally; the Supabase platform
   store is the supported production path once the required migration set is
   applied.
@@ -127,10 +130,11 @@ Status snapshot as of 2026-10-22:
       Order snapshots sync to the connected Tenant backend with a visible and
       retryable delivery status; Tenant order management supports basic status
       transitions. Payments and fulfillment are still pending.
-- [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, but
-      does not yet guide the operator through connection verification, email
-      setup, theme/legal settings, or first-host creation. Platform-store
-      credentials are configured outside the wizard.
+- [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, and
+      now validates the platform domain and reserved subdomains consistently.
+      Remaining gaps are connection verification, email setup, theme/legal
+      settings, and first-host guidance. Platform-store credentials are still
+      configured outside the wizard.
 - [ ] **Super Admin dashboard:** host creation/status management works;
       editing host details, deletion, invitations, staff/roles, settings, health,
       analytics, domains, billing, and audit-log views remain.
@@ -142,9 +146,9 @@ Status snapshot as of 2026-10-22:
       domain landing preview, the catalog listing, and product detail pages when
       a backend is configured; the full customer storefront, custom domain
       routing, and commerce runtime remain future work. Resolved domain scopes
-      apply to all localized pages and authenticated portal requests.
-      Tenant-aware cache invalidation remains future work; no tenant data is
-      currently cached.
+      apply to all localized pages and authenticated portal requests, and
+      tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
+      cross-tenant reuse.
 - [ ] **i18n:** routing infrastructure exists, but only English is configured.
       The tenant storefront preview uses the saved default locale metadata but
       does not yet expand the public storefront to localized customer pages.
@@ -159,16 +163,19 @@ Status snapshot as of 2026-10-22:
 #### Recommended next implementation sequence (priority-ordered)
 
 1. **P1 — Security and scope hardening**
-   - Continue hardening auth/session boundaries and add regression coverage
-     for platform, host, tenant, staff, and customer scopes.
-   - Add tenant-aware cache invalidation and prevent cross-tenant cache reuse.
-   - Harden auth/session boundaries for tenant storefront and portal routes.
+   - Completed: auth/session boundaries, tenant-scoped host validation, stale
+     singleton removal, and tenant-aware cache invalidation for scoped routes.
+   - Keep regression coverage for platform, host, tenant, staff, and customer
+     scopes as the ongoing safety net.
+   - Continue hardening auth/session boundaries for tenant storefront and portal
+     routes as new features are introduced.
 
 2. **P1 — Tenant provisioning and platform configuration**
    - Finish tenant storefront/domain provisioning and the managed tenant
      settings flow.
-   - Complete setup-wizard verification, reserved-domain configuration, email
-     provider, theme/legal settings, and first-host guidance.
+   - Complete setup-wizard verification, email provider, theme/legal
+     settings, and first-host guidance; reserved-domain validation is now
+     implemented and centralized.
    - Extend the Tenant Owner portal with storage, payment, catalog, and staff
      configuration controls.
 
@@ -212,7 +219,7 @@ Status snapshot as of 2026-10-22:
       use the platform store as their source of truth.
 - [x] Apply trusted domain scopes across localized pages and authenticated
       platform, host, and tenant requests.
-- [ ] Add tenant-aware cache invalidation and prevent cross-tenant cache reuse
+- [x] Add tenant-aware cache invalidation and prevent cross-tenant cache reuse
       when tenant data is introduced into a cache.
 - [x] Enforce role permissions and scopes for platform, host, tenant, Staff,
       and Customer operations on the server.
@@ -220,9 +227,9 @@ Status snapshot as of 2026-10-22:
       Staff-management controls.
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
       portal with backend, storage, payment, catalog, and staff settings.
-- [ ] Complete the setup wizard's connection check, reserved-domain
-      configuration, email provider, theme/legal settings, and optional
-      first-host steps.
+- [ ] Complete the setup wizard's connection check, email provider,
+      theme/legal settings, and optional first-host steps. Reserved-domain
+      configuration is now implemented and centralized.
 - [ ] Add automated Supabase migration and deployment checks.
 
 #### Tenant data and integrations
