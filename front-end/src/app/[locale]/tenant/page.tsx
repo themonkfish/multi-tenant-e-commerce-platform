@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-settings-form";

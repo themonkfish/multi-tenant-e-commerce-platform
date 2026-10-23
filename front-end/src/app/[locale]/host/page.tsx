@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { HostTenantManagement } from "@/features/tenants/host-tenant-management";
