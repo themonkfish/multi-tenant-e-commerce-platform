@@ -17,6 +17,36 @@ function csvValues(value: FormDataEntryValue | null): string[] {
   ];
 }
 
+function parseCurrencyAmount(
+  value: FormDataEntryValue | null,
+  currency: string,
+): number | undefined {
+  const text = String(value ?? "").trim();
+  if (!text) return undefined;
+  if (!/^[A-Z]{3}$/.test(currency)) return Number.NaN;
+  if (!/^\d+(?:\.\d+)?$/.test(text)) return Number.NaN;
+  const fractionDigits =
+    new Intl.NumberFormat("en", {
+      style: "currency",
+      currency,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  const [whole, fraction = ""] = text.split(".");
+  if (fraction.length > fractionDigits) return Number.NaN;
+  const amount =
+    Number(whole) * 10 ** fractionDigits +
+    Number(fraction.padEnd(fractionDigits, "0") || 0);
+  return Number.isSafeInteger(amount) ? amount : Number.NaN;
+}
+
+function displayCurrencyAmount(amount: number, currency: string): string {
+  const fractionDigits =
+    new Intl.NumberFormat("en", {
+      style: "currency",
+      currency,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  return (amount / 10 ** fractionDigits).toFixed(fractionDigits);
+}
+
 export function TenantStoreSettingsForm({
   initialSettings,
 }: {
@@ -30,6 +60,27 @@ export function TenantStoreSettingsForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const currency = String(form.get("currency") ?? "")
+      .trim()
+      .toUpperCase();
+    const flatRate = parseCurrencyAmount(
+      form.get("shippingFlatRate"),
+      currency,
+    );
+    const freeShippingThreshold = parseCurrencyAmount(
+      form.get("freeShippingThreshold"),
+      currency,
+    );
+    if (
+      flatRate === undefined ||
+      Number.isNaN(flatRate) ||
+      (freeShippingThreshold !== undefined &&
+        (Number.isNaN(freeShippingThreshold) || freeShippingThreshold <= 0))
+    ) {
+      setError("Enter valid shipping amounts in the default store currency.");
+      setNotice("");
+      return;
+    }
     const rawSettings = {
       branding: {
         name: form.get("brandName"),
@@ -43,17 +94,23 @@ export function TenantStoreSettingsForm({
       locale: {
         defaultLocale: form.get("defaultLocale"),
         locales: csvValues(form.get("locales")),
-        currency: String(form.get("currency") ?? "")
-          .trim()
-          .toUpperCase(),
+        currency,
         currencies: csvValues(form.get("currencies")).map((currency) =>
           currency.toUpperCase(),
         ),
       },
+      shipping: {
+        flatRate,
+        ...(freeShippingThreshold !== undefined
+          ? { freeShippingThreshold }
+          : {}),
+      },
     };
     const validated = TenantStoreSettingsSchema.safeParse(rawSettings);
     if (!validated.success) {
-      setError("Check the brand, locale, URL, and ISO currency values.");
+      setError(
+        "Check the brand, locale, shipping amounts, URL, and ISO currency values.",
+      );
       setNotice("");
       return;
     }
@@ -112,6 +169,46 @@ export function TenantStoreSettingsForm({
           required
         />
       </label>
+      <fieldset className="space-y-3 rounded-md border border-slate-200 p-4 sm:col-span-2">
+        <legend className="px-1 text-sm font-semibold">Shipping rates</legend>
+        <p className="text-xs text-slate-600">
+          Rates use the default store currency and are applied to verified
+          server-side product prices. Leave the free-shipping threshold blank to
+          always charge the flat rate.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium">
+            Flat shipping fee ({settings.locale.currency})
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              name="shippingFlatRate"
+              inputMode="decimal"
+              defaultValue={displayCurrencyAmount(
+                settings.shipping.flatRate,
+                settings.locale.currency,
+              )}
+              required
+            />
+          </label>
+          <label className="space-y-1 text-sm font-medium">
+            Free shipping at subtotal ({settings.locale.currency})
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              name="freeShippingThreshold"
+              inputMode="decimal"
+              defaultValue={
+                settings.shipping.freeShippingThreshold === undefined
+                  ? ""
+                  : displayCurrencyAmount(
+                      settings.shipping.freeShippingThreshold,
+                      settings.locale.currency,
+                    )
+              }
+              placeholder="Optional"
+            />
+          </label>
+        </div>
+      </fieldset>
       <label className="space-y-1 text-sm font-medium">
         Logo URL (HTTPS)
         <input

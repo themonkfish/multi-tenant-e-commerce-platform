@@ -104,6 +104,22 @@ export const TenantStoreSettingsSchema = z
       currency: CurrencyCodeSchema,
       currencies: z.array(CurrencyCodeSchema).min(1).max(20),
     }),
+    shipping: z
+      .object({
+        flatRate: z.number().int().min(0).max(2_147_483_647),
+        freeShippingThreshold: z
+          .number()
+          .int()
+          .positive()
+          .max(2_147_483_647)
+          .optional(),
+      })
+      .default({ flatRate: 0 })
+      .refine(
+        (shipping) =>
+          shipping.freeShippingThreshold === undefined || shipping.flatRate > 0,
+        "A free-shipping threshold requires a positive flat shipping rate",
+      ),
   })
   .superRefine((settings, context) => {
     if (!settings.locale.locales.includes(settings.locale.defaultLocale)) {
@@ -140,5 +156,6 @@ export function createDefaultTenantStoreSettings(
       currency: "USD",
       currencies: ["USD"],
     },
+    shipping: { flatRate: 0 },
   };
 }

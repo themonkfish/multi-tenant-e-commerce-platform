@@ -88,6 +88,26 @@ export function StorefrontDemoCheckout({
         ))}
       </ul>
       <p className="mt-4 flex justify-between border-t border-slate-200 pt-4 font-semibold">
+        <span>Subtotal</span>
+        <span>
+          {formatCurrencyAmount(
+            order.subtotal ?? order.total - (order.shippingAmount ?? 0),
+            order.currency,
+            locale,
+          )}
+        </span>
+      </p>
+      <p className="mt-2 flex justify-between text-sm text-slate-600">
+        <span>Shipping</span>
+        <span>
+          {formatCurrencyAmount(
+            order.shippingAmount ?? 0,
+            order.currency,
+            locale,
+          )}
+        </span>
+      </p>
+      <p className="mt-2 flex justify-between border-t border-slate-200 pt-3 font-semibold">
         <span>Total</span>
         <span>{formatCurrencyAmount(order.total, order.currency, locale)}</span>
       </p>

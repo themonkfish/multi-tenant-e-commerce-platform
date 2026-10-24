@@ -60,6 +60,10 @@ export class RestTenantOrderAdapter {
         status: order.status,
         createdAt: order.createdAt,
         items: order.items,
+        ...(order.subtotal !== undefined ? { subtotal: order.subtotal } : {}),
+        ...(order.shippingAmount !== undefined
+          ? { shippingAmount: order.shippingAmount }
+          : {}),
         total: order.total,
         currency: order.currency,
         itemCount: order.itemCount,

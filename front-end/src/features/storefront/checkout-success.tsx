@@ -189,6 +189,27 @@ export function StorefrontCheckoutSuccess({
         </div>
 
         <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
+            <span>Subtotal</span>
+            <span>
+              {formatCurrencyAmount(
+                currentOrder.subtotal ??
+                  currentOrder.total - (currentOrder.shippingAmount ?? 0),
+                currentOrder.currency,
+                locale,
+              )}
+            </span>
+          </div>
+          <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
+            <span>Shipping</span>
+            <span>
+              {formatCurrencyAmount(
+                currentOrder.shippingAmount ?? 0,
+                currentOrder.currency,
+                locale,
+              )}
+            </span>
+          </div>
           <div className="flex items-center justify-between text-base font-semibold text-slate-900">
             <span>Total</span>
             <span>

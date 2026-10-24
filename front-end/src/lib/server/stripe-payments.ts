@@ -44,6 +44,17 @@ export async function createStripeCheckoutSession(input: {
   ) {
     throw new Error("Stripe Checkout requires a positive order amount");
   }
+  const itemSubtotal = input.order.items.reduce(
+    (total, item) => total + item.unitPrice * item.quantity,
+    0,
+  );
+  if (
+    !Number.isSafeInteger(itemSubtotal) ||
+    itemSubtotal !== (input.order.subtotal ?? itemSubtotal) ||
+    itemSubtotal + (input.order.shippingAmount ?? 0) !== input.order.total
+  ) {
+    throw new Error("Stripe Checkout order amounts do not match");
+  }
 
   const metadata = {
     tenantId: input.order.tenantId,
@@ -58,29 +69,43 @@ export async function createStripeCheckoutSession(input: {
       cancel_url: input.cancelUrl,
       metadata,
       payment_intent_data: { metadata },
-      line_items: input.order.items.map((item) => ({
-        quantity: item.quantity,
-        price_data: {
-          currency: item.currency.toLowerCase(),
-          unit_amount: item.unitPrice,
-          product_data: {
-            name: [
-              item.title,
-              item.variantSelections
-                ? Object.entries(item.variantSelections)
-                    .map(([name, value]) => `${name}: ${value}`)
-                    .join(", ")
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" — "),
-            metadata: {
-              productId: item.productId,
-              slug: item.slug,
+      line_items: [
+        ...input.order.items.map((item) => ({
+          quantity: item.quantity,
+          price_data: {
+            currency: item.currency.toLowerCase(),
+            unit_amount: item.unitPrice,
+            product_data: {
+              name: [
+                item.title,
+                item.variantSelections
+                  ? Object.entries(item.variantSelections)
+                      .map(([name, value]) => `${name}: ${value}`)
+                      .join(", ")
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" — "),
+              metadata: {
+                productId: item.productId,
+                slug: item.slug,
+              },
             },
           },
-        },
-      })),
+        })),
+        ...((input.order.shippingAmount ?? 0) > 0
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: input.order.currency.toLowerCase(),
+                  unit_amount: input.order.shippingAmount ?? 0,
+                  product_data: { name: "Shipping" },
+                },
+              },
+            ]
+          : []),
+      ],
     },
     {
       idempotencyKey: `${input.order.tenantId}-${input.order.id}-${input.attempt}`,

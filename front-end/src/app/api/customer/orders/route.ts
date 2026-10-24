@@ -30,7 +30,7 @@ const CreateOrderSchema = z
   .object({
     idempotencyKey: z.uuid(),
     paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
-    deliveryAddress: CustomerDeliveryAddressSchema.optional(),
+    deliveryAddress: CustomerDeliveryAddressSchema,
     items: z
       .array(
         z.object({
@@ -62,14 +62,6 @@ const CreateOrderSchema = z
     ({ items }) =>
       items.reduce((total, item) => total + item.quantity, 0) <= 100,
     "Cart contains too many items",
-  )
-  .refine(
-    ({ paymentMethod, deliveryAddress }) =>
-      paymentMethod !== "cash_on_delivery" || Boolean(deliveryAddress),
-    {
-      message: "A delivery address is required for cash on delivery",
-      path: ["deliveryAddress"],
-    },
   )
   .refine(
     ({ paymentMethod, deliveryAddress }) =>
@@ -473,14 +465,38 @@ export async function POST(request: Request) {
       unitPrice: product.price.amount,
       currency: product.price.currency,
     }));
-    const total = items.reduce(
+    const subtotal = items.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
       0,
     );
+    const shippingSettings = await store.getTenantStoreSettings(
+      session.scope.id,
+      session.scope.hostId,
+      "Store",
+    );
+    if (
+      currency !== shippingSettings.locale.currency &&
+      (shippingSettings.shipping.flatRate > 0 ||
+        shippingSettings.shipping.freeShippingThreshold !== undefined)
+    ) {
+      return NextResponse.json(
+        { error: "shipping_currency_unsupported" },
+        { status: 400 },
+      );
+    }
+    const shippingAmount =
+      shippingSettings.shipping.freeShippingThreshold !== undefined &&
+      subtotal >= shippingSettings.shipping.freeShippingThreshold
+        ? 0
+        : shippingSettings.shipping.flatRate;
+    const total = subtotal + shippingAmount;
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
     if (
       !Number.isSafeInteger(total) ||
+      !Number.isSafeInteger(subtotal) ||
+      !Number.isSafeInteger(shippingAmount) ||
       total > 2_147_483_647 ||
+      subtotal > 2_147_483_647 ||
       total < 1 ||
       items.some((item) => item.unitPrice < 1)
     ) {
@@ -502,6 +518,8 @@ export async function POST(request: Request) {
       status: "Confirmed",
       createdAt: new Date().toISOString(),
       items,
+      subtotal,
+      shippingAmount,
       total,
       currency,
       itemCount,
@@ -511,9 +529,7 @@ export async function POST(request: Request) {
           ? "cod_due"
           : "pending",
       paymentAttempt: 0,
-      ...(parsed.data.deliveryAddress
-        ? { deliveryAddress: parsed.data.deliveryAddress }
-        : {}),
+      deliveryAddress: parsed.data.deliveryAddress,
       backendSyncStatus:
         parsed.data.paymentMethod === "cash_on_delivery"
           ? "pending"
@@ -558,7 +574,12 @@ export async function POST(request: Request) {
       order.deliveryAddress,
       parsed.data.deliveryAddress,
     );
-    if (!storedCartMatches || !storedAddressMatches) {
+    const storedAmountsMatch =
+      order.total === newOrder.total &&
+      (order.subtotal ?? order.total - (order.shippingAmount ?? 0)) ===
+        newOrder.subtotal &&
+      (order.shippingAmount ?? 0) === newOrder.shippingAmount;
+    if (!storedCartMatches || !storedAddressMatches || !storedAmountsMatch) {
       return NextResponse.json(
         { error: "idempotency_key_conflict" },
         { status: 409 },

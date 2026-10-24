@@ -48,6 +48,15 @@ const hostId = "550e8400-e29b-41d4-a716-446655440010";
 const customerId = "550e8400-e29b-41d4-a716-446655440002";
 const orderId = "ORD-550e8400-e29b-41d4-a716-446655440001";
 const checkoutUrl = "https://checkout.stripe.com/c/pay/cs_test_example";
+const deliveryAddress = {
+  fullName: "Test Customer",
+  line1: "1 Market Road",
+  city: "Pune",
+  state: "Maharashtra",
+  postalCode: "411001",
+  country: "IN",
+  phone: "+919876543210",
+};
 const product = {
   id: "product-1",
   tenantId,
@@ -77,8 +86,11 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
       },
     ],
     total: 2500,
+    subtotal: 2500,
+    shippingAmount: 0,
     currency: "USD",
     itemCount: 2,
+    deliveryAddress,
     paymentMethod: "stripe",
     paymentStatus: "pending",
     paymentAttempt: 0,
@@ -103,6 +115,7 @@ function checkoutRequest(
     },
     body: JSON.stringify({
       idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
+      deliveryAddress,
       items,
     }),
   });
@@ -119,15 +132,7 @@ function cashOnDeliveryRequest() {
     body: JSON.stringify({
       idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
       paymentMethod: "cash_on_delivery",
-      deliveryAddress: {
-        fullName: "Test Customer",
-        line1: "1 Market Road",
-        city: "Pune",
-        state: "Maharashtra",
-        postalCode: "411001",
-        country: "IN",
-        phone: "+919876543210",
-      },
+      deliveryAddress,
       items: [{ productId: product.id, quantity: 2 }],
     }),
   });
@@ -144,6 +149,22 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     );
     vi.clearAllMocks();
   });
+
+  function withShippingSettings(
+    store: Record<string, unknown>,
+    currency = "USD",
+    shipping: { flatRate: number; freeShippingThreshold?: number } = {
+      flatRate: 0,
+    },
+  ) {
+    return {
+      ...store,
+      getTenantStoreSettings: vi.fn().mockResolvedValue({
+        locale: { currency },
+        shipping,
+      }),
+    };
+  }
 
   it("creates a server-priced unpaid order and returns a hosted Stripe URL", async () => {
     const order = makeOrder();
@@ -168,7 +189,12 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
-    getPlatformStore.mockReturnValue(store);
+    getPlatformStore.mockReturnValue(
+      withShippingSettings(store, "USD", {
+        flatRate: 200,
+        freeShippingThreshold: 2500,
+      }),
+    );
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(product),
     });
@@ -188,6 +214,8 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     });
     expect(store.createCustomerOrder).toHaveBeenCalledWith(
       expect.objectContaining({
+        subtotal: 2500,
+        shippingAmount: 0,
         total: 2500,
         paymentStatus: "pending",
         backendSyncStatus: "not_configured",
@@ -215,6 +243,94 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     });
   });
 
+  it("requires an Indian delivery address for card checkout", async () => {
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    const response = await POST(
+      new Request("http://store.localhost:3000/api/customer/orders", {
+        method: "POST",
+        headers: {
+          host: "store.localhost:3000",
+          origin: "http://store.localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
+          items: [{ productId: product.id, quantity: 1 }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "invalid_cart" });
+    expect(getPlatformStore).not.toHaveBeenCalled();
+  });
+
+  it("adds configured flat shipping to the server-priced order total", async () => {
+    const store = {
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getCustomerOrder: vi.fn().mockResolvedValue(null),
+      createCustomerOrder: vi.fn().mockResolvedValue({
+        order: makeOrder({ total: 2700, shippingAmount: 200 }),
+        created: true,
+      }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+      prepareCustomerOrderPayment: vi.fn().mockResolvedValue({
+        order: makeOrder({
+          total: 2700,
+          shippingAmount: 200,
+          paymentAttempt: 1,
+        }),
+        attempt: 1,
+      }),
+      saveCustomerOrderPaymentSession: vi
+        .fn()
+        .mockResolvedValue(
+          makeOrder({ total: 2700, shippingAmount: 200, paymentAttempt: 1 }),
+        ),
+    };
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue(
+      withShippingSettings(store, "USD", { flatRate: 200 }),
+    );
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue(product),
+    });
+    createStripeCheckoutSession.mockResolvedValue({
+      id: "cs_test_example",
+      url: checkoutUrl,
+    });
+
+    const response = await POST(checkoutRequest());
+
+    expect(response.status).toBe(200);
+    expect(store.createCustomerOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subtotal: 2500,
+        shippingAmount: 200,
+        total: 2700,
+      }),
+    );
+    expect(createStripeCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: expect.objectContaining({
+          subtotal: 2500,
+          shippingAmount: 200,
+          total: 2700,
+        }),
+      }),
+    );
+  });
+
   it("reuses an open payment session for a matching idempotent retry", async () => {
     const order = makeOrder({
       paymentAttempt: 1,
@@ -231,7 +347,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
-    getPlatformStore.mockReturnValue(store);
+    getPlatformStore.mockReturnValue(withShippingSettings(store));
     retrieveStripeCheckoutSession.mockResolvedValue({
       id: "cs_test_example",
       status: "open",
@@ -270,6 +386,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         },
       ],
       total: variantProduct.price.amount,
+      subtotal: variantProduct.price.amount,
       itemCount: 1,
     });
     const store = {
@@ -289,7 +406,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
-    getPlatformStore.mockReturnValue(store);
+    getPlatformStore.mockReturnValue(withShippingSettings(store));
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(variantProduct),
       reserveInventory: vi.fn().mockResolvedValue(true),
@@ -354,7 +471,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       permissions: ["customer:orders:read"],
     });
 
-    getPlatformStore.mockReturnValue(store);
+    getPlatformStore.mockReturnValue(withShippingSettings(store));
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(variantProduct),
     });
@@ -391,7 +508,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
-    getPlatformStore.mockReturnValue(store);
+    getPlatformStore.mockReturnValue(withShippingSettings(store));
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(variantProduct),
       reserveInventory: vi.fn().mockResolvedValue(false),
@@ -435,7 +552,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
-    getPlatformStore.mockReturnValue(store);
+    getPlatformStore.mockReturnValue(withShippingSettings(store));
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(product),
     });
@@ -532,7 +649,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
-    getPlatformStore.mockReturnValue(store);
+    getPlatformStore.mockReturnValue(withShippingSettings(store, "INR"));
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(codProduct),
     });

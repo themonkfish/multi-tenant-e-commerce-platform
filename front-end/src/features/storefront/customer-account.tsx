@@ -124,6 +124,19 @@ export function StorefrontCustomerAccount({
                       : `${order.total} ${order.currency}`}
                   </span>
                 </div>
+                {customer &&
+                  "shippingAmount" in order &&
+                  (order.shippingAmount ?? 0) > 0 && (
+                    <p className="mt-2 text-sm text-slate-600">
+                      Includes{" "}
+                      {formatCurrencyAmount(
+                        order.shippingAmount ?? 0,
+                        order.currency,
+                        locale,
+                      )}{" "}
+                      shipping
+                    </p>
+                  )}
                 {"deliveryAddress" in order && order.deliveryAddress && (
                   <p className="mt-3 text-sm text-slate-600">
                     Deliver to {order.deliveryAddress.fullName},{" "}

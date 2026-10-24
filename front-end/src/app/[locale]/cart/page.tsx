@@ -94,6 +94,8 @@ export default async function CartPage({
         locale={locale}
         signedIn={customerSession?.scope.kind === "tenant"}
         paymentFailed={payment === "failed"}
+        shipping={settings.shipping}
+        currency={settings.locale.currency}
       />
     </main>
   );

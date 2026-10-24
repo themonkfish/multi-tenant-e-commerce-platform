@@ -15,10 +15,14 @@ export function StorefrontCartPage({
   locale,
   signedIn,
   paymentFailed,
+  shipping,
+  currency,
 }: {
   locale: string;
   signedIn: boolean;
   paymentFailed: boolean;
+  shipping: { flatRate: number; freeShippingThreshold?: number };
+  currency: string;
 }) {
   const router = useRouter();
   const items = useCartStore((state) => state.items);
@@ -49,6 +53,14 @@ export function StorefrontCartPage({
     () => items.reduce((total, item) => total + item.quantity * item.price, 0),
     [items],
   );
+  const estimatedShipping =
+    shipping.freeShippingThreshold !== undefined &&
+    subtotal >= shipping.freeShippingThreshold
+      ? 0
+      : shipping.flatRate;
+  const shippingCurrencyMismatch =
+    items.some((item) => item.currency !== currency) &&
+    (shipping.flatRate > 0 || shipping.freeShippingThreshold !== undefined);
 
   async function onCheckout() {
     if (!signedIn) {
@@ -58,13 +70,8 @@ export function StorefrontCartPage({
       return;
     }
 
-    if (
-      paymentMethod === "cash_on_delivery" &&
-      !CustomerDeliveryAddressSchema.safeParse(deliveryAddress).success
-    ) {
-      setError(
-        "Enter a valid delivery address and +91 Indian mobile number for cash on delivery.",
-      );
+    if (!CustomerDeliveryAddressSchema.safeParse(deliveryAddress).success) {
+      setError("Enter a valid Indian delivery address and +91 mobile number.");
       return;
     }
 
@@ -77,7 +84,7 @@ export function StorefrontCartPage({
         body: JSON.stringify({
           idempotencyKey: idempotencyKey.current,
           paymentMethod,
-          ...(paymentMethod === "cash_on_delivery" ? { deliveryAddress } : {}),
+          deliveryAddress,
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
@@ -108,25 +115,27 @@ export function StorefrontCartPage({
             ? "A product changed or is no longer available. Review your cart and try again."
             : code === "insufficient_stock"
               ? "One or more variants no longer have enough stock. Review your cart and try again."
-            : code === "connection_not_configured"
-              ? "This store has not connected a product backend, so checkout is unavailable."
-              : code === "tenant_backend_unavailable"
-                ? "The store's product backend is temporarily unavailable. Try again later."
-                : code === "payment_not_configured"
-                  ? "Secure checkout is not configured for this store."
-                  : code === "payment_provider_unavailable"
-                    ? "Secure checkout is temporarily unavailable. Try again later."
-                    : code === "cash_on_delivery_currency_unsupported"
-                      ? "Cash on delivery is available only for INR orders."
-                      : code === "invalid_cart"
-                        ? "Enter a valid Indian delivery address and mobile number for cash on delivery."
-                        : code === "free_checkout_not_supported"
-                          ? "Free orders cannot be checked out using card payment."
-                          : code === "idempotency_key_conflict"
-                            ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
-                            : code === "rate_limited"
-                              ? "Too many checkout attempts. Wait a few minutes and try again."
-                              : "The order could not be placed. Please try again.",
+              : code === "connection_not_configured"
+                ? "This store has not connected a product backend, so checkout is unavailable."
+                : code === "tenant_backend_unavailable"
+                  ? "The store's product backend is temporarily unavailable. Try again later."
+                  : code === "payment_not_configured"
+                    ? "Secure checkout is not configured for this store."
+                    : code === "payment_provider_unavailable"
+                      ? "Secure checkout is temporarily unavailable. Try again later."
+                      : code === "cash_on_delivery_currency_unsupported"
+                        ? "Cash on delivery is available only for INR orders."
+                        : code === "invalid_cart"
+                          ? "Enter a valid Indian delivery address and mobile number."
+                          : code === "shipping_currency_unsupported"
+                            ? `Shipping rates are configured in ${currency}. Update the store's default currency or shipping settings.`
+                            : code === "free_checkout_not_supported"
+                              ? "Free orders cannot be checked out using card payment."
+                              : code === "idempotency_key_conflict"
+                                ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
+                                : code === "rate_limited"
+                                  ? "Too many checkout attempts. Wait a few minutes and try again."
+                                  : "The order could not be placed. Please try again.",
         );
         return;
       }
@@ -267,16 +276,22 @@ export function StorefrontCartPage({
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span>Shipping and tax</span>
-            <span>Not calculated</span>
+            <span>Shipping</span>
+            <span>
+              {formatCurrencyAmount(
+                estimatedShipping,
+                items[0]?.currency ?? currency,
+                locale,
+              )}
+            </span>
           </div>
           <div className="border-t border-slate-200 pt-3 text-base font-semibold text-slate-900">
             <div className="flex items-center justify-between">
               <span>Total</span>
               <span>
                 {formatCurrencyAmount(
-                  subtotal,
-                  items[0]?.currency ?? "USD",
+                  shippingCurrencyMismatch ? 0 : subtotal + estimatedShipping,
+                  items[0]?.currency ?? currency,
                   locale,
                 )}
               </span>
@@ -287,6 +302,12 @@ export function StorefrontCartPage({
         {error && (
           <p className="mt-4 text-sm text-red-700" role="alert">
             {error}
+          </p>
+        )}
+        {shippingCurrencyMismatch && (
+          <p className="mt-4 text-sm text-red-700" role="alert">
+            This store&apos;s shipping rates use {currency}, but your cart uses
+            a different currency. Contact the store before checking out.
           </p>
         )}
         {!signedIn && (
@@ -335,66 +356,66 @@ export function StorefrontCartPage({
                 </p>
               )}
             </fieldset>
-            {paymentMethod === "cash_on_delivery" && (
-              <fieldset className="space-y-3">
-                <legend className="text-sm font-semibold text-slate-800">
-                  Delivery address
-                </legend>
-                {(
-                  [
-                    ["fullName", "Full name", "text"],
-                    ["line1", "Address line 1", "text"],
-                    ["line2", "Address line 2 (optional)", "text"],
-                    ["city", "City", "text"],
-                    ["state", "State", "text"],
-                    ["postalCode", "PIN code", "text"],
-                    ["phone", "Mobile (+91)", "tel"],
-                  ] as const
-                ).map(([field, label, type]) => (
-                  <label
-                    className="block space-y-1 text-xs font-medium text-slate-600"
-                    key={field}
-                  >
-                    {label}
-                    <input
-                      autoComplete={
-                        field === "fullName"
-                          ? "name"
-                          : field === "line1"
-                            ? "address-line1"
-                            : field === "line2"
-                              ? "address-line2"
-                              : field === "postalCode"
-                                ? "postal-code"
-                                : field === "phone"
-                                  ? "tel"
-                                  : "address-level2"
-                      }
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                      disabled={checkingOut}
-                      onChange={(event) => {
-                        setDeliveryAddress((current) => ({
-                          ...current,
-                          [field]: event.target.value,
-                        }));
-                        idempotencyKey.current = crypto.randomUUID();
-                      }}
-                      required={field !== "line2"}
-                      type={type}
-                      value={deliveryAddress[field]}
-                    />
-                  </label>
-                ))}
-                <p className="text-xs text-slate-500">
-                  Country: India. Pay the store operator when your order is
-                  delivered.
-                </p>
-              </fieldset>
-            )}
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-semibold text-slate-800">
+                Delivery address
+              </legend>
+              {(
+                [
+                  ["fullName", "Full name", "text"],
+                  ["line1", "Address line 1", "text"],
+                  ["line2", "Address line 2 (optional)", "text"],
+                  ["city", "City", "text"],
+                  ["state", "State", "text"],
+                  ["postalCode", "PIN code", "text"],
+                  ["phone", "Mobile (+91)", "tel"],
+                ] as const
+              ).map(([field, label, type]) => (
+                <label
+                  className="block space-y-1 text-xs font-medium text-slate-600"
+                  key={field}
+                >
+                  {label}
+                  <input
+                    autoComplete={
+                      field === "fullName"
+                        ? "name"
+                        : field === "line1"
+                          ? "address-line1"
+                          : field === "line2"
+                            ? "address-line2"
+                            : field === "postalCode"
+                              ? "postal-code"
+                              : field === "phone"
+                                ? "tel"
+                                : "address-level2"
+                    }
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                    disabled={checkingOut}
+                    onChange={(event) => {
+                      setDeliveryAddress((current) => ({
+                        ...current,
+                        [field]: event.target.value,
+                      }));
+                      idempotencyKey.current = crypto.randomUUID();
+                    }}
+                    required={field !== "line2"}
+                    type={type}
+                    value={deliveryAddress[field]}
+                  />
+                </label>
+              ))}
+              <p className="text-xs text-slate-500">
+                Delivery is currently available within India.
+                {paymentMethod === "cash_on_delivery" &&
+                  " Pay the store operator when your order is delivered."}
+              </p>
+            </fieldset>
             <button
               className="w-full rounded-md bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
               disabled={
                 checkingOut ||
+                shippingCurrencyMismatch ||
                 (paymentMethod === "cash_on_delivery" &&
                   !supportsCashOnDelivery)
               }

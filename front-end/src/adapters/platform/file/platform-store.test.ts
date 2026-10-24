@@ -668,6 +668,7 @@ describe("FilePlatformStore", () => {
         currency: "GBP",
         currencies: ["GBP", "EUR"],
       },
+      shipping: { flatRate: 100, freeShippingThreshold: 2000 },
     };
     await expect(
       store.updateTenantStoreSettings({
@@ -717,6 +718,18 @@ describe("FilePlatformStore", () => {
         },
       }).success,
     ).toBe(false);
+    expect(
+      TenantStoreSettingsSchema.safeParse({
+        ...settings,
+        shipping: { flatRate: 0, freeShippingThreshold: 2000 },
+      }).success,
+    ).toBe(false);
+    expect(
+      TenantStoreSettingsSchema.parse({
+        branding: settings.branding,
+        locale: settings.locale,
+      }).shipping,
+    ).toEqual({ flatRate: 0 });
   });
 
   it("persists REST connection settings only for an active tenant in its host", async () => {

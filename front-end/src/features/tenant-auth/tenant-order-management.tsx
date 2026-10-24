@@ -547,6 +547,27 @@ export function TenantOrderManagement({
                 </span>
               </li>
             ))}
+            <li className="flex justify-between p-3 text-sm text-slate-600">
+              <span>Subtotal</span>
+              <span>
+                {formatCurrencyAmount(
+                  selected.subtotal ??
+                    selected.total - (selected.shippingAmount ?? 0),
+                  selected.currency,
+                  locale,
+                )}
+              </span>
+            </li>
+            <li className="flex justify-between p-3 text-sm text-slate-600">
+              <span>Shipping</span>
+              <span>
+                {formatCurrencyAmount(
+                  selected.shippingAmount ?? 0,
+                  selected.currency,
+                  locale,
+                )}
+              </span>
+            </li>
             <li className="flex justify-between p-3 font-semibold">
               <span>Total</span>
               <span>

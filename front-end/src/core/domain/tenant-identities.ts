@@ -93,7 +93,9 @@ const CustomerOrderBaseSchema = z.object({
   status: z.enum(["Confirmed", "Processing", "Shipped"]),
   createdAt: z.iso.datetime(),
   items: z.array(CustomerOrderItemSchema).default([]),
-  total: z.number().int().nonnegative(),
+  subtotal: z.number().int().min(0).max(2_147_483_647).optional(),
+  shippingAmount: z.number().int().min(0).max(2_147_483_647).optional(),
+  total: z.number().int().min(0).max(2_147_483_647),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),
   paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
@@ -111,8 +113,36 @@ const CustomerOrderBaseSchema = z.object({
   backendSyncError: z.string().max(200).optional(),
 });
 
+function validateOrderAmounts(
+  order: Pick<
+    z.infer<typeof CustomerOrderBaseSchema>,
+    "items" | "subtotal" | "shippingAmount" | "total"
+  >,
+  context: z.RefinementCtx,
+) {
+  if (order.subtotal === undefined && order.shippingAmount === undefined)
+    return;
+  const subtotal =
+    order.subtotal ??
+    order.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const shippingAmount = order.shippingAmount ?? 0;
+  if (
+    !Number.isSafeInteger(subtotal) ||
+    !Number.isSafeInteger(shippingAmount) ||
+    !Number.isSafeInteger(order.total) ||
+    subtotal + shippingAmount !== order.total
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["total"],
+      message: "Order total must equal subtotal plus shipping",
+    });
+  }
+}
+
 export const CustomerOrderSchema = CustomerOrderBaseSchema.superRefine(
   (order, context) => {
+    validateOrderAmounts(order, context);
     if (
       order.paymentMethod === "cash_on_delivery" &&
       (order.currency !== "INR" ||
@@ -147,6 +177,7 @@ export const TenantOrderSchema = CustomerOrderBaseSchema.omit({
   paymentSessionId: true,
   paymentIntentId: true,
 }).superRefine((order, context) => {
+  validateOrderAmounts(order, context);
   if (
     order.paymentMethod === "cash_on_delivery" &&
     (order.currency !== "INR" || !order.deliveryAddress)

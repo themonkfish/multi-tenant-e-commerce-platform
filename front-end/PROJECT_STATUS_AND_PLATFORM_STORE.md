@@ -48,7 +48,10 @@ Status snapshot as of 2026-10-24:
   signed payment webhooks before syncing card orders to the Tenant backend.
   India-only INR cash-on-delivery orders require an Indian delivery address,
   are synced as unpaid orders, and can be marked collected by an authorized
-  Tenant operator with an audit event. Payment retries are idempotent. Variant
+  Tenant operator with an audit event. Checkout now requires a validated
+  India delivery address for all payments, calculates tenant-configured flat
+  shipping fees and free-shipping thresholds from server-verified item prices,
+  and snapshots subtotal, shipping, and total. Payment retries are idempotent. Variant
   inventory is opt-in and reserved atomically at checkout; failed/expired card
   payments release reservations, while successful card and COD orders consume
   them. Basic fulfillment tracking is supported when Tenant operators ship an
@@ -111,9 +114,15 @@ Status snapshot as of 2026-10-24:
       with idempotency, and displays Customer-scoped confirmation/history.
 - [x] Customer order confirmation and account history use server-persisted
       orders, scoped to the signed-in Customer and Tenant.
+- [x] Tenant Owners can configure a flat shipping fee and optional
+      free-shipping threshold in the store's default currency. Checkout
+      validates India delivery details for card and COD orders and calculates
+      the final shipping amount from current catalog prices on the server.
 - [x] Idempotent Tenant REST order ingestion persists order snapshots in
       SQLite; delivery status is recorded in the platform store and failed or
-      pending sync can be retried by the owning Customer.
+      pending sync can be retried by the owning Customer. The backend order
+      contract accepts and persists `subtotal`, `shippingAmount`, and the
+      validated `deliveryAddress` provided in `POST /{apiVersion}/orders`.
 - [x] Tenant Owners and explicitly permissioned Staff can list, paginate,
       inspect, and advance Tenant order statuses; Customer order history is
       updated to reflect operational status changes. Shipment tracking numbers,
@@ -231,7 +240,8 @@ Status snapshot as of 2026-10-24:
      Cash on Delivery, are implemented. Stripe Connect is blocked pending
      platform-country eligibility; regional gateways are deferred.
    - Wire uploaded assets into product image management.
-   - Build customer, shipping, tax, and discount workflows around synchronized
+   - Basic address capture, configurable flat shipping, and order tracking are
+     implemented. Continue with tax and discount workflows around synchronized
      Tenant backend order snapshots; variant inventory reservation is implemented.
 
 5. **P2 — Storefront runtime upgrade**
@@ -241,7 +251,7 @@ Status snapshot as of 2026-10-24:
      product option selection with server-validated order snapshots.
    - Per-variant pricing and SKU remain future catalog work; inventory tracking
      and checkout reservation are implemented.
-   - Connect order placement to fulfillment workflows.
+   - Extend basic fulfillment tracking with carrier integrations.
 
 6. **P3 — Platform operations and scale**
    - Add observability, CI/CD, automated migration deployment, audit tooling,
@@ -541,8 +551,9 @@ Before deploying the app:
    all later migrations, including `0012_tenant_domain_verification.sql`,
    `0013_platform_setup_settings.sql`, and
    `0014_tenant_database_providers.sql`, `0015_cash_on_delivery.sql`, and
-   `0016_tenant_storage_providers.sql`, and
-   `0017_order_fulfillment_tracking.sql`.
+   `0016_tenant_storage_providers.sql`,
+   `0017_order_fulfillment_tracking.sql`, and
+   `0018_checkout_shipping.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

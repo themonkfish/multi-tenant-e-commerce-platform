@@ -959,6 +959,8 @@ export class SupabasePlatformStore implements PlatformStore {
         status: order.status,
         created_at: order.createdAt,
         items: order.items,
+        subtotal: order.subtotal ?? order.total - (order.shippingAmount ?? 0),
+        shipping_amount: order.shippingAmount ?? 0,
         total: order.total,
         currency: order.currency,
         item_count: order.itemCount,
@@ -1295,7 +1297,7 @@ export class SupabasePlatformStore implements PlatformStore {
   ): Promise<TenantStoreSettings> {
     const { data, error } = await this.client
       .from("platform_tenant_settings")
-      .select("branding, locale")
+      .select("branding, locale, shipping")
       .eq("tenant_id", tenantId)
       .eq("host_id", hostId)
       .maybeSingle();
@@ -1308,6 +1310,7 @@ export class SupabasePlatformStore implements PlatformStore {
     return TenantStoreSettingsSchema.parse({
       branding: data.branding,
       locale: data.locale,
+      shipping: data.shipping,
     });
   }
 
@@ -1326,6 +1329,7 @@ export class SupabasePlatformStore implements PlatformStore {
         p_host_id: input.hostId,
         p_branding: settings.branding,
         p_locale: settings.locale,
+        p_shipping: settings.shipping,
         p_updated_at: input.updatedAt,
         p_actor_id: input.auditEvent.actorId,
         p_audit_id: input.auditEvent.id,
@@ -1885,6 +1889,8 @@ function customerOrderFromRow(row: {
   status: string;
   created_at: string;
   items: unknown;
+  subtotal: number;
+  shipping_amount: number;
   total: number;
   currency: string;
   item_count: number;
@@ -1905,6 +1911,8 @@ function customerOrderFromRow(row: {
     status: row.status,
     createdAt: row.created_at,
     items: row.items,
+    subtotal: row.subtotal,
+    shippingAmount: row.shipping_amount,
     total: row.total,
     currency: row.currency,
     itemCount: row.item_count,
