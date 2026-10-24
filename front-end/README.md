@@ -144,6 +144,12 @@ For production, set `PLATFORM_STORE=supabase`, configure
 secrets, and apply the reviewed migrations in `supabase/migrations/` before
 starting the app. Remove `SETUP_TOKEN` after setup.
 
+The `Supabase migrations` GitHub Actions workflow starts an isolated local
+Supabase database, applies all platform migrations from scratch, and lints the
+result whenever Supabase files change. It does not connect to or deploy to
+production; review and apply production migrations through the approved
+deployment process.
+
 Start the frontend from this directory with `npm run dev`, or from the
 repository root with `npm run dev`. Open [http://localhost:3000](http://localhost:3000);
 the app redirects to its English locale at `/en`.

@@ -270,7 +270,9 @@ Status snapshot as of 2026-10-24:
 - [x] Configure Resend-backed Host/Tenant invitation delivery. Manual
       one-time invitation links remain available when email is unconfigured or
       delivery fails.
-- [ ] Add automated Supabase migration and deployment checks.
+- [x] Add CI validation that applies all platform Supabase migrations to a
+      clean local database and lints the resulting schema. Production migration
+      deployment remains a reviewed manual operation.
 
 #### Tenant data and integrations
 

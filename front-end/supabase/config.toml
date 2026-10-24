@@ -1,0 +1,10 @@
+project_id = "multi-tenant-e-commerce-platform"
+
+[api]
+enabled = false
+
+[db]
+major_version = 15
+
+[studio]
+enabled = false
