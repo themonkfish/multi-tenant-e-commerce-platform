@@ -14,6 +14,7 @@ export const ProductInputSchema = z
       currency: z.string().regex(/^[A-Z]{3}$/),
     }),
     sku: z.string().max(100).optional(),
+    category: z.string().trim().min(1).max(80).nullable().optional(),
     imageUrl: z
       .url({ protocol: /^https$/ })
       .max(2048)

@@ -35,7 +35,9 @@ Status snapshot as of 2026-10-24:
   live card payments remain future work. Tenant Owner-managed S3-compatible
   storage configuration and tenant-scoped JPEG/PNG/WebP uploads are
   implemented; catalog writers can attach uploaded images to products and
-  render them across the tenant storefront.
+  render them across the tenant storefront. Products now have tenant-scoped
+  categories; the storefront supports active-product search, category filters,
+  and paginated browsing.
 - Tenant Owner-managed Staff catalog/order permissions and Tenant-scoped
   Customer sign-in/order reads are now server-enforced; isolated demo
   credentials and sample Customer orders support local testing.
@@ -221,7 +223,8 @@ Status snapshot as of 2026-10-24:
 5. **P2 — Storefront runtime upgrade**
    - Add production checkout settings and payment operations; the current Stripe
      integration is restricted to test mode.
-   - Add storefront search, category browsing, and richer catalog experience.
+   - Completed: storefront name search, category browsing, and pagination.
+     Continue with variants and a richer catalog experience.
    - Connect order placement to payment, inventory, and fulfillment workflows.
 
 6. **P3 — Platform operations and scale**
@@ -287,10 +290,12 @@ Status snapshot as of 2026-10-24:
 
 #### Commerce experiences
 
-- [ ] Product/catalog CRUD, variants, and categories.
+- [ ] Product/catalog variants.
+- [x] Tenant product categories and storefront name search, category filters,
+      and pagination across REST, Supabase, and MongoDB catalog providers.
 - [x] Product image management: tenant-scoped uploads, HTTPS image URLs saved
       through all catalog adapters, and storefront rendering. Tenant Supabase
-      catalog schemas must be upgraded to version 2.
+      catalog schemas must be upgraded to version 3.
 - [ ] Orders, customers, inventory, discounts, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
@@ -298,7 +303,7 @@ Status snapshot as of 2026-10-24:
 - [x] Tenant-specific Customer authentication and own-order read access;
       order totals are calculated from active Tenant catalog prices.
 - [ ] Full tenant commerce runtime: add live payment processing, inventory,
-      search, shipping/tax handling, and production checkout orchestration.
+      shipping/tax handling, and production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
 - [ ] Later growth work: CMS, reviews, reporting, staff permissions, webhooks,
@@ -402,11 +407,13 @@ features are implemented.
     in the tenant project before testing and initialization; MongoDB Atlas
     collections and indexes are initialized by the app. Database providers
     take precedence over REST for catalog operations. The supported database
-    schema is version 1; test results report incompatible versions, and the
+    schema is version 3; test results report incompatible versions, and the
     app will not initialize a database with a newer version.
     MongoDB initializes a `tenant_products` collection with a strict product
     document validator, tenant-scoped slug and creation-time indexes, and a
-    tenant-bound `tenant_schema_metadata` version record. Only dedicated
+    tenant-bound `tenant_schema_metadata` version record. Products support
+    optional categories; database-backed search matches product titles.
+    Only dedicated
     Supabase projects and dedicated MongoDB databases are currently supported;
     shared-database tenancy modes are not enabled for these direct credentials.
 11. A Tenant Owner session can also exercise the catalog API:
@@ -414,14 +421,17 @@ features are implemented.
     `POST /api/tenant/products`, and
     `GET`/`PATCH`/`DELETE /api/tenant/products/{productId}`. These routes
     proxy product operations to the connected backend. The Tenant catalog UI
-    supports product CRUD and attaching images from the configured storage
-    provider.
+    supports product CRUD, categories, and attaching images from the configured
+    storage provider. REST backends should apply `search`, `category`, and
+    `status` filters to `GET /{apiVersion}/products`, and implement
+    `GET /{apiVersion}/products/categories?tenantId=...&status=active` with a
+    `{ "data": ["Category"] }` response for category browsing.
 
-Tenant Supabase catalog projects use schema version 2 for product images.
-Apply the current `supabase/reference/tenant-catalog.sql` to an existing
-Supabase tenant project, then use the Tenant Owner database setup to initialize
-the schema. MongoDB Atlas catalogs advance to version 2 through the same
-initialize-schema action.
+Tenant Supabase catalog projects use schema version 3 for product images and
+categories. Apply the current `supabase/reference/tenant-catalog.sql` to an
+existing Supabase tenant project, then use the Tenant Owner database setup to
+initialize the schema. MongoDB Atlas catalogs update their product validator
+and advance to version 3 through the same initialize-schema action.
 
 The tenant portal saves branding and locale metadata but does not yet apply it
 to a live storefront. REST catalog requests use the saved connection, but

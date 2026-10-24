@@ -26,6 +26,7 @@ const ProductRowSchema = z.object({
   price_amount: z.number().int().nonnegative(),
   price_currency: z.string().length(3),
   sku: z.string().nullable(),
+  category: z.string().min(1).max(80).nullable(),
   image_url: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -53,6 +54,7 @@ type SupabaseTenantDatabase = {
           price_amount: number;
           price_currency: string;
           sku: string | null;
+          category: string | null;
           image_url: string | null;
           created_at: string;
           updated_at: string;
@@ -66,6 +68,7 @@ type SupabaseTenantDatabase = {
           price_amount: number;
           price_currency: string;
           sku?: string | null;
+          category?: string | null;
           image_url?: string | null;
           created_at: string;
           updated_at: string;
@@ -77,6 +80,7 @@ type SupabaseTenantDatabase = {
           price_amount?: number;
           price_currency?: string;
           sku?: string | null;
+          category?: string | null;
           image_url?: string | null;
           updated_at?: string;
         };
@@ -108,6 +112,10 @@ type SupabaseTenantDatabase = {
       initialize_tenant_catalog: {
         Args: { p_tenant_id: string };
         Returns: number;
+      };
+      list_tenant_product_categories: {
+        Args: { p_tenant_id: string; p_status: string | null };
+        Returns: { category: string }[];
       };
     };
     Enums: Record<string, never>;
@@ -154,12 +162,27 @@ export class SupabaseTenantCatalog implements CatalogPort {
         "Product pagination offset is outside the supported range",
       );
     }
-    const { data, count, error } = await this.client
+    let builder = this.client
       .from(TABLE)
       .select("*", { count: "exact" })
       .eq("tenant_id", this.tenantId)
-      .order("created_at", { ascending: false })
-      .range(from, from + query.limit - 1);
+      .order("created_at", { ascending: false });
+    if (query.search?.trim()) {
+      builder = builder.ilike(
+        "title",
+        `%${query.search.trim().replace(/[\\%_]/g, "\\$&")}%`,
+      );
+    }
+    if (query.category) {
+      builder = builder.eq("category", query.category);
+    }
+    if (query.status) {
+      builder = builder.eq("status", query.status);
+    }
+    const { data, count, error } = await builder.range(
+      from,
+      from + query.limit - 1,
+    );
     if (error) this.throwBackend(error.message, error.code);
     return {
       data: z
@@ -199,6 +222,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
         price_amount: product.price.amount,
         price_currency: product.price.currency,
         sku: product.sku ?? null,
+        category: product.category ?? null,
         image_url: product.imageUrl ?? null,
         created_at: now,
         updated_at: now,
@@ -233,6 +257,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
       changes.price_currency = update.price.currency;
     }
     if (update.sku !== undefined) changes.sku = update.sku;
+    if (update.category !== undefined) changes.category = update.category;
     if (update.imageUrl !== undefined) changes.image_url = update.imageUrl;
     const { data, error } = await this.client
       .from(TABLE)
@@ -257,6 +282,26 @@ export class SupabaseTenantCatalog implements CatalogPort {
       .maybeSingle();
     if (error) this.throwBackend(error.message, error.code);
     if (!data) throw new TenantDataBackendError(404, "Product not found");
+  }
+
+  async listProductCategories(
+    tenantId: string,
+    status?: Product["status"],
+  ): Promise<string[]> {
+    this.assertTenant(tenantId);
+    const { data, error } = await this.client.rpc(
+      "list_tenant_product_categories",
+      {
+        p_tenant_id: this.tenantId,
+        p_status: status ?? null,
+      },
+    );
+    if (error) this.throwBackend(error.message, error.code);
+    const categories = z
+      .array(z.object({ category: z.string().min(1).max(80) }))
+      .parse(data ?? [])
+      .map(({ category }) => category);
+    return Array.from(new Set(categories));
   }
 
   async getSchemaVersion(): Promise<number | null> {
@@ -299,6 +344,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
       status: value.status,
       price: { amount: value.price_amount, currency: value.price_currency },
       ...(value.sku === null ? {} : { sku: value.sku }),
+      ...(value.category === null ? {} : { category: value.category }),
       ...(value.image_url === null ? {} : { imageUrl: value.image_url }),
       createdAt: value.created_at,
       updatedAt: value.updated_at,

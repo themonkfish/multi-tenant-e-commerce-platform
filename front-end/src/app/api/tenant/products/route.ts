@@ -42,12 +42,23 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const page = Number(url.searchParams.get("page") ?? "1");
   const limit = Number(url.searchParams.get("limit") ?? "20");
+  const rawSearch = url.searchParams.get("search") ?? undefined;
+  const rawCategory = url.searchParams.get("category") ?? undefined;
+  const rawStatus = url.searchParams.get("status") ?? undefined;
+  const status =
+    rawStatus === "draft" || rawStatus === "active" || rawStatus === "archived"
+      ? rawStatus
+      : undefined;
   if (
     !Number.isInteger(page) ||
     page < 1 ||
     !Number.isInteger(limit) ||
     limit < 1 ||
-    limit > 100
+    limit > 100 ||
+    (rawSearch !== undefined && rawSearch.length > 100) ||
+    (rawCategory !== undefined &&
+      (rawCategory.trim().length < 1 || rawCategory.length > 80)) ||
+    (rawStatus !== undefined && status === undefined)
   ) {
     return NextResponse.json({ error: "invalid_pagination" }, { status: 400 });
   }
@@ -70,6 +81,9 @@ export async function GET(request: Request) {
       tenantId: session.scope.id,
       page,
       limit,
+      ...(rawSearch?.trim() ? { search: rawSearch.trim() } : {}),
+      ...(rawCategory ? { category: rawCategory.trim() } : {}),
+      ...(status ? { status } : {}),
     });
     return NextResponse.json(result);
   } catch (error) {

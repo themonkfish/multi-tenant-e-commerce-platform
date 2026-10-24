@@ -39,6 +39,7 @@ export default async function HomePage({ params }: HomePageProps) {
       status: "draft" | "active" | "archived";
       price: { amount: number; currency: string };
       sku?: string;
+      category?: string | null;
       imageUrl?: string | null;
     }> = [];
 
@@ -233,6 +234,14 @@ export default async function HomePage({ params }: HomePageProps) {
                           {product.slug}
                         </p>
                       </div>
+                      {product.category && (
+                        <Link
+                          className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                          href={`/${locale}/products?category=${encodeURIComponent(product.category)}`}
+                        >
+                          {product.category}
+                        </Link>
+                      )}
                       <span
                         className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
                         style={{

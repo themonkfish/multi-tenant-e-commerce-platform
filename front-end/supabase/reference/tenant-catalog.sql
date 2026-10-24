@@ -7,6 +7,9 @@ create table if not exists public.tenant_products (
   price_amount integer not null check (price_amount >= 0),
   price_currency text not null check (price_currency ~ '^[A-Z]{3}$'),
   sku text check (sku is null or char_length(sku) <= 100),
+  category text check (
+    category is null or char_length(category) between 1 and 80
+  ),
   image_url text check (
     image_url is null or
     (image_url ~ '^https://' and char_length(image_url) <= 2048)
@@ -22,6 +25,10 @@ alter table public.tenant_products
     image_url is null or
     (image_url ~ '^https://' and char_length(image_url) <= 2048)
   );
+
+alter table public.tenant_products
+  add column if not exists category text
+  check (category is null or char_length(category) between 1 and 80);
 
 create index if not exists tenant_products_tenant_created_idx
   on public.tenant_products (tenant_id, created_at desc);
@@ -73,21 +80,43 @@ begin
     if existing_tenant_id <> p_tenant_id then
       raise exception 'This Supabase project is initialized for another tenant';
     end if;
-    if existing_version < 2 then
+    if existing_version < 3 then
       update public.tenant_schema_metadata
-        set version = 2, updated_at = now()
+        set version = 3, updated_at = now()
         where id = 'tenant-catalog';
-      return 2;
+      return 3;
     end if;
     return existing_version;
   end if;
 
   insert into public.tenant_schema_metadata (id, tenant_id, version, updated_at)
-    values ('tenant-catalog', p_tenant_id, 2, now());
-  return 2;
+    values ('tenant-catalog', p_tenant_id, 3, now());
+  return 3;
 end;
 $$;
 
 revoke all on function public.initialize_tenant_catalog(uuid)
   from public, anon, authenticated;
 grant execute on function public.initialize_tenant_catalog(uuid) to service_role;
+
+create or replace function public.list_tenant_product_categories(
+  p_tenant_id uuid,
+  p_status text default null
+)
+returns table(category text)
+language sql
+security definer
+set search_path = ''
+as $$
+  select distinct products.category
+    from public.tenant_products as products
+    where products.tenant_id = p_tenant_id
+      and products.category is not null
+      and (p_status is null or products.status = p_status)
+    order by products.category;
+$$;
+
+revoke all on function public.list_tenant_product_categories(uuid, text)
+  from public, anon, authenticated;
+grant execute on function public.list_tenant_product_categories(uuid, text)
+  to service_role;

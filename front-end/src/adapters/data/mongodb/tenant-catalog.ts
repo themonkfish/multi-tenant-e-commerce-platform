@@ -34,6 +34,7 @@ const ProductDocumentSchema = z.object({
     currency: z.string().length(3),
   }),
   sku: z.string().optional(),
+  category: z.string().min(1).max(80).nullable().optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -51,6 +52,10 @@ const SchemaMetadataSchema = z.object({
 const PRODUCT_COLLECTION = "tenant_products";
 const METADATA_COLLECTION = "tenant_schema_metadata";
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 type TenantProductDocument = {
   [key: string]: unknown;
   _id: string;
@@ -60,6 +65,7 @@ type TenantProductDocument = {
   status: "draft" | "active" | "archived";
   price: { amount: number; currency: string };
   sku?: string;
+  category?: string | null;
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -143,7 +149,15 @@ export class MongoTenantCatalog implements CatalogPort {
       );
     }
     return this.withCollection(async (collection) => {
-      const filter = { tenantId: this.tenantId };
+      const filter: Document = { tenantId: this.tenantId };
+      if (query.search?.trim()) {
+        filter.title = {
+          $regex: escapeRegex(query.search.trim()),
+          $options: "i",
+        };
+      }
+      if (query.category) filter.category = query.category;
+      if (query.status) filter.status = query.status;
       const [documents, total] = await Promise.all([
         collection
           .find(filter)
@@ -157,6 +171,23 @@ export class MongoTenantCatalog implements CatalogPort {
         data: documents.map((document) => this.mapProduct(document)),
         meta: { page: query.page, limit: query.limit, total },
       };
+    });
+  }
+
+  async listProductCategories(
+    tenantId: string,
+    status?: Product["status"],
+  ): Promise<string[]> {
+    this.assertTenant(tenantId);
+    return this.withCollection(async (collection) => {
+      const values = await collection.distinct("category", {
+        tenantId: this.tenantId,
+        category: { $type: "string" },
+        ...(status ? { status } : {}),
+      });
+      return Array.from(
+        new Set(values.map((value) => z.string().min(1).max(80).parse(value))),
+      ).sort((left, right) => left.localeCompare(right));
     });
   }
 
@@ -276,49 +307,57 @@ export class MongoTenantCatalog implements CatalogPort {
       const productCollectionExists = await db
         .listCollections({ name: PRODUCT_COLLECTION }, { nameOnly: true })
         .hasNext();
+      const productValidator = {
+        $jsonSchema: {
+          bsonType: "object",
+          required: [
+            "_id",
+            "tenantId",
+            "title",
+            "slug",
+            "status",
+            "price",
+            "createdAt",
+            "updatedAt",
+          ],
+          properties: {
+            _id: { bsonType: "string" },
+            tenantId: { bsonType: "string" },
+            title: { bsonType: "string", minLength: 1, maxLength: 200 },
+            slug: { bsonType: "string", minLength: 1, maxLength: 200 },
+            status: { enum: ["draft", "active", "archived"] },
+            price: {
+              bsonType: "object",
+              required: ["amount", "currency"],
+              properties: {
+                amount: {
+                  bsonType: ["int", "long", "double"],
+                  minimum: 0,
+                  multipleOf: 1,
+                },
+                currency: { bsonType: "string", pattern: "^[A-Z]{3}$" },
+              },
+            },
+            sku: { bsonType: "string", maxLength: 100 },
+            category: {
+              bsonType: ["string", "null"],
+              minLength: 1,
+              maxLength: 80,
+            },
+            imageUrl: {
+              bsonType: ["string", "null"],
+              maxLength: 2048,
+              pattern: "^https://",
+            },
+            createdAt: { bsonType: "string" },
+            updatedAt: { bsonType: "string" },
+          },
+        },
+      };
       if (!productCollectionExists) {
         try {
           await db.createCollection(PRODUCT_COLLECTION, {
-            validator: {
-              $jsonSchema: {
-                bsonType: "object",
-                required: [
-                  "_id",
-                  "tenantId",
-                  "title",
-                  "slug",
-                  "status",
-                  "price",
-                  "createdAt",
-                  "updatedAt",
-                ],
-                properties: {
-                  _id: { bsonType: "string" },
-                  tenantId: { bsonType: "string" },
-                  title: { bsonType: "string", minLength: 1, maxLength: 200 },
-                  slug: { bsonType: "string", minLength: 1, maxLength: 200 },
-                  status: {
-                    enum: ["draft", "active", "archived"],
-                  },
-                  price: {
-                    bsonType: "object",
-                    required: ["amount", "currency"],
-                    properties: {
-                      amount: {
-                        bsonType: ["int", "long", "double"],
-                        minimum: 0,
-                        multipleOf: 1,
-                      },
-                      currency: { bsonType: "string", pattern: "^[A-Z]{3}$" },
-                    },
-                  },
-                  sku: { bsonType: "string", maxLength: 100 },
-                  imageUrl: { bsonType: ["string", "null"], maxLength: 2048 },
-                  createdAt: { bsonType: "string" },
-                  updatedAt: { bsonType: "string" },
-                },
-              },
-            },
+            validator: productValidator,
             validationLevel: "strict",
             validationAction: "error",
           });
@@ -327,6 +366,13 @@ export class MongoTenantCatalog implements CatalogPort {
             throw error;
           }
         }
+      } else if (currentVersion < TENANT_CATALOG_SCHEMA_VERSION) {
+        await db.command({
+          collMod: PRODUCT_COLLECTION,
+          validator: productValidator,
+          validationLevel: "strict",
+          validationAction: "error",
+        });
       }
       await db
         .collection(PRODUCT_COLLECTION)
@@ -418,6 +464,7 @@ export class MongoTenantCatalog implements CatalogPort {
       status: product.status,
       price: product.price,
       ...(product.sku ? { sku: product.sku } : {}),
+      ...(product.category === undefined ? {} : { category: product.category }),
       ...(product.imageUrl === undefined ? {} : { imageUrl: product.imageUrl }),
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

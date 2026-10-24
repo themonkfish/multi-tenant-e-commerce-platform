@@ -12,12 +12,24 @@ import { getRequestDomainScope } from "@/lib/server/request-scope";
 
 type CataloguePageProps = {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function TenantProductCatalogPage({
   params,
+  searchParams,
 }: CataloguePageProps) {
   const { locale } = await params;
+  const filters = await searchParams;
+  const value = (entry: string | string[] | undefined) =>
+    (Array.isArray(entry) ? entry[0] : entry)?.trim() ?? "";
+  const search = value(filters.search).slice(0, 100);
+  const category = value(filters.category).slice(0, 80);
+  const requestedPage = Number(value(filters.page) || "1");
+  const page =
+    Number.isSafeInteger(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
   const requestScope = await getRequestDomainScope();
 
   if (requestScope?.kind !== "tenant") {
@@ -37,22 +49,70 @@ export default async function TenantProductCatalogPage({
     status: "draft" | "active" | "archived";
     price: { amount: number; currency: string };
     sku?: string;
+    category?: string | null;
     imageUrl?: string | null;
   }> = [];
+  let categories: string[] = [];
+  let total = 0;
+  let pageCount = 1;
+  let currentPage = page;
   try {
     const catalog = await createTenantCatalogAdapter(
       requestScope.tenant.id,
       requestScope.host.id,
     );
-    const result = await catalog.listProducts({
+    let result = await catalog.listProducts({
       tenantId: requestScope.tenant.id,
-      page: 1,
+      page,
       limit: 24,
+      status: "active",
+      ...(search ? { search } : {}),
+      ...(category ? { category } : {}),
     });
+    pageCount = Math.max(1, Math.ceil(result.meta.total / result.meta.limit));
+    if (page > pageCount) {
+      currentPage = pageCount;
+      result = await catalog.listProducts({
+        tenantId: requestScope.tenant.id,
+        page: currentPage,
+        limit: 24,
+        status: "active",
+        ...(search ? { search } : {}),
+        ...(category ? { category } : {}),
+      });
+    }
     products = result.data.filter((product) => product.status === "active");
+    total = result.meta.total;
+    try {
+      categories = await catalog.listProductCategories(
+        requestScope.tenant.id,
+        "active",
+      );
+    } catch (error) {
+      console.error("Storefront category lookup failed", {
+        tenantId: requestScope.tenant.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      categories = Array.from(
+        new Set(
+          products.flatMap((product) =>
+            product.category ? [product.category] : [],
+          ),
+        ),
+      ).sort((left, right) => left.localeCompare(right));
+    }
   } catch {
     products = [];
   }
+  const categoryHref = (nextCategory?: string, nextPage?: number) => {
+    const query = new URLSearchParams();
+    if (search) query.set("search", search);
+    if (nextCategory) query.set("category", nextCategory);
+    if (nextPage && nextPage > 1) query.set("page", String(nextPage));
+    const queryString = query.toString();
+    const suffix = queryString ? `?${queryString}` : "";
+    return `/${locale}/products${suffix}`;
+  };
 
   return (
     <main
@@ -103,10 +163,75 @@ export default async function TenantProductCatalogPage({
         </div>
       </header>
 
+      <section className="mb-6 space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+        <form
+          action={`/${locale}/products`}
+          className="flex flex-col gap-3 sm:flex-row"
+          role="search"
+        >
+          <label className="sr-only" htmlFor="product-search">
+            Search products
+          </label>
+          <input
+            className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2"
+            defaultValue={search}
+            id="product-search"
+            maxLength={100}
+            name="search"
+            placeholder="Search product names"
+            type="search"
+          />
+          {category && <input name="category" type="hidden" value={category} />}
+          <button
+            className="rounded-md px-4 py-2 text-sm font-medium text-white"
+            style={{ backgroundColor: settings.branding.primaryColor }}
+            type="submit"
+          >
+            Search
+          </button>
+          {(search || category) && (
+            <Link
+              className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium hover:bg-slate-50"
+              href={`/${locale}/products`}
+            >
+              Clear filters
+            </Link>
+          )}
+        </form>
+        {categories.length > 0 && (
+          <nav aria-label="Product categories" className="flex flex-wrap gap-2">
+            <Link
+              aria-current={category ? undefined : "page"}
+              className={`rounded-full border px-3 py-1.5 text-sm ${!category ? "border-indigo-700 bg-indigo-50 font-semibold text-indigo-800" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+              href={categoryHref()}
+            >
+              All categories
+            </Link>
+            {categories.map((item) => (
+              <Link
+                aria-current={category === item ? "page" : undefined}
+                className={`rounded-full border px-3 py-1.5 text-sm ${category === item ? "border-indigo-700 bg-indigo-50 font-semibold text-indigo-800" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+                href={categoryHref(item)}
+                key={item}
+              >
+                {item}
+              </Link>
+            ))}
+          </nav>
+        )}
+        <p className="text-sm text-slate-600">
+          {total} product{total === 1 ? "" : "s"}
+          {search ? ` matching “${search}”` : ""}
+          {category ? ` in ${category}` : ""}
+        </p>
+      </section>
+
       {products.length === 0 ? (
         <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="text-lg font-medium text-slate-900">
-            No active products are available yet.
+            {search || category
+              ? "No products match these filters."
+              : "No active products are available yet."}
           </p>
           <p className="mt-2 text-sm text-slate-600">
             The tenant backend is connected, but the catalog is empty or not yet
@@ -163,6 +288,11 @@ export default async function TenantProductCatalogPage({
                     ? `SKU: ${product.sku}`
                     : "Ready for storefront display"}
                 </p>
+                {product.category && (
+                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                    {product.category}
+                  </span>
+                )}
 
                 <div className="flex items-center justify-between gap-2 pt-2">
                   <span className="text-xl font-semibold text-slate-900">
@@ -198,6 +328,36 @@ export default async function TenantProductCatalogPage({
             </article>
           ))}
         </div>
+      )}
+      {pageCount > 1 && (
+        <nav
+          aria-label="Product pages"
+          className="mt-6 flex items-center justify-between"
+        >
+          {currentPage > 1 ? (
+            <Link
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              href={categoryHref(category || undefined, currentPage - 1)}
+            >
+              Previous
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-sm text-slate-600">
+            Page {currentPage} of {pageCount}
+          </span>
+          {currentPage < pageCount ? (
+            <Link
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              href={categoryHref(category || undefined, currentPage + 1)}
+            >
+              Next
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
       )}
     </main>
   );

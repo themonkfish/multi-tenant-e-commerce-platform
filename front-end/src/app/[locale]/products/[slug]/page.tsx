@@ -37,6 +37,7 @@ export default async function TenantProductDetailPage({
     status: "draft" | "active" | "archived";
     price: { amount: number; currency: string };
     sku?: string;
+    category?: string | null;
     imageUrl?: string | null;
   } | null = null;
 
@@ -170,6 +171,14 @@ export default async function TenantProductDetailPage({
               </p>
             )}
           </div>
+          {product.category && (
+            <Link
+              className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-200"
+              href={`/${locale}/products?category=${encodeURIComponent(product.category)}`}
+            >
+              {product.category}
+            </Link>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <StorefrontAddToCartButton

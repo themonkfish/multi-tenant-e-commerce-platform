@@ -29,4 +29,20 @@ describe("product image URL", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("accepts a category and rejects blank or oversized category names", () => {
+    expect(
+      ProductInputSchema.parse({ ...product, category: " Accessories " })
+        .category,
+    ).toBe("Accessories");
+    expect(
+      ProductInputSchema.safeParse({ ...product, category: " " }).success,
+    ).toBe(false);
+    expect(
+      ProductInputSchema.safeParse({
+        ...product,
+        category: "x".repeat(81),
+      }).success,
+    ).toBe(false);
+  });
 });

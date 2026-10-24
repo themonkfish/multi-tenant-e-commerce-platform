@@ -36,6 +36,7 @@ const ProductSchema = z.object({
   status: z.enum(["draft", "active", "archived"]),
   price: MoneySchema,
   sku: z.string().optional(),
+  category: z.string().min(1).max(80).nullable().optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -52,6 +53,10 @@ const PageSchema = z.object({
     limit: z.number().int().positive(),
     total: z.number().int().nonnegative(),
   }),
+});
+
+const CategoriesSchema = z.object({
+  data: z.array(z.string().min(1).max(80)),
 });
 
 const MAX_PAGE_SIZE = 100;
@@ -103,6 +108,9 @@ export class RestCatalogAdapter implements CatalogPort {
         page: String(query.page),
         limit: String(query.limit),
         tenantId: this.tenantId,
+        ...(query.search ? { search: query.search } : {}),
+        ...(query.category ? { category: query.category } : {}),
+        ...(query.status ? { status: query.status } : {}),
       }),
     });
     const page = PageSchema.parse(response.body);
@@ -157,6 +165,24 @@ export class RestCatalogAdapter implements CatalogPort {
       method: "DELETE",
       path: `/products/${this.productId(id)}`,
     });
+  }
+
+  async listProductCategories(
+    tenantId: string,
+    status?: Product["status"],
+  ): Promise<string[]> {
+    this.assertTenant(tenantId);
+    const response = await this.request({
+      method: "GET",
+      path: "/products/categories",
+      query: new URLSearchParams({
+        tenantId: this.tenantId,
+        ...(status ? { status } : {}),
+      }),
+    });
+    return Array.from(new Set(CategoriesSchema.parse(response.body).data)).sort(
+      (left, right) => left.localeCompare(right),
+    );
   }
 
   private async request(request: RestHttpRequest): Promise<RestHttpResponse> {

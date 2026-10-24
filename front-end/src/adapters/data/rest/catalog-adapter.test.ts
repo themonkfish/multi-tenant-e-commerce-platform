@@ -20,6 +20,7 @@ const product: Product = {
   status: "active",
   price: { amount: 1999, currency: "USD" },
   sku: "BAG-1",
+  category: "Bags",
   imageUrl: "https://cdn.example.com/tenant/product.jpg",
   createdAt: now,
   updatedAt: now,
@@ -96,6 +97,7 @@ describe("RestCatalogAdapter", () => {
         status: product.status,
         price: product.price,
         sku: product.sku,
+        category: product.category,
         imageUrl: product.imageUrl,
       }),
     ).resolves.toEqual(product);
@@ -107,6 +109,7 @@ describe("RestCatalogAdapter", () => {
         path: "/products",
         body: expect.objectContaining({
           tenantId,
+          category: product.category,
           imageUrl: product.imageUrl,
         }),
       }),
@@ -115,6 +118,7 @@ describe("RestCatalogAdapter", () => {
     await expect(
       adapter.updateProduct(tenantId, product.id, {
         title: "Updated bag",
+        category: null,
         imageUrl: null,
       }),
     ).resolves.toEqual(product);
@@ -124,7 +128,7 @@ describe("RestCatalogAdapter", () => {
       expect.objectContaining({
         method: "PATCH",
         path: "/products/product-1",
-        body: { title: "Updated bag", imageUrl: null },
+        body: { title: "Updated bag", category: null, imageUrl: null },
       }),
     );
 
@@ -164,6 +168,60 @@ describe("RestCatalogAdapter", () => {
       "unsupported characters",
     );
     expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("passes search and category filters and returns unique product categories", async () => {
+    const transport = mockTransport({
+      data: [product],
+      meta: { page: 1, limit: 24, total: 1 },
+    });
+    const adapter = new RestCatalogAdapter(
+      config,
+      "secret",
+      tenantId,
+      transport,
+    );
+
+    await adapter.listProducts({
+      tenantId,
+      page: 1,
+      limit: 24,
+      search: "canvas",
+      category: "Bags",
+      status: "active",
+    });
+    expect(transport).toHaveBeenLastCalledWith(
+      config,
+      "secret",
+      expect.objectContaining({
+        path: "/products",
+        query: new URLSearchParams({
+          page: "1",
+          limit: "24",
+          tenantId,
+          search: "canvas",
+          category: "Bags",
+          status: "active",
+        }),
+      }),
+    );
+
+    transport.mockResolvedValueOnce({
+      status: 200,
+      body: { data: ["Bags", "Accessories", "Bags"] },
+    });
+    await expect(
+      adapter.listProductCategories(tenantId, "active"),
+    ).resolves.toEqual(["Accessories", "Bags"]);
+    expect(transport).toHaveBeenLastCalledWith(
+      config,
+      "secret",
+      expect.objectContaining({
+        method: "GET",
+        path: "/products/categories",
+        query: new URLSearchParams({ tenantId, status: "active" }),
+      }),
+    );
   });
 
   it("rejects backend responses containing another tenant's product", async () => {
