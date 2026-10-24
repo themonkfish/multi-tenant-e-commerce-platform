@@ -32,7 +32,10 @@ Status snapshot as of 2026-10-24:
   remain future work.
 - Tenant catalog APIs route through configured REST, Supabase, or MongoDB Atlas
   providers; order APIs continue through the REST backend. Tenant-specific
-  live card payments and storage remain future work.
+  live card payments remain future work. Tenant Owner-managed S3-compatible
+  storage configuration and tenant-scoped JPEG/PNG/WebP uploads are
+  implemented; wiring uploaded assets into the product editor remains future
+  work.
 - Tenant Owner-managed Staff catalog/order permissions and Tenant-scoped
   Customer sign-in/order reads are now server-enforced; isolated demo
   credentials and sample Customer orders support local testing.
@@ -45,6 +48,10 @@ Status snapshot as of 2026-10-24:
   card payments, inventory, and fulfillment remain unimplemented; Stripe
   Connect onboarding is blocked pending confirmation that India is eligible
   for the platform country.
+- Tenant Owners can configure AWS S3 or an S3-compatible service with encrypted
+  credentials. Catalog writers can upload signature-validated JPEG, PNG, and
+  WebP images up to 10 MB; the server generates tenant-scoped object keys and
+  proxies uploads to storage.
 
 ### Completed
 
@@ -125,8 +132,8 @@ Status snapshot as of 2026-10-24:
       additive seeding for existing isolated demo stores.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
       Owner/tenant portal, Tenant Owner accounts/invitations, and tenant
-      settings, Staff, Customers, tenant-scoped Customer orders, and Tenant
-      backend order-sync state.
+      settings, Staff, Customers, tenant-scoped Customer orders, Tenant backend
+      order-sync state, data-provider configuration, and S3 storage settings.
 - [x] Data and storage port/factory contracts. These are extension points, not
       complete tenant provider implementations.
 - [x] Host and tenant configuration lookup ports, backed by the existing
@@ -207,7 +214,7 @@ Status snapshot as of 2026-10-24:
      Stripe test-mode checkout and webhook verification, plus India-only
      Cash on Delivery, are implemented. Stripe Connect is blocked pending
      platform-country eligibility; regional gateways are deferred.
-   - Add storage adapter support with upload validation and scoped file paths.
+   - Wire uploaded assets into product image management.
    - Build customer, inventory, shipping, tax, and discount workflows around
      synchronized Tenant backend order snapshots.
 
@@ -272,8 +279,9 @@ Status snapshot as of 2026-10-24:
 - [x] Add India-only Cash on Delivery with required Indian delivery address,
       Tenant REST order delivery, authorized collection confirmation, and
       audit logging.
-- [ ] Implement a storage adapter (initial target: S3-compatible), upload
-      validation including file type/content checks, and scoped file paths.
+- [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
+      credentials, upload validation including file-content signatures, and
+      tenant-scoped paths. Product-editor integration remains.
 - [ ] Add additional storage providers based on the v1 scope.
 
 #### Commerce experiences
@@ -460,7 +468,8 @@ Before deploying the app:
    `0005_tenant_store_settings.sql`, `0006_tenant_rest_connections.sql`, and
    all later migrations, including `0012_tenant_domain_verification.sql`,
    `0013_platform_setup_settings.sql`, and
-   `0014_tenant_database_providers.sql`.
+   `0014_tenant_database_providers.sql`, `0015_cash_on_delivery.sql`, and
+   `0016_tenant_storage_providers.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

@@ -835,6 +835,78 @@ describe("FilePlatformStore", () => {
     ).resolves.toBeNull();
   });
 
+  it("persists tenant storage config with a tenant-owned vault credential", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active" });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ hostId: host.id, status: "active" });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+    const secretRef = randomUUID();
+    await store.putSecretRecord({
+      ref: secretRef,
+      tenantId: tenant.id,
+      name: "tenant-s3-storage-credentials",
+      encryptedValue: "encrypted-value",
+      createdAt: new Date().toISOString(),
+    });
+    const config = {
+      type: "s3" as const,
+      endpoint: "https://s3.example.com",
+      region: "auto",
+      bucket: "tenant-assets",
+      publicBaseUrl: "https://cdn.example.com/assets",
+      pathStyle: true,
+      credentialsRef: secretRef,
+    };
+    await expect(
+      store.updateTenantStorageProvider({
+        tenantId: tenant.id,
+        hostId: host.id,
+        config: { ...config, credentialsRef: randomUUID() },
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.storage_provider.updated",
+          "tenant_storage_provider",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.updateTenantStorageProvider({
+        tenantId: tenant.id,
+        hostId: host.id,
+        config,
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.storage_provider.updated",
+          "tenant_storage_provider",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toEqual(config);
+    await expect(
+      store.getTenantStorageProvider(tenant.id, host.id),
+    ).resolves.toEqual(config);
+    await expect(
+      store.deleteTenantStorageProvider({
+        tenantId: tenant.id,
+        hostId: host.id,
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.storage_provider.deleted",
+          "tenant_storage_provider",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      store.getTenantStorageProvider(tenant.id, host.id),
+    ).resolves.toBeNull();
+  });
+
   it("scopes Staff creation and customer order reads to their tenant and account", async () => {
     const { store, filePath } = await createStoreWithPath();
     const host = hostConfig({ status: "active" });

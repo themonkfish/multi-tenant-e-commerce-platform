@@ -221,6 +221,85 @@ export const StorageProviderConfigSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+const HttpsStorageUrlSchema = z.url({ protocol: /^https$/ }).refine((value) => {
+  const url = new URL(value);
+  return !url.username && !url.password && !url.search && !url.hash;
+});
+
+const S3BucketNameSchema = z
+  .string()
+  .min(3)
+  .max(63)
+  .regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/)
+  .refine(
+    (value) =>
+      !value.includes("..") &&
+      !value.includes(".-") &&
+      !value.includes("-.") &&
+      !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value),
+  );
+
+const TenantStorageBaseSchema = z.object({
+  type: z.literal("s3"),
+  endpoint: HttpsStorageUrlSchema.optional(),
+  region: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9-]+$/),
+  bucket: S3BucketNameSchema,
+  publicBaseUrl: HttpsStorageUrlSchema,
+  pathStyle: z.boolean().default(false),
+});
+
+export const TenantStorageProviderConfigSchema = TenantStorageBaseSchema.extend(
+  {
+    credentialsRef: SecretRefSchema,
+  },
+);
+
+export const TenantStorageConnectionInputSchema =
+  TenantStorageBaseSchema.extend({
+    accessKeyId: z
+      .string()
+      .min(1)
+      .max(128)
+      .refine((value) => !/[\x00-\x1f\x7f]/.test(value))
+      .optional(),
+    secretAccessKey: z
+      .string()
+      .min(1)
+      .max(4096)
+      .refine((value) => !/[\x00-\x1f\x7f]/.test(value))
+      .optional(),
+    sessionToken: z
+      .string()
+      .min(1)
+      .max(8192)
+      .refine((value) => !/[\x00-\x1f\x7f]/.test(value))
+      .optional(),
+  }).superRefine((input, context) => {
+    if (Boolean(input.accessKeyId) !== Boolean(input.secretAccessKey)) {
+      context.addIssue({
+        code: "custom",
+        path: ["secretAccessKey"],
+        message:
+          "Access key ID and secret access key must be supplied together",
+      });
+    }
+    if (input.sessionToken && !input.accessKeyId) {
+      context.addIssue({
+        code: "custom",
+        path: ["sessionToken"],
+        message: "A session token requires access key credentials",
+      });
+    }
+  });
+
+export const TenantStorageConnectionViewSchema = TenantStorageBaseSchema.extend(
+  { credentialsConfigured: z.boolean() },
+);
+
 export const TenantConfigSchema = z.object({
   id: z.string().min(1),
   hostId: z.string().min(1),
@@ -271,4 +350,7 @@ export type TenantDatabaseProviderConfig = z.infer<
 >;
 export type RestHealthCheckResult = z.infer<typeof RestHealthCheckResultSchema>;
 export type StorageProviderConfig = z.infer<typeof StorageProviderConfigSchema>;
+export type TenantStorageProviderConfig = z.infer<
+  typeof TenantStorageProviderConfigSchema
+>;
 export type TenantConfig = z.infer<typeof TenantConfigSchema>;

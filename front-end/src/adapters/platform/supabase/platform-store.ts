@@ -37,8 +37,10 @@ import {
 import {
   TenantDatabaseProviderConfigSchema,
   TenantRestDataProviderConfigSchema,
+  TenantStorageProviderConfigSchema,
   type TenantDatabaseProviderConfig,
   type TenantRestDataProviderConfig,
+  type TenantStorageProviderConfig,
 } from "@/core/domain/tenant-config";
 import {
   DEFAULT_PLATFORM_SETTINGS,
@@ -1443,6 +1445,82 @@ export class SupabasePlatformStore implements PlatformStore {
     if (error) {
       throw new Error(
         `Could not remove tenant database provider: ${error.message}`,
+      );
+    }
+    return Boolean(data);
+  }
+
+  async getTenantStorageProvider(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantStorageProviderConfig | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_storage_providers")
+      .select("config")
+      .eq("tenant_id", tenantId)
+      .eq("host_id", hostId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not load tenant storage provider: ${error.message}`,
+      );
+    }
+    return data ? TenantStorageProviderConfigSchema.parse(data.config) : null;
+  }
+
+  async updateTenantStorageProvider(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantStorageProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantStorageProviderConfig | null> {
+    const config = TenantStorageProviderConfigSchema.parse(input.config);
+    const { data, error } = await this.client.rpc(
+      "update_platform_tenant_storage_provider",
+      {
+        p_tenant_id: input.tenantId,
+        p_host_id: input.hostId,
+        p_config: config,
+        p_secret_ref: config.credentialsRef,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_resource_id: input.auditEvent.resourceId ?? null,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not update tenant storage provider: ${error.message}`,
+      );
+    }
+    return data ? config : null;
+  }
+
+  async deleteTenantStorageProvider(input: {
+    tenantId: string;
+    hostId: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<boolean> {
+    const { data, error } = await this.client.rpc(
+      "delete_platform_tenant_storage_provider",
+      {
+        p_tenant_id: input.tenantId,
+        p_host_id: input.hostId,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_resource_id: input.auditEvent.resourceId ?? null,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not remove tenant storage provider: ${error.message}`,
       );
     }
     return Boolean(data);

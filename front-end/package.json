@@ -20,7 +20,9 @@
     "format:check": "prettier --check src supabase README.md package.json next.config.ts vitest.config.mts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1156.0",
     "@node-rs/argon2": "^2.2.2",
+    "@smithy/node-http-handler": "^4.12.1",
     "@supabase/supabase-js": "^2.109.0",
     "@tanstack/react-query": "^5.104.5",
     "jose": "^6.2.13",

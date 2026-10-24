@@ -13,6 +13,7 @@ import type {
 import type {
   TenantDatabaseProviderConfig,
   TenantRestDataProviderConfig,
+  TenantStorageProviderConfig,
 } from "@/core/domain/tenant-config";
 import type { PlatformSettings } from "@/core/domain/platform-settings";
 import type {
@@ -261,6 +262,23 @@ export interface PlatformStore
     auditEvent: AuditEvent;
   }): Promise<TenantDatabaseProviderConfig | null>;
   deleteTenantDatabaseProvider(input: {
+    tenantId: string;
+    hostId: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<boolean>;
+  getTenantStorageProvider(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantStorageProviderConfig | null>;
+  updateTenantStorageProvider(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantStorageProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantStorageProviderConfig | null>;
+  deleteTenantStorageProvider(input: {
     tenantId: string;
     hostId: string;
     updatedAt: string;

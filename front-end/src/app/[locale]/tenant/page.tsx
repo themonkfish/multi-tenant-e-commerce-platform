@@ -5,7 +5,11 @@ import { connection } from "next/server";
 import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-settings-form";
 import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-connection-form";
 import { TenantDatabaseProviderForm } from "@/features/tenant-auth/tenant-database-provider-form";
-import { TenantDatabaseConnectionViewSchema } from "@/core/domain/tenant-config";
+import { TenantStorageProviderForm } from "@/features/tenant-auth/tenant-storage-provider-form";
+import {
+  TenantDatabaseConnectionViewSchema,
+  TenantStorageConnectionViewSchema,
+} from "@/core/domain/tenant-config";
 import { TenantStaffManagement } from "@/features/tenant-auth/tenant-staff-management";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantOwnerSession } from "@/lib/server/session";
@@ -40,11 +44,13 @@ export default async function TenantDashboardPage({
   if (!tenant || !hostRecord) {
     redirect(`/${locale}/tenant/login`);
   }
-  const [settings, restConnection, databaseProvider] = await Promise.all([
-    store.getTenantStoreSettings(tenant.id, hostId, tenant.name),
-    store.getTenantRestConnection(tenant.id, hostId),
-    store.getTenantDatabaseProvider(tenant.id, hostId),
-  ]);
+  const [settings, restConnection, databaseProvider, storageProvider] =
+    await Promise.all([
+      store.getTenantStoreSettings(tenant.id, hostId, tenant.name),
+      store.getTenantRestConnection(tenant.id, hostId),
+      store.getTenantDatabaseProvider(tenant.id, hostId),
+      store.getTenantStorageProvider(tenant.id, hostId),
+    ]);
   const databaseConnection = databaseProvider
     ? TenantDatabaseConnectionViewSchema.parse(
         databaseProvider.type === "supabase"
@@ -64,6 +70,17 @@ export default async function TenantDashboardPage({
               schemaVersion: null,
             },
       )
+    : null;
+  const storageConnection = storageProvider
+    ? TenantStorageConnectionViewSchema.parse({
+        type: storageProvider.type,
+        endpoint: storageProvider.endpoint,
+        region: storageProvider.region,
+        bucket: storageProvider.bucket,
+        publicBaseUrl: storageProvider.publicBaseUrl,
+        pathStyle: storageProvider.pathStyle,
+        credentialsConfigured: true,
+      })
     : null;
   const staff = await store.listTenantStaff(tenant.id);
 
@@ -139,6 +156,16 @@ export default async function TenantDashboardPage({
           </p>
           <TenantDatabaseProviderForm initialConnection={databaseConnection} />
         </div>
+        <div>
+          <h3 className="mb-2 font-semibold">S3-compatible storage</h3>
+          <p className="mb-4 text-sm text-slate-600">
+            Configure AWS S3 or an S3-compatible service for tenant assets.
+            Credentials are encrypted. Image uploads are limited to verified
+            JPEG, PNG, and WebP content up to 10 MB and receive tenant-scoped
+            object keys.
+          </p>
+          <TenantStorageProviderForm initialConnection={storageConnection} />
+        </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h3 className="mb-2 font-semibold">Catalog management</h3>
           <p className="mb-4 text-sm text-slate-600">
@@ -167,8 +194,8 @@ export default async function TenantDashboardPage({
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <p className="text-sm leading-6 text-amber-900">
-            Payments, storage, storefront rendering, and custom-domain routing
-            are not available yet.
+            Payments and custom-domain storefront routing are not available yet.
+            Product image selection is not yet wired into the catalog editor.
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
