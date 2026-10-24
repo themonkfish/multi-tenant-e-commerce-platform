@@ -124,6 +124,12 @@ other than 3000. On Windows, if `store.localhost` does not resolve, add
 The local HTTP exception is enabled only by the generated demo environment and
 is rejected in production.
 
+The generated demo store uses an 8.25% tax rate and the `DEMO10` percentage
+discount. Add any sample product to the cart, apply `DEMO10`, and proceed
+through demo checkout to verify the discount, tax-on-discounted-merchandise
+calculation, order snapshot, and confirmation summary. These values are
+local-only fixtures and can be changed in Tenant Store settings.
+
 The `dev-demo` launcher enables a simulated checkout for this isolated demo
 store. Place an order as the demo Customer, then choose **Simulate successful
 payment** or **Simulate failed payment** on the local checkout screen. A
