@@ -3,7 +3,11 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { CustomerOrderSchema } from "@/core/domain/tenant-identities";
+import {
+  CustomerDeliveryAddressSchema,
+  CustomerOrderSchema,
+  type CustomerDeliveryAddress,
+} from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
 import { useCartStore } from "@/features/storefront/cart-store";
 
@@ -24,6 +28,22 @@ export function StorefrontCartPage({
   const idempotencyKey = useRef(crypto.randomUUID());
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "stripe" | "cash_on_delivery"
+  >("stripe");
+  const [deliveryAddress, setDeliveryAddress] =
+    useState<CustomerDeliveryAddress>({
+      fullName: "",
+      line1: "",
+      line2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      country: "IN",
+      phone: "+91",
+    });
+  const supportsCashOnDelivery =
+    items.length > 0 && items.every((item) => item.currency === "INR");
 
   const subtotal = useMemo(
     () => items.reduce((total, item) => total + item.quantity * item.price, 0),
@@ -38,6 +58,16 @@ export function StorefrontCartPage({
       return;
     }
 
+    if (
+      paymentMethod === "cash_on_delivery" &&
+      !CustomerDeliveryAddressSchema.safeParse(deliveryAddress).success
+    ) {
+      setError(
+        "Enter a valid delivery address and +91 Indian mobile number for cash on delivery.",
+      );
+      return;
+    }
+
     setCheckingOut(true);
     setError("");
     try {
@@ -46,6 +76,8 @@ export function StorefrontCartPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idempotencyKey: idempotencyKey.current,
+          paymentMethod,
+          ...(paymentMethod === "cash_on_delivery" ? { deliveryAddress } : {}),
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
@@ -79,13 +111,17 @@ export function StorefrontCartPage({
                   ? "Secure checkout is not configured for this store."
                   : code === "payment_provider_unavailable"
                     ? "Secure checkout is temporarily unavailable. Try again later."
-                    : code === "free_checkout_not_supported"
-                      ? "Free orders cannot be checked out using card payment."
-                      : code === "idempotency_key_conflict"
-                        ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
-                        : code === "rate_limited"
-                          ? "Too many checkout attempts. Wait a few minutes and try again."
-                          : "The order could not be placed. Please try again.",
+                    : code === "cash_on_delivery_currency_unsupported"
+                      ? "Cash on delivery is available only for INR orders."
+                      : code === "invalid_cart"
+                        ? "Enter a valid Indian delivery address and mobile number for cash on delivery."
+                        : code === "free_checkout_not_supported"
+                          ? "Free orders cannot be checked out using card payment."
+                          : code === "idempotency_key_conflict"
+                            ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
+                            : code === "rate_limited"
+                              ? "Too many checkout attempts. Wait a few minutes and try again."
+                              : "The order could not be placed. Please try again.",
         );
         return;
       }
@@ -97,7 +133,10 @@ export function StorefrontCartPage({
         setError("The server returned an invalid checkout response.");
         return;
       }
-      if (order.data.paymentStatus === "paid") {
+      if (
+        order.data.paymentStatus === "paid" ||
+        order.data.paymentStatus === "cod_due"
+      ) {
         clear();
         router.push(
           `/${locale}/checkout/success?orderId=${encodeURIComponent(order.data.id)}`,
@@ -242,14 +281,118 @@ export function StorefrontCartPage({
           </p>
         )}
         {signedIn ? (
-          <button
-            className="mt-6 w-full rounded-md bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-            disabled={checkingOut}
-            onClick={onCheckout}
-            type="button"
-          >
-            {checkingOut ? "Preparing secure checkout…" : "Continue to payment"}
-          </button>
+          <div className="mt-5 space-y-4">
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold text-slate-800">
+                Payment method
+              </legend>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  checked={paymentMethod === "stripe"}
+                  disabled={checkingOut}
+                  name="paymentMethod"
+                  onChange={() => {
+                    setPaymentMethod("stripe");
+                    idempotencyKey.current = crypto.randomUUID();
+                  }}
+                  type="radio"
+                  value="stripe"
+                />
+                Card (secure checkout)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  checked={paymentMethod === "cash_on_delivery"}
+                  disabled={checkingOut || !supportsCashOnDelivery}
+                  name="paymentMethod"
+                  onChange={() => {
+                    setPaymentMethod("cash_on_delivery");
+                    idempotencyKey.current = crypto.randomUUID();
+                  }}
+                  type="radio"
+                  value="cash_on_delivery"
+                />
+                Cash on delivery
+              </label>
+              {!supportsCashOnDelivery && (
+                <p className="text-xs text-slate-500">
+                  Cash on delivery is available for INR orders only.
+                </p>
+              )}
+            </fieldset>
+            {paymentMethod === "cash_on_delivery" && (
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-semibold text-slate-800">
+                  Delivery address
+                </legend>
+                {(
+                  [
+                    ["fullName", "Full name", "text"],
+                    ["line1", "Address line 1", "text"],
+                    ["line2", "Address line 2 (optional)", "text"],
+                    ["city", "City", "text"],
+                    ["state", "State", "text"],
+                    ["postalCode", "PIN code", "text"],
+                    ["phone", "Mobile (+91)", "tel"],
+                  ] as const
+                ).map(([field, label, type]) => (
+                  <label
+                    className="block space-y-1 text-xs font-medium text-slate-600"
+                    key={field}
+                  >
+                    {label}
+                    <input
+                      autoComplete={
+                        field === "fullName"
+                          ? "name"
+                          : field === "line1"
+                            ? "address-line1"
+                            : field === "line2"
+                              ? "address-line2"
+                              : field === "postalCode"
+                                ? "postal-code"
+                                : field === "phone"
+                                  ? "tel"
+                                  : "address-level2"
+                      }
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                      disabled={checkingOut}
+                      onChange={(event) => {
+                        setDeliveryAddress((current) => ({
+                          ...current,
+                          [field]: event.target.value,
+                        }));
+                        idempotencyKey.current = crypto.randomUUID();
+                      }}
+                      required={field !== "line2"}
+                      type={type}
+                      value={deliveryAddress[field]}
+                    />
+                  </label>
+                ))}
+                <p className="text-xs text-slate-500">
+                  Country: India. Pay the store operator when your order is
+                  delivered.
+                </p>
+              </fieldset>
+            )}
+            <button
+              className="w-full rounded-md bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+              disabled={
+                checkingOut ||
+                (paymentMethod === "cash_on_delivery" &&
+                  !supportsCashOnDelivery)
+              }
+              onClick={onCheckout}
+              type="button"
+            >
+              {checkingOut
+                ? "Placing order…"
+                : paymentMethod === "cash_on_delivery"
+                  ? "Place cash-on-delivery order"
+                  : "Continue to secure payment"}
+            </button>
+          </div>
         ) : (
           <Link
             className="mt-6 inline-flex w-full justify-center rounded-md bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800"

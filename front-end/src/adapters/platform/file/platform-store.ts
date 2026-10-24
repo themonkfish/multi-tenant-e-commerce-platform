@@ -848,6 +848,7 @@ export class FilePlatformStore implements PlatformStore {
       );
       if (
         !order ||
+        order.paymentMethod !== "stripe" ||
         order.paymentStatus === "paid" ||
         (order.paymentStatus === "pending" && order.paymentSessionId)
       ) {
@@ -881,6 +882,7 @@ export class FilePlatformStore implements PlatformStore {
           candidate.tenantId === input.tenantId &&
           candidate.customerId === input.customerId &&
           candidate.id === input.orderId &&
+          candidate.paymentMethod === "stripe" &&
           candidate.paymentStatus === "pending" &&
           candidate.paymentAttempt === input.attempt,
       );
@@ -906,6 +908,7 @@ export class FilePlatformStore implements PlatformStore {
     status: CustomerOrder["paymentStatus"];
     paymentIntentId?: string;
   }): Promise<CustomerOrder | null> {
+    if (input.status === "cod_due") return null;
     return this.withLock(async () => {
       const state = await this.readState();
       const order = state.customerOrders.find(
@@ -913,6 +916,7 @@ export class FilePlatformStore implements PlatformStore {
           candidate.tenantId === input.tenantId &&
           candidate.customerId === input.customerId &&
           candidate.id === input.orderId &&
+          candidate.paymentMethod === "stripe" &&
           candidate.paymentSessionId === input.sessionId,
       );
       if (!order) return null;
@@ -942,6 +946,61 @@ export class FilePlatformStore implements PlatformStore {
           order.tenantId === tenantId && order.customerId === customerId,
       )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  async listTenantCashOnDeliveryOrders(input: {
+    tenantId: string;
+    page: number;
+    limit: number;
+  }): Promise<{
+    data: CustomerOrder[];
+    meta: { page: number; limit: number; total: number };
+  }> {
+    if (
+      !Number.isInteger(input.page) ||
+      input.page < 1 ||
+      !Number.isInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > 100
+    ) {
+      throw new Error("Order pagination must use page >= 1 and limit 1-100");
+    }
+    const orders = (await this.readState()).customerOrders
+      .filter(
+        (order) =>
+          order.tenantId === input.tenantId &&
+          order.paymentMethod === "cash_on_delivery" &&
+          order.paymentStatus === "cod_due",
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const from = (input.page - 1) * input.limit;
+    return {
+      data: orders.slice(from, from + input.limit),
+      meta: { page: input.page, limit: input.limit, total: orders.length },
+    };
+  }
+
+  async markCustomerOrderCashOnDeliveryCollected(input: {
+    tenantId: string;
+    orderId: string;
+    auditEvent: AuditEvent;
+  }): Promise<CustomerOrder | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const order = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.id === input.orderId &&
+          candidate.paymentMethod === "cash_on_delivery" &&
+          candidate.paymentStatus === "cod_due",
+      );
+      if (!order) return null;
+      order.paymentStatus = "paid";
+      state.auditEvents.push(input.auditEvent);
+      const updated = CustomerOrderSchema.parse(order);
+      await this.writeState(state);
+      return updated;
+    });
   }
 
   async updateCustomerOrderSync(input: {

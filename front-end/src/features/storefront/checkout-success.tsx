@@ -62,7 +62,12 @@ export function StorefrontCheckoutSuccess({
   }, [currentOrder.paymentStatus, order.id]);
 
   useEffect(() => {
-    if (currentOrder.paymentStatus === "paid") clearCart();
+    if (
+      currentOrder.paymentStatus === "paid" ||
+      currentOrder.paymentStatus === "cod_due"
+    ) {
+      clearCart();
+    }
   }, [clearCart, currentOrder.paymentStatus]);
 
   const dateFormatter = new Intl.DateTimeFormat(locale, {
@@ -75,29 +80,41 @@ export function StorefrontCheckoutSuccess({
     <section className="space-y-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
-          {currentOrder.paymentStatus === "paid"
-            ? "Payment confirmed"
-            : currentOrder.paymentStatus === "failed"
-              ? "Payment not completed"
-              : "Payment processing"}
+          {currentOrder.paymentStatus === "paid" &&
+          currentOrder.paymentMethod === "cash_on_delivery"
+            ? "Cash collected"
+            : currentOrder.paymentStatus === "paid"
+              ? "Payment confirmed"
+              : currentOrder.paymentStatus === "cod_due"
+                ? "Cash on delivery"
+                : currentOrder.paymentStatus === "failed"
+                  ? "Payment not completed"
+                  : "Payment processing"}
         </p>
         <h2 className="mt-2 text-3xl font-semibold text-emerald-950">
           {currentOrder.paymentStatus === "paid"
             ? "Your order is confirmed"
-            : currentOrder.paymentStatus === "failed"
-              ? "Your payment was not completed"
-              : "We are confirming your payment"}
+            : currentOrder.paymentStatus === "cod_due"
+              ? "Your order is confirmed"
+              : currentOrder.paymentStatus === "failed"
+                ? "Your payment was not completed"
+                : "We are confirming your payment"}
         </h2>
         <p className="mt-2 text-sm text-emerald-900">
           {currentOrder.paymentStatus === "paid"
-            ? "Payment was confirmed by Stripe. Your order has been sent to the store."
-            : currentOrder.paymentStatus === "failed"
-              ? "No payment was confirmed. Return to your cart to try checkout again."
-              : "Stripe is processing the payment confirmation. This page will update automatically."}
+            ? currentOrder.paymentMethod === "cash_on_delivery"
+              ? "The store operator confirmed receipt of cash for this order."
+              : "Payment was confirmed by Stripe. Your order has been sent to the store."
+            : currentOrder.paymentStatus === "cod_due"
+              ? "Your order has been sent to the store. Pay the store operator when it is delivered."
+              : currentOrder.paymentStatus === "failed"
+                ? "No payment was confirmed. Return to your cart to try checkout again."
+                : "Stripe is processing the payment confirmation. This page will update automatically."}
         </p>
       </div>
 
-      {currentOrder.paymentStatus === "paid" && (
+      {(currentOrder.paymentStatus === "paid" ||
+        currentOrder.paymentStatus === "cod_due") && (
         <CustomerOrderSyncStatus initialOrder={currentOrder} />
       )}
 
@@ -117,9 +134,26 @@ export function StorefrontCheckoutSuccess({
           <span className="font-semibold text-emerald-700">
             {currentOrder.paymentStatus === "paid"
               ? currentOrder.status
-              : currentOrder.paymentStatus}
+              : currentOrder.paymentStatus === "cod_due"
+                ? "Awaiting cash collection"
+                : currentOrder.paymentStatus}
           </span>
         </div>
+        {currentOrder.deliveryAddress && (
+          <div className="mt-3">
+            <p className="font-medium text-slate-500">Delivery address</p>
+            <p className="mt-1 font-semibold text-slate-900">
+              {currentOrder.deliveryAddress.fullName} ·{" "}
+              {currentOrder.deliveryAddress.line1}
+              {currentOrder.deliveryAddress.line2
+                ? `, ${currentOrder.deliveryAddress.line2}`
+                : ""}
+              , {currentOrder.deliveryAddress.city},{" "}
+              {currentOrder.deliveryAddress.state}{" "}
+              {currentOrder.deliveryAddress.postalCode}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-emerald-200 bg-white p-4">

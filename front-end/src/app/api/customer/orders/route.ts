@@ -2,12 +2,16 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
-import { CustomerOrderSchema } from "@/core/domain/tenant-identities";
+import {
+  CustomerDeliveryAddressSchema,
+  CustomerOrderSchema,
+} from "@/core/domain/tenant-identities";
 import type { Product } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getCustomerSession } from "@/lib/server/session";
+import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
 import {
   createDemoCheckoutSessionId,
   isDemoCheckoutSession,
@@ -23,6 +27,8 @@ import { ZodError, z } from "zod";
 const CreateOrderSchema = z
   .object({
     idempotencyKey: z.uuid(),
+    paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
+    deliveryAddress: CustomerDeliveryAddressSchema.optional(),
     items: z
       .array(
         z.object({
@@ -47,7 +53,40 @@ const CreateOrderSchema = z
     ({ items }) =>
       items.reduce((total, item) => total + item.quantity, 0) <= 100,
     "Cart contains too many items",
+  )
+  .refine(
+    ({ paymentMethod, deliveryAddress }) =>
+      paymentMethod !== "cash_on_delivery" || Boolean(deliveryAddress),
+    {
+      message: "A delivery address is required for cash on delivery",
+      path: ["deliveryAddress"],
+    },
+  )
+  .refine(
+    ({ paymentMethod, deliveryAddress }) =>
+      paymentMethod !== "cash_on_delivery" || deliveryAddress?.country === "IN",
+    {
+      message: "Cash on delivery is currently available only in India",
+      path: ["deliveryAddress", "country"],
+    },
   );
+
+function sameDeliveryAddress(
+  left: z.infer<typeof CustomerDeliveryAddressSchema> | undefined,
+  right: z.infer<typeof CustomerDeliveryAddressSchema> | undefined,
+): boolean {
+  if (!left || !right) return left === right;
+  return (
+    left.fullName === right.fullName &&
+    left.line1 === right.line1 &&
+    (left.line2 ?? "") === (right.line2 ?? "") &&
+    left.city === right.city &&
+    left.state === right.state &&
+    left.postalCode === right.postalCode &&
+    left.country === right.country &&
+    left.phone === right.phone
+  );
+}
 
 export async function GET() {
   const session = await getCustomerSession();
@@ -108,6 +147,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
+  let orderCreated = false;
   let order = await store.getCustomerOrder(
     session.scope.id,
     session.userId,
@@ -115,17 +155,38 @@ export async function POST(request: Request) {
   );
   if (order) {
     const sameCart =
+      (order.paymentMethod ?? "stripe") === parsed.data.paymentMethod &&
       order.items.length === parsed.data.items.length &&
       order.items.every(
         (item, index) =>
           item.productId === parsed.data.items[index].productId &&
           item.quantity === parsed.data.items[index].quantity,
       );
-    if (!sameCart) {
+    const sameAddress = sameDeliveryAddress(
+      order.deliveryAddress,
+      parsed.data.deliveryAddress,
+    );
+    if (!sameCart || !sameAddress) {
       return NextResponse.json(
         { error: "idempotency_key_conflict" },
         { status: 409 },
       );
+    }
+    if (order.paymentMethod === "cash_on_delivery") {
+      if (order.paymentStatus === "cod_due") {
+        if (order.backendSyncStatus !== "synced") {
+          order = await syncCustomerOrderToTenant({
+            store,
+            tenantId: order.tenantId,
+            hostId: session.scope.hostId,
+            order,
+          });
+        }
+        return NextResponse.json({ order }, { status: 200 });
+      }
+      if (order.paymentStatus === "paid") {
+        return NextResponse.json({ order }, { status: 200 });
+      }
     }
     if (order.paymentStatus === "paid") {
       return NextResponse.json({ order }, { status: 200 });
@@ -275,6 +336,15 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+    if (
+      parsed.data.paymentMethod === "cash_on_delivery" &&
+      currency !== "INR"
+    ) {
+      return NextResponse.json(
+        { error: "cash_on_delivery_currency_unsupported" },
+        { status: 400 },
+      );
+    }
 
     const items = products.map((product, index) => ({
       productId: product.id,
@@ -316,20 +386,36 @@ export async function POST(request: Request) {
       total,
       currency,
       itemCount,
-      paymentStatus: "pending",
+      paymentMethod: parsed.data.paymentMethod,
+      paymentStatus:
+        parsed.data.paymentMethod === "cash_on_delivery"
+          ? "cod_due"
+          : "pending",
       paymentAttempt: 0,
-      backendSyncStatus: "not_configured",
+      ...(parsed.data.deliveryAddress
+        ? { deliveryAddress: parsed.data.deliveryAddress }
+        : {}),
+      backendSyncStatus:
+        parsed.data.paymentMethod === "cash_on_delivery"
+          ? "pending"
+          : "not_configured",
     });
     const result = await store.createCustomerOrder(newOrder);
     order = result.order;
+    orderCreated = result.created;
     const storedCartMatches =
+      order.paymentMethod === parsed.data.paymentMethod &&
       order.items.length === parsed.data.items.length &&
       order.items.every(
         (item, index) =>
           item.productId === parsed.data.items[index].productId &&
           item.quantity === parsed.data.items[index].quantity,
       );
-    if (!storedCartMatches) {
+    const storedAddressMatches = sameDeliveryAddress(
+      order.deliveryAddress,
+      parsed.data.deliveryAddress,
+    );
+    if (!storedCartMatches || !storedAddressMatches) {
       return NextResponse.json(
         { error: "idempotency_key_conflict" },
         { status: 409 },
@@ -350,6 +436,21 @@ export async function POST(request: Request) {
 
   if (!order) {
     return NextResponse.json({ error: "order_not_found" }, { status: 404 });
+  }
+  if (order.paymentMethod === "cash_on_delivery") {
+    const syncedOrder =
+      order.backendSyncStatus === "synced"
+        ? order
+        : await syncCustomerOrderToTenant({
+            store,
+            tenantId: order.tenantId,
+            hostId: session.scope.hostId,
+            order,
+          });
+    return NextResponse.json(
+      { order: syncedOrder, cashOnDelivery: true },
+      { status: orderCreated ? 201 : 200 },
+    );
   }
   const prepared = await store.prepareCustomerOrderPayment({
     tenantId: session.scope.id,

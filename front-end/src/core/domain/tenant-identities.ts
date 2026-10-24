@@ -54,7 +54,21 @@ export const CustomerOrderItemSchema = z.object({
   currency: z.string().regex(/^[A-Z]{3}$/),
 });
 
-export const CustomerOrderSchema = z.object({
+export const CustomerDeliveryAddressSchema = z.object({
+  fullName: z.string().trim().min(1).max(120),
+  line1: z.string().trim().min(1).max(200),
+  line2: z.string().trim().max(200).optional(),
+  city: z.string().trim().min(1).max(100),
+  state: z.string().trim().min(1).max(100),
+  postalCode: z.string().regex(/^\d{6}$/),
+  country: z.literal("IN"),
+  phone: z.string().regex(/^\+91[6-9]\d{9}$/),
+});
+export type CustomerDeliveryAddress = z.infer<
+  typeof CustomerDeliveryAddressSchema
+>;
+
+const CustomerOrderBaseSchema = z.object({
   id: z.string().min(1).max(100),
   tenantId: z.uuid(),
   customerId: z.uuid(),
@@ -64,24 +78,65 @@ export const CustomerOrderSchema = z.object({
   total: z.number().int().nonnegative(),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),
-  paymentStatus: z.enum(["pending", "paid", "failed"]).default("paid"),
+  paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
+  paymentStatus: z
+    .enum(["pending", "paid", "failed", "cod_due"])
+    .default("paid"),
   paymentAttempt: z.number().int().nonnegative().default(0),
   paymentSessionId: z.string().min(1).optional(),
   paymentIntentId: z.string().min(1).optional(),
+  deliveryAddress: CustomerDeliveryAddressSchema.optional(),
   backendSyncStatus: z
     .enum(["not_configured", "pending", "synced", "failed"])
     .default("not_configured"),
   backendSyncError: z.string().max(200).optional(),
 });
 
+export const CustomerOrderSchema = CustomerOrderBaseSchema.superRefine(
+  (order, context) => {
+    if (
+      order.paymentMethod === "cash_on_delivery" &&
+      (order.currency !== "INR" ||
+        !order.deliveryAddress ||
+        !["cod_due", "paid"].includes(order.paymentStatus) ||
+        order.paymentAttempt !== 0 ||
+        order.paymentSessionId !== undefined ||
+        order.paymentIntentId !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Cash on delivery requires an Indian delivery address, INR currency, and a valid unpaid or collected status",
+      });
+    }
+    if (order.paymentMethod === "stripe" && order.paymentStatus === "cod_due") {
+      context.addIssue({
+        code: "custom",
+        message: "Stripe orders cannot be awaiting cash collection",
+      });
+    }
+  },
+);
+
 export type CustomerOrder = z.infer<typeof CustomerOrderSchema>;
 
-export const TenantOrderSchema = CustomerOrderSchema.omit({
+export const TenantOrderSchema = CustomerOrderBaseSchema.omit({
   backendSyncStatus: true,
   backendSyncError: true,
   paymentStatus: true,
   paymentAttempt: true,
   paymentSessionId: true,
   paymentIntentId: true,
+}).superRefine((order, context) => {
+  if (
+    order.paymentMethod === "cash_on_delivery" &&
+    (order.currency !== "INR" || !order.deliveryAddress)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "Cash-on-delivery tenant orders require an Indian delivery address and INR currency",
+    });
+  }
 });
 export type TenantOrder = z.infer<typeof TenantOrderSchema>;

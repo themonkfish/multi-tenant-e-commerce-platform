@@ -31,6 +31,7 @@ const order: CustomerOrder = {
   total: 2500,
   currency: "USD",
   itemCount: 2,
+  paymentMethod: "stripe",
   paymentStatus: "paid",
   paymentAttempt: 0,
   backendSyncStatus: "pending",
@@ -63,8 +64,46 @@ describe("RestTenantOrderAdapter", () => {
         total: order.total,
         currency: order.currency,
         itemCount: order.itemCount,
+        paymentMethod: "stripe",
       },
     });
+  });
+
+  it("sends accepted cash-on-delivery orders with their delivery details", async () => {
+    const codOrder: CustomerOrder = {
+      ...order,
+      currency: "INR",
+      items: order.items.map((item) => ({ ...item, currency: "INR" })),
+      paymentMethod: "cash_on_delivery",
+      paymentStatus: "cod_due",
+      deliveryAddress: {
+        fullName: "Test Customer",
+        line1: "1 Market Road",
+        city: "Pune",
+        state: "Maharashtra",
+        postalCode: "411001",
+        country: "IN",
+        phone: "+919876543210",
+      },
+    };
+    const transport = mockTransport({ order: codOrder });
+    const adapter = new RestTenantOrderAdapter(
+      config,
+      "api-secret",
+      tenantId,
+      transport,
+    );
+    await expect(adapter.createOrder(codOrder)).resolves.toBeUndefined();
+    expect(transport).toHaveBeenCalledWith(
+      config,
+      "api-secret",
+      expect.objectContaining({
+        body: expect.objectContaining({
+          paymentMethod: "cash_on_delivery",
+          deliveryAddress: codOrder.deliveryAddress,
+        }),
+      }),
+    );
   });
 
   it("rejects cross-tenant orders and mismatched backend responses", async () => {
@@ -103,7 +142,7 @@ describe("RestTenantOrderAdapter", () => {
 
     await expect(
       adapter.createOrder({ ...order, paymentStatus: "pending" }),
-    ).rejects.toThrow("confirmed payment");
+    ).rejects.toThrow("paid or accepted cash-on-delivery");
     expect(transport).not.toHaveBeenCalled();
   });
 

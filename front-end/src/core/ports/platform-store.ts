@@ -213,6 +213,19 @@ export interface PlatformStore
     tenantId: string,
     customerId: string,
   ): Promise<CustomerOrder[]>;
+  listTenantCashOnDeliveryOrders(input: {
+    tenantId: string;
+    page: number;
+    limit: number;
+  }): Promise<{
+    data: CustomerOrder[];
+    meta: { page: number; limit: number; total: number };
+  }>;
+  markCustomerOrderCashOnDeliveryCollected(input: {
+    tenantId: string;
+    orderId: string;
+    auditEvent: AuditEvent;
+  }): Promise<CustomerOrder | null>;
   getTenantStoreSettings(
     tenantId: string,
     hostId: string,

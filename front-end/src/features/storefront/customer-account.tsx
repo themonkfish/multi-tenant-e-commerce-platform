@@ -94,9 +94,18 @@ export function StorefrontCustomerAccount({
                     </h4>
                   </div>
                   <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                    {"paymentStatus" in order && order.paymentStatus !== "paid"
-                      ? `Payment ${order.paymentStatus}`
-                      : order.status}
+                    {"paymentMethod" in order &&
+                    order.paymentMethod === "cash_on_delivery" &&
+                    order.paymentStatus === "cod_due"
+                      ? "Cash due on delivery"
+                      : "paymentMethod" in order &&
+                          order.paymentMethod === "cash_on_delivery" &&
+                          order.paymentStatus === "paid"
+                        ? "Cash collected"
+                        : "paymentStatus" in order &&
+                            order.paymentStatus !== "paid"
+                          ? `Payment ${order.paymentStatus}`
+                          : order.status}
                   </span>
                 </div>
 
@@ -115,6 +124,12 @@ export function StorefrontCustomerAccount({
                       : `${order.total} ${order.currency}`}
                   </span>
                 </div>
+                {"deliveryAddress" in order && order.deliveryAddress && (
+                  <p className="mt-3 text-sm text-slate-600">
+                    Deliver to {order.deliveryAddress.fullName},{" "}
+                    {order.deliveryAddress.line1}, {order.deliveryAddress.city}
+                  </p>
+                )}
                 {customer &&
                   "backendSyncStatus" in order &&
                   order.backendSyncStatus !== "synced" && (

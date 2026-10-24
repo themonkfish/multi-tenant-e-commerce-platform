@@ -956,6 +956,7 @@ describe("FilePlatformStore", () => {
       total: 2500,
       currency: "USD",
       itemCount: 2,
+      paymentMethod: "stripe" as const,
       paymentStatus: "pending" as const,
       paymentAttempt: 0,
       backendSyncStatus: "not_configured" as const,
@@ -1165,5 +1166,113 @@ describe("FilePlatformStore", () => {
     await expect(
       store.listCustomerOrders(otherTenant.id, customer.id),
     ).resolves.toEqual([]);
+  });
+
+  it("lists pending cash-on-delivery orders and records collection once", async () => {
+    const { store, filePath } = await createStoreWithPath();
+    const tenantId = "550e8400-e29b-41d4-a716-446655440010";
+    const hostId = "550e8400-e29b-41d4-a716-446655440000";
+    const customerId = "550e8400-e29b-41d4-a716-446655440011";
+    const host = hostConfig({ id: hostId, status: "active" });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ id: tenantId, hostId, status: "active" });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenantId),
+    );
+    await store.createCustomerAccount({
+      id: customerId,
+      tenantId,
+      email: "cod-customer@example.com",
+      passwordHash: "customer-hash",
+      createdAt: new Date().toISOString(),
+    });
+    const order = {
+      id: "ORD-550e8400-e29b-41d4-a716-446655440012",
+      tenantId,
+      customerId,
+      status: "Confirmed" as const,
+      createdAt: new Date().toISOString(),
+      items: [
+        {
+          productId: "product-1",
+          title: "Cotton shirt",
+          slug: "cotton-shirt",
+          quantity: 1,
+          unitPrice: 1500,
+          currency: "INR",
+        },
+      ],
+      total: 1500,
+      currency: "INR",
+      itemCount: 1,
+      paymentMethod: "cash_on_delivery" as const,
+      paymentStatus: "cod_due" as const,
+      paymentAttempt: 0,
+      deliveryAddress: {
+        fullName: "Test Customer",
+        line1: "1 Market Road",
+        city: "Pune",
+        state: "Maharashtra",
+        postalCode: "411001",
+        country: "IN" as const,
+        phone: "+919876543210",
+      },
+      backendSyncStatus: "synced" as const,
+    };
+    await store.createCustomerOrder(order);
+    await expect(
+      store.prepareCustomerOrderPayment({
+        tenantId,
+        customerId,
+        orderId: order.id,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.listTenantCashOnDeliveryOrders({
+        tenantId,
+        page: 1,
+        limit: 20,
+      }),
+    ).resolves.toMatchObject({
+      data: [
+        expect.objectContaining({ id: order.id, paymentStatus: "cod_due" }),
+      ],
+      meta: { page: 1, limit: 20, total: 1 },
+    });
+
+    const auditEvent: AuditEvent = {
+      id: randomUUID(),
+      actorId: "tenant-operator",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      action: "tenant.order.cash_on_delivery_collected",
+      resourceType: "customer_order_payment",
+      resourceId: order.id,
+      createdAt: new Date().toISOString(),
+    };
+    await expect(
+      store.markCustomerOrderCashOnDeliveryCollected({
+        tenantId,
+        orderId: order.id,
+        auditEvent,
+      }),
+    ).resolves.toMatchObject({ id: order.id, paymentStatus: "paid" });
+    await expect(
+      store.markCustomerOrderCashOnDeliveryCollected({
+        tenantId,
+        orderId: order.id,
+        auditEvent: { ...auditEvent, id: randomUUID() },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.listTenantCashOnDeliveryOrders({
+        tenantId,
+        page: 1,
+        limit: 20,
+      }),
+    ).resolves.toMatchObject({ data: [], meta: { total: 0 } });
+
+    const state = JSON.parse(await readFile(filePath, "utf8"));
+    expect(state.auditEvents).toContainEqual(auditEvent);
   });
 });

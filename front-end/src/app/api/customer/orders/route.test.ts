@@ -4,6 +4,7 @@ const {
   getCustomerSession,
   getPlatformStore,
   createTenantCatalogAdapter,
+  syncCustomerOrderToTenant,
   createStripeCheckoutSession,
   retrieveStripeCheckoutSession,
   createDemoCheckoutSessionId,
@@ -13,6 +14,7 @@ const {
   getCustomerSession: vi.fn(),
   getPlatformStore: vi.fn(),
   createTenantCatalogAdapter: vi.fn(),
+  syncCustomerOrderToTenant: vi.fn(),
   createStripeCheckoutSession: vi.fn(),
   retrieveStripeCheckoutSession: vi.fn(),
   createDemoCheckoutSessionId: vi.fn(),
@@ -24,6 +26,9 @@ vi.mock("@/lib/server/session", () => ({ getCustomerSession }));
 vi.mock("@/lib/server/platform", () => ({ getPlatformStore }));
 vi.mock("@/adapters/data/rest/tenant-catalog", () => ({
   createTenantCatalogAdapter,
+}));
+vi.mock("@/lib/server/customer-order-sync", () => ({
+  syncCustomerOrderToTenant,
 }));
 vi.mock("@/lib/server/stripe-payments", () => ({
   createStripeCheckoutSession,
@@ -74,6 +79,7 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
     total: 2500,
     currency: "USD",
     itemCount: 2,
+    paymentMethod: "stripe",
     paymentStatus: "pending",
     paymentAttempt: 0,
     backendSyncStatus: "not_configured",
@@ -96,11 +102,39 @@ function checkoutRequest() {
   });
 }
 
+function cashOnDeliveryRequest() {
+  return new Request("http://store.localhost:3000/api/customer/orders", {
+    method: "POST",
+    headers: {
+      host: "store.localhost:3000",
+      origin: "http://store.localhost:3000",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
+      paymentMethod: "cash_on_delivery",
+      deliveryAddress: {
+        fullName: "Test Customer",
+        line1: "1 Market Road",
+        city: "Pune",
+        state: "Maharashtra",
+        postalCode: "411001",
+        country: "IN",
+        phone: "+919876543210",
+      },
+      items: [{ productId: product.id, quantity: 2 }],
+    }),
+  });
+}
+
 describe("POST /api/customer/orders Stripe checkout", () => {
   afterEach(() => {
     isLocalDemoCheckoutEnabled.mockReturnValue(false);
     isDemoCheckoutSession.mockImplementation((sessionId: string) =>
       sessionId.startsWith("demo_"),
+    );
+    syncCustomerOrderToTenant.mockImplementation(
+      async ({ order }: { order: ReturnType<typeof makeOrder> }) => order,
     );
     vi.clearAllMocks();
   });
@@ -283,5 +317,79 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       error: "idempotency_key_conflict",
     });
     expect(createTenantCatalogAdapter).not.toHaveBeenCalled();
+  });
+
+  it("creates and syncs an unpaid INR cash-on-delivery order without Stripe", async () => {
+    const codProduct = {
+      ...product,
+      price: { amount: 1250, currency: "INR" },
+    };
+    const order = makeOrder({
+      currency: "INR",
+      items: [
+        {
+          productId: product.id,
+          title: product.title,
+          slug: product.slug,
+          quantity: 2,
+          unitPrice: 1250,
+          currency: "INR",
+        },
+      ],
+      paymentMethod: "cash_on_delivery",
+      paymentStatus: "cod_due",
+      deliveryAddress: {
+        fullName: "Test Customer",
+        line1: "1 Market Road",
+        city: "Pune",
+        state: "Maharashtra",
+        postalCode: "411001",
+        country: "IN",
+        phone: "+919876543210",
+      },
+      backendSyncStatus: "pending",
+    });
+    const store = {
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getCustomerOrder: vi.fn().mockResolvedValue(null),
+      createCustomerOrder: vi.fn().mockResolvedValue({ order, created: true }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    };
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue(codProduct),
+    });
+    syncCustomerOrderToTenant.mockResolvedValue(order);
+
+    const response = await POST(cashOnDeliveryRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body).toMatchObject({
+      order: {
+        paymentMethod: "cash_on_delivery",
+        paymentStatus: "cod_due",
+        currency: "INR",
+        deliveryAddress: { country: "IN", phone: "+919876543210" },
+      },
+      cashOnDelivery: true,
+    });
+    expect(syncCustomerOrderToTenant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId,
+        hostId,
+        order: expect.objectContaining({
+          paymentMethod: "cash_on_delivery",
+          paymentStatus: "cod_due",
+        }),
+      }),
+    );
+    expect(createStripeCheckoutSession).not.toHaveBeenCalled();
   });
 });

@@ -31,16 +31,20 @@ Status snapshot as of 2026-10-24:
   at the hosting provider, registrar automation, and the full commerce runtime
   remain future work.
 - Tenant catalog APIs route through configured REST, Supabase, or MongoDB Atlas
-  providers; order APIs continue through the REST backend. Live tenant-specific
-  payments and storage remain future work.
+  providers; order APIs continue through the REST backend. Tenant-specific
+  live card payments and storage remain future work.
 - Tenant Owner-managed Staff catalog/order permissions and Tenant-scoped
   Customer sign-in/order reads are now server-enforced; isolated demo
   credentials and sample Customer orders support local testing.
 - Authenticated checkout creates idempotent platform order snapshots from
   current catalog prices, creates Stripe test Checkout sessions, and waits for
-  signed payment webhooks before syncing orders to the Tenant backend. Payment
-  retries are idempotent. Live payments, inventory, and fulfillment remain
-  unimplemented.
+  signed payment webhooks before syncing card orders to the Tenant backend.
+  India-only INR cash-on-delivery orders require an Indian delivery address,
+  are synced as unpaid orders, and can be marked collected by an authorized
+  Tenant operator with an audit event. Payment retries are idempotent. Live
+  card payments, inventory, and fulfillment remain unimplemented; Stripe
+  Connect onboarding is blocked pending confirmation that India is eligible
+  for the platform country.
 
 ### Completed
 
@@ -199,9 +203,10 @@ Status snapshot as of 2026-10-24:
    - Continue credential rotation and connection-validation workflows.
 
 4. **P2 — Commerce backend and fulfillment**
-   - Add production payment operations, Stripe Connect tenant onboarding,
-     regional gateways, and COD. Stripe test-mode checkout and webhook
-     verification are implemented.
+   - Add production payment operations and Stripe Connect tenant onboarding.
+     Stripe test-mode checkout and webhook verification, plus India-only
+     Cash on Delivery, are implemented. Stripe Connect is blocked pending
+     platform-country eligibility; regional gateways are deferred.
    - Add storage adapter support with upload validation and scoped file paths.
    - Build customer, inventory, shipping, tax, and discount workflows around
      synchronized Tenant backend order snapshots.
@@ -260,8 +265,13 @@ Status snapshot as of 2026-10-24:
       state updates, retryable order delivery, and Customer payment states.
 - [x] Add a local-only simulated checkout for testing success, failure, and
       Tenant order delivery without payment-provider credentials.
-- [ ] Add production Stripe Connect, regional payment gateways, and Cash on
-      Delivery after provider-specific onboarding and compliance work.
+- [ ] Add production Stripe Connect after provider-specific onboarding,
+      compliance work, and confirmation of India platform eligibility.
+- [ ] Add regional payment gateways after the supported regions and providers
+      are selected.
+- [x] Add India-only Cash on Delivery with required Indian delivery address,
+      Tenant REST order delivery, authorized collection confirmation, and
+      audit logging.
 - [ ] Implement a storage adapter (initial target: S3-compatible), upload
       validation including file type/content checks, and scoped file paths.
 - [ ] Add additional storage providers based on the v1 scope.

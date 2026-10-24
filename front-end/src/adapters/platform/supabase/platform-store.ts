@@ -936,10 +936,12 @@ export class SupabasePlatformStore implements PlatformStore {
         total: order.total,
         currency: order.currency,
         item_count: order.itemCount,
+        payment_method: order.paymentMethod,
         payment_status: order.paymentStatus,
         payment_attempt: order.paymentAttempt,
         payment_session_id: order.paymentSessionId ?? null,
         payment_intent_id: order.paymentIntentId ?? null,
+        delivery_address: order.deliveryAddress ?? null,
         backend_sync_status: order.backendSyncStatus,
         backend_sync_error: order.backendSyncError ?? null,
       })
@@ -1001,6 +1003,7 @@ export class SupabasePlatformStore implements PlatformStore {
     );
     if (
       !current ||
+      current.paymentMethod !== "stripe" ||
       current.paymentStatus === "paid" ||
       (current.paymentStatus === "pending" && current.paymentSessionId)
     ) {
@@ -1021,6 +1024,7 @@ export class SupabasePlatformStore implements PlatformStore {
       .eq("tenant_id", input.tenantId)
       .eq("customer_id", input.customerId)
       .eq("id", input.orderId)
+      .eq("payment_method", "stripe")
       .eq("payment_status", current.paymentStatus)
       .eq("payment_attempt", current.paymentAttempt);
     const filtered = current.paymentSessionId
@@ -1039,7 +1043,9 @@ export class SupabasePlatformStore implements PlatformStore {
       input.customerId,
       input.orderId,
     );
-    return latest?.paymentStatus === "pending" && !latest.paymentSessionId
+    return latest?.paymentMethod === "stripe" &&
+      latest.paymentStatus === "pending" &&
+      !latest.paymentSessionId
       ? { order: latest, attempt: latest.paymentAttempt }
       : null;
   }
@@ -1057,6 +1063,7 @@ export class SupabasePlatformStore implements PlatformStore {
       .eq("tenant_id", input.tenantId)
       .eq("customer_id", input.customerId)
       .eq("id", input.orderId)
+      .eq("payment_method", "stripe")
       .eq("payment_status", "pending")
       .eq("payment_attempt", input.attempt)
       .or(`payment_session_id.is.null,payment_session_id.eq.${input.sessionId}`)
@@ -1078,6 +1085,7 @@ export class SupabasePlatformStore implements PlatformStore {
     status: CustomerOrder["paymentStatus"];
     paymentIntentId?: string;
   }): Promise<CustomerOrder | null> {
+    if (input.status === "cod_due") return null;
     const { data, error } = await this.client
       .from("platform_customer_orders")
       .update({
@@ -1089,6 +1097,7 @@ export class SupabasePlatformStore implements PlatformStore {
       .eq("tenant_id", input.tenantId)
       .eq("customer_id", input.customerId)
       .eq("id", input.orderId)
+      .eq("payment_method", "stripe")
       .eq("payment_session_id", input.sessionId)
       .in(
         "payment_status",
@@ -1171,6 +1180,82 @@ export class SupabasePlatformStore implements PlatformStore {
       throw new Error(`Could not load customer orders: ${error.message}`);
     }
     return data.map(customerOrderFromRow);
+  }
+
+  async listTenantCashOnDeliveryOrders(input: {
+    tenantId: string;
+    page: number;
+    limit: number;
+  }): Promise<{
+    data: CustomerOrder[];
+    meta: { page: number; limit: number; total: number };
+  }> {
+    if (
+      !Number.isInteger(input.page) ||
+      input.page < 1 ||
+      !Number.isInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > 100
+    ) {
+      throw new Error("Order pagination must use page >= 1 and limit 1-100");
+    }
+    const from = (input.page - 1) * input.limit;
+    if (!Number.isSafeInteger(from)) {
+      throw new Error("Order pagination offset is outside the supported range");
+    }
+    const { data, error, count } = await this.client
+      .from("platform_customer_orders")
+      .select("*", { count: "exact" })
+      .eq("tenant_id", input.tenantId)
+      .eq("payment_method", "cash_on_delivery")
+      .eq("payment_status", "cod_due")
+      .order("created_at", { ascending: false })
+      .range(from, from + input.limit - 1);
+    if (error) {
+      throw new Error(
+        `Could not load cash-on-delivery orders: ${error.message}`,
+      );
+    }
+    return {
+      data: data.map(customerOrderFromRow),
+      meta: { page: input.page, limit: input.limit, total: count ?? 0 },
+    };
+  }
+
+  async markCustomerOrderCashOnDeliveryCollected(input: {
+    tenantId: string;
+    orderId: string;
+    auditEvent: AuditEvent;
+  }): Promise<CustomerOrder | null> {
+    const { data, error } = await this.client.rpc(
+      "mark_platform_customer_order_cod_collected",
+      {
+        p_tenant_id: input.tenantId,
+        p_order_id: input.orderId,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not confirm cash-on-delivery collection: ${error.message}`,
+      );
+    }
+    if (!data) return null;
+    const { data: order, error: orderError } = await this.client
+      .from("platform_customer_orders")
+      .select("*")
+      .eq("tenant_id", input.tenantId)
+      .eq("id", input.orderId)
+      .maybeSingle();
+    if (orderError) {
+      throw new Error(
+        `Could not load collected cash-on-delivery order: ${orderError.message}`,
+      );
+    }
+    return order ? customerOrderFromRow(order) : null;
   }
 
   async getTenantStoreSettings(
@@ -1697,10 +1782,12 @@ function customerOrderFromRow(row: {
   total: number;
   currency: string;
   item_count: number;
+  payment_method: string;
   payment_status: string;
   payment_attempt: number;
   payment_session_id: string | null;
   payment_intent_id: string | null;
+  delivery_address: unknown;
   backend_sync_status: string;
   backend_sync_error: string | null;
 }): CustomerOrder {
@@ -1714,6 +1801,7 @@ function customerOrderFromRow(row: {
     total: row.total,
     currency: row.currency,
     itemCount: row.item_count,
+    paymentMethod: row.payment_method,
     paymentStatus: row.payment_status,
     paymentAttempt: row.payment_attempt,
     ...(row.payment_session_id
@@ -1722,6 +1810,7 @@ function customerOrderFromRow(row: {
     ...(row.payment_intent_id
       ? { paymentIntentId: row.payment_intent_id }
       : {}),
+    ...(row.delivery_address ? { deliveryAddress: row.delivery_address } : {}),
     backendSyncStatus: row.backend_sync_status,
     ...(row.backend_sync_error
       ? { backendSyncError: row.backend_sync_error }

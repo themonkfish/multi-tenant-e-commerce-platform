@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  CustomerOrderSchema,
   TenantOrderSchema,
+  type CustomerOrder,
   type TenantOrder,
 } from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
@@ -42,6 +44,9 @@ export function TenantOrderManagement({
   locale: string;
 }) {
   const [orders, setOrders] = useState<TenantOrder[]>([]);
+  const [cashOrders, setCashOrders] = useState<CustomerOrder[]>([]);
+  const [cashPage, setCashPage] = useState(1);
+  const [cashTotal, setCashTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
@@ -50,6 +55,7 @@ export function TenantOrderManagement({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [cashError, setCashError] = useState("");
 
   const loadOrders = useCallback(
     async (pageNumber: number) => {
@@ -88,15 +94,52 @@ export function TenantOrderManagement({
     [limit],
   );
 
+  const loadCashOrders = useCallback(async (pageNumber: number) => {
+    setCashError("");
+    try {
+      const response = await fetch(
+        `/api/tenant/cash-on-delivery?page=${pageNumber}&limit=20`,
+        { cache: "no-store" },
+      );
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setCashError("Could not load pending cash-on-delivery orders.");
+        return;
+      }
+      const parsed = z
+        .object({
+          data: z.array(CustomerOrderSchema),
+          meta: z.object({
+            page: z.number().int().positive(),
+            limit: z.number().int().positive(),
+            total: z.number().int().nonnegative(),
+          }),
+        })
+        .safeParse(body);
+      if (!parsed.success) {
+        setCashError("The platform returned an invalid cash-on-delivery list.");
+        return;
+      }
+      setCashOrders(parsed.data.data);
+      setCashPage(parsed.data.meta.page);
+      setCashTotal(parsed.data.meta.total);
+    } catch {
+      setCashError("Could not reach pending cash-on-delivery orders.");
+    }
+  }, []);
+
   useEffect(() => {
     let current = true;
     void Promise.resolve().then(() => {
-      if (current) void loadOrders(page);
+      if (current) {
+        void loadOrders(page);
+        void loadCashOrders(cashPage);
+      }
     });
     return () => {
       current = false;
     };
-  }, [loadOrders, page]);
+  }, [cashPage, loadCashOrders, loadOrders, page]);
 
   async function updateStatus(order: TenantOrder) {
     const nextStatus = order.status === "Confirmed" ? "Processing" : "Shipped";
@@ -127,6 +170,53 @@ export function TenantOrderManagement({
       await loadOrders(page);
     } catch {
       setError("Could not reach the Tenant backend.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function markCashCollected(order: CustomerOrder) {
+    setBusy(true);
+    setCashError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/tenant/cash-on-delivery", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setCashError(
+          typeof body === "object" &&
+            body !== null &&
+            "error" in body &&
+            body.error === "cod_order_not_due"
+            ? "This order has already been collected or is no longer due."
+            : "Cash collection could not be confirmed. Try again.",
+        );
+        return;
+      }
+      const parsed =
+        typeof body === "object" && body !== null && "order" in body
+          ? CustomerOrderSchema.safeParse(body.order)
+          : null;
+      if (!parsed?.success || parsed.data.paymentStatus !== "paid") {
+        setCashError("The platform returned an invalid collection result.");
+        return;
+      }
+      setCashOrders((current) =>
+        current.filter((candidate) => candidate.id !== parsed.data.id),
+      );
+      setCashTotal((current) => Math.max(0, current - 1));
+      if (cashOrders.length === 1 && cashPage > 1) {
+        setCashPage((current) => current - 1);
+      } else {
+        await loadCashOrders(cashPage);
+      }
+      setNotice(`Cash collection confirmed for ${parsed.data.id}.`);
+    } catch {
+      setCashError("Could not reach the platform to confirm collection.");
     } finally {
       setBusy(false);
     }
@@ -180,6 +270,104 @@ export function TenantOrderManagement({
           {notice}
         </p>
       )}
+      {cashError && (
+        <p className="text-sm text-red-700" role="alert">
+          {cashError}
+        </p>
+      )}
+      <section className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-5">
+        <div>
+          <h2 className="text-lg font-semibold text-amber-950">
+            Cash on delivery
+          </h2>
+          <p className="text-sm text-amber-900">
+            Orders remain unpaid until a store operator receives the cash.
+          </p>
+        </div>
+        {cashOrders.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            No pending cash-on-delivery orders.
+          </p>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {cashOrders.map((order) => (
+                <article
+                  className="rounded-md border border-amber-200 bg-white p-4"
+                  key={order.id}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{order.id}</p>
+                      <p className="text-sm text-slate-600">
+                        {order.itemCount} items ·{" "}
+                        {formatCurrencyAmount(
+                          order.total,
+                          order.currency,
+                          locale,
+                        )}
+                      </p>
+                    </div>
+                    {canManage && (
+                      <button
+                        className="rounded-md bg-amber-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                        disabled={busy}
+                        onClick={() => void markCashCollected(order)}
+                        type="button"
+                      >
+                        {busy ? "Confirming…" : "Mark cash collected"}
+                      </button>
+                    )}
+                  </div>
+                  {order.deliveryAddress && (
+                    <address className="mt-3 not-italic text-sm text-slate-700">
+                      <span className="font-medium">
+                        {order.deliveryAddress.fullName}
+                      </span>
+                      <br />
+                      {order.deliveryAddress.line1}
+                      {order.deliveryAddress.line2
+                        ? `, ${order.deliveryAddress.line2}`
+                        : ""}
+                      <br />
+                      {order.deliveryAddress.city},{" "}
+                      {order.deliveryAddress.state}{" "}
+                      {order.deliveryAddress.postalCode}, India
+                      <br />
+                      {order.deliveryAddress.phone}
+                    </address>
+                  )}
+                </article>
+              ))}
+            </div>
+            {cashTotal > 20 && (
+              <div className="flex items-center justify-between text-sm">
+                <span>
+                  Page {cashPage} · {cashTotal} pending
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    className="rounded border px-3 py-1 disabled:opacity-50"
+                    disabled={cashPage <= 1 || busy}
+                    onClick={() => setCashPage((current) => current - 1)}
+                    type="button"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    className="rounded border px-3 py-1 disabled:opacity-50"
+                    disabled={cashPage * 20 >= cashTotal || busy}
+                    onClick={() => setCashPage((current) => current + 1)}
+                    type="button"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </section>
       {loading ? (
         <p className="text-sm text-slate-600">Loading orders…</p>
       ) : orders.length === 0 ? (

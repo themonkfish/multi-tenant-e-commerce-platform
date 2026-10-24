@@ -20,14 +20,7 @@ type RestTransport = (
   request: RestHttpRequest,
 ) => Promise<RestHttpResponse>;
 
-const OrderResponseSchema = CustomerOrderSchema.omit({
-  backendSyncStatus: true,
-  backendSyncError: true,
-  paymentStatus: true,
-  paymentAttempt: true,
-  paymentSessionId: true,
-  paymentIntentId: true,
-});
+const OrderResponseSchema = TenantOrderSchema;
 const OrderPageSchema = z.object({
   data: z.array(TenantOrderSchema),
   meta: z.object({
@@ -48,8 +41,14 @@ export class RestTenantOrderAdapter {
   async createOrder(input: CustomerOrder): Promise<void> {
     const order = CustomerOrderSchema.parse(input);
     this.assertTenant(order.tenantId);
-    if (order.paymentStatus !== "paid") {
-      throw new Error("Tenant backend orders must have confirmed payment");
+    const paymentConfirmed =
+      order.paymentStatus === "paid" ||
+      (order.paymentMethod === "cash_on_delivery" &&
+        order.paymentStatus === "cod_due");
+    if (!paymentConfirmed) {
+      throw new Error(
+        "Tenant backend orders must be paid or accepted cash-on-delivery orders",
+      );
     }
     const response = await this.transport(this.config, this.apiKey, {
       method: "POST",
@@ -64,6 +63,10 @@ export class RestTenantOrderAdapter {
         total: order.total,
         currency: order.currency,
         itemCount: order.itemCount,
+        paymentMethod: order.paymentMethod,
+        ...(order.deliveryAddress
+          ? { deliveryAddress: order.deliveryAddress }
+          : {}),
       },
     });
     if (response.status < 200 || response.status >= 300) {

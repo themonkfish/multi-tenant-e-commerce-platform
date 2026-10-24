@@ -339,7 +339,9 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
-          payment_status: "pending" | "paid" | "failed";
+          payment_status: "pending" | "paid" | "failed" | "cod_due";
+          payment_method: "stripe" | "cash_on_delivery";
+          delivery_address: Json | null;
           payment_attempt: number;
           payment_session_id: string | null;
           payment_intent_id: string | null;
@@ -357,7 +359,9 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
-          payment_status?: "pending" | "paid" | "failed";
+          payment_status?: "pending" | "paid" | "failed" | "cod_due";
+          payment_method?: "stripe" | "cash_on_delivery";
+          delivery_address?: Json | null;
           payment_attempt?: number;
           payment_session_id?: string | null;
           payment_intent_id?: string | null;
@@ -367,7 +371,9 @@ export type PlatformDatabase = {
         };
         Update: {
           status?: "Confirmed" | "Processing" | "Shipped";
-          payment_status?: "pending" | "paid" | "failed";
+          payment_status?: "pending" | "paid" | "failed" | "cod_due";
+          payment_method?: "stripe" | "cash_on_delivery";
+          delivery_address?: Json | null;
           payment_attempt?: number;
           payment_session_id?: string | null;
           payment_intent_id?: string | null;
@@ -731,6 +737,17 @@ export type PlatformDatabase = {
           p_audit_id: string;
           p_audit_action: string;
           p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      mark_platform_customer_order_cod_collected: {
+        Args: {
+          p_tenant_id: string;
+          p_order_id: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
           p_audit_created_at: string;
         };
         Returns: boolean;
