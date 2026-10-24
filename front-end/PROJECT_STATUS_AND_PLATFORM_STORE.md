@@ -302,6 +302,8 @@ Status snapshot as of 2026-10-24:
       workflows. REST API-key replacement is supported; OAuth/JWT are not.
 - [x] Add Stripe test-mode Checkout, signature verification, idempotent payment
       state updates, retryable order delivery, and Customer payment states.
+      Checkout tests verify the separate shipping line item, zero-shipping
+      behavior, and consistency with the saved order total.
 - [x] Add a local-only simulated checkout for testing success, failure, and
       Tenant order delivery without payment-provider credentials.
 - [ ] Add production Stripe Connect after provider-specific onboarding,
