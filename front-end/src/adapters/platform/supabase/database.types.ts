@@ -449,6 +449,25 @@ export type PlatformDatabase = {
         };
         Relationships: [];
       };
+      platform_tenant_database_providers: {
+        Row: {
+          tenant_id: string;
+          host_id: string;
+          config: Json;
+          updated_at: string;
+        };
+        Insert: {
+          tenant_id: string;
+          host_id: string;
+          config: Json;
+          updated_at: string;
+        };
+        Update: {
+          config?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -679,6 +698,34 @@ export type PlatformDatabase = {
           p_base_url: string;
           p_api_version: string;
           p_api_key_ref: string;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      update_platform_tenant_database_provider: {
+        Args: {
+          p_tenant_id: string;
+          p_host_id: string;
+          p_config: Json;
+          p_secret_ref: string;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
+      delete_platform_tenant_database_provider: {
+        Args: {
+          p_tenant_id: string;
+          p_host_id: string;
           p_updated_at: string;
           p_actor_id: string;
           p_audit_id: string;

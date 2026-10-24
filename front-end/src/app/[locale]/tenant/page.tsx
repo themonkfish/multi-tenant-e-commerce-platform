@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-settings-form";
 import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-connection-form";
+import { TenantDatabaseProviderForm } from "@/features/tenant-auth/tenant-database-provider-form";
+import { TenantDatabaseConnectionViewSchema } from "@/core/domain/tenant-config";
 import { TenantStaffManagement } from "@/features/tenant-auth/tenant-staff-management";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantOwnerSession } from "@/lib/server/session";
@@ -38,10 +40,31 @@ export default async function TenantDashboardPage({
   if (!tenant || !hostRecord) {
     redirect(`/${locale}/tenant/login`);
   }
-  const [settings, restConnection] = await Promise.all([
+  const [settings, restConnection, databaseProvider] = await Promise.all([
     store.getTenantStoreSettings(tenant.id, hostId, tenant.name),
     store.getTenantRestConnection(tenant.id, hostId),
+    store.getTenantDatabaseProvider(tenant.id, hostId),
   ]);
+  const databaseConnection = databaseProvider
+    ? TenantDatabaseConnectionViewSchema.parse(
+        databaseProvider.type === "supabase"
+          ? {
+              type: "supabase",
+              projectUrl: databaseProvider.projectUrl,
+              schema: databaseProvider.schema,
+              tenancyMode: databaseProvider.tenancyMode,
+              credentialConfigured: true,
+              schemaVersion: null,
+            }
+          : {
+              type: "mongodb",
+              dbName: databaseProvider.dbName,
+              tenancyMode: databaseProvider.tenancyMode,
+              credentialConfigured: true,
+              schemaVersion: null,
+            },
+      )
+    : null;
   const staff = await store.listTenantStaff(tenant.id);
 
   return (
@@ -106,11 +129,21 @@ export default async function TenantDashboardPage({
             }}
           />
         </div>
+        <div>
+          <h3 className="mb-2 font-semibold">Supabase or MongoDB connection</h3>
+          <p className="mb-4 text-sm text-slate-600">
+            Configure a dedicated tenant Supabase project or MongoDB Atlas
+            database. Database credentials are stored in the encrypted vault.
+            When configured, the database provider is used for catalog access
+            instead of the REST backend.
+          </p>
+          <TenantDatabaseProviderForm initialConnection={databaseConnection} />
+        </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h3 className="mb-2 font-semibold">Catalog management</h3>
           <p className="mb-4 text-sm text-slate-600">
-            Use the product catalog to create and maintain the tenant backend
-            catalog connected through the configured REST API.
+            Use the product catalog to create and maintain the catalog in the
+            active tenant data provider.
           </p>
           <a
             className="inline-flex rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-800"

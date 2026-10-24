@@ -767,6 +767,74 @@ describe("FilePlatformStore", () => {
     ).resolves.toEqual(config);
   });
 
+  it("persists encrypted database-provider references within the tenant host scope", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active" });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ status: "active" });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+    const secretRef = randomUUID();
+    await store.putSecretRecord({
+      ref: secretRef,
+      tenantId: tenant.id,
+      name: "tenant-supabase-service-key",
+      encryptedValue: "encrypted-value",
+      createdAt: new Date().toISOString(),
+    });
+    const config = {
+      type: "supabase" as const,
+      projectUrl: "https://tenant-project.supabase.co",
+      serviceKeyRef: secretRef,
+      schema: "public" as const,
+      tenancyMode: "dedicated-project" as const,
+    };
+    const auditEvent = hostScopedAudit(
+      "tenant.database_provider.updated",
+      "tenant_database_provider",
+      tenant.id,
+    );
+
+    await expect(
+      store.updateTenantDatabaseProvider({
+        tenantId: tenant.id,
+        hostId: "550e8400-e29b-41d4-a716-446655440099",
+        config,
+        updatedAt: new Date().toISOString(),
+        auditEvent,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.updateTenantDatabaseProvider({
+        tenantId: tenant.id,
+        hostId: host.id,
+        config,
+        updatedAt: new Date().toISOString(),
+        auditEvent,
+      }),
+    ).resolves.toEqual(config);
+    await expect(
+      store.getTenantDatabaseProvider(tenant.id, host.id),
+    ).resolves.toEqual(config);
+    await expect(
+      store.deleteTenantDatabaseProvider({
+        tenantId: tenant.id,
+        hostId: host.id,
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.database_provider.deleted",
+          "tenant_database_provider",
+          tenant.id,
+        ),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      store.getTenantDatabaseProvider(tenant.id, host.id),
+    ).resolves.toBeNull();
+  });
+
   it("scopes Staff creation and customer order reads to their tenant and account", async () => {
     const { store, filePath } = await createStoreWithPath();
     const host = hostConfig({ status: "active" });

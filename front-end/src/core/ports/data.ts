@@ -39,3 +39,13 @@ export interface CatalogPort {
   ): Promise<Product>;
   deleteProduct(tenantId: string, id: string): Promise<void>;
 }
+
+export class TenantDataBackendError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "TenantDataBackendError";
+  }
+}

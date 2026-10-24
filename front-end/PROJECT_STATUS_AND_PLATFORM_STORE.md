@@ -20,9 +20,9 @@ Status snapshot as of 2026-10-24:
 - The file-store developer path is fully usable locally; the Supabase platform
   store is the supported production path once the required migration set is
   applied.
-- REST backend connection validation, health checks, and the authenticated
-  tenant product API are implemented and protected by tenant-scoped server-side
-  checks.
+- REST, Supabase, and MongoDB Atlas tenant catalog adapters, owner connection
+  setup, schema initialization/version checks, and authenticated tenant product
+  APIs are implemented with tenant-scoped server-side checks.
 - Tenant branding/locale metadata is persisted and applied to the tenant
   storefront landing preview. A browser-persisted cart now submits
   authenticated, server-validated orders. Tenant custom domains can be claimed
@@ -30,9 +30,9 @@ Status snapshot as of 2026-10-24:
   provider-neutral HTTPS/TLS readiness checks are available. Domain attachment
   at the hosting provider, registrar automation, and the full commerce runtime
   remain future work.
-- Tenant product and order APIs are available through the standalone backend;
-  tenant database providers, live tenant-specific payments, and storage remain
-  future work.
+- Tenant catalog APIs route through configured REST, Supabase, or MongoDB Atlas
+  providers; order APIs continue through the REST backend. Live tenant-specific
+  payments and storage remain future work.
 - Tenant Owner-managed Staff catalog/order permissions and Tenant-scoped
   Customer sign-in/order reads are now server-enforced; isolated demo
   credentials and sample Customer orders support local testing.
@@ -106,6 +106,9 @@ Status snapshot as of 2026-10-24:
 - [x] Versioned REST catalog adapter for product list/read/create/update/delete
       with server-only API-key access, tenant-scoped BFF routes, contract
       validation, and mutation rate limits.
+- [x] Tenant Supabase and MongoDB Atlas catalog adapters with encrypted
+      write-only credentials, owner connection testing, schema initialization,
+      schema-version reporting, and tenant-scoped product operations.
 - [x] Server-enforced permissions for Super Admin, Host Owner, Tenant Owner,
       Tenant Staff, and Customer roles. Staff catalog/order permissions, Tenant
       boundaries, Customer-owned order reads, and owner-only Staff management
@@ -371,6 +374,19 @@ features are implemented.
     with a non-empty `status` plus `db` and `storage` set to `up` or `down`.
     Authentication is sent as `X-API-Key`. Leave API key blank to retain it;
     entering a new value rotates it. The value is write-only.
+    Alternatively, configure a dedicated tenant Supabase project or MongoDB
+    Atlas database. Supabase requires applying
+    [`supabase/reference/tenant-catalog.sql`](./supabase/reference/tenant-catalog.sql)
+    in the tenant project before testing and initialization; MongoDB Atlas
+    collections and indexes are initialized by the app. Database providers
+    take precedence over REST for catalog operations. The supported database
+    schema is version 1; test results report incompatible versions, and the
+    app will not initialize a database with a newer version.
+    MongoDB initializes a `tenant_products` collection with a strict product
+    document validator, tenant-scoped slug and creation-time indexes, and a
+    tenant-bound `tenant_schema_metadata` version record. Only dedicated
+    Supabase projects and dedicated MongoDB databases are currently supported;
+    shared-database tenancy modes are not enabled for these direct credentials.
 11. A Tenant Owner session can also exercise the catalog API:
     `GET /api/tenant/products?page=1&limit=20`,
     `POST /api/tenant/products`, and
@@ -432,8 +448,9 @@ Before deploying the app:
    `0001_platform_store.sql`, `0002_platform_hosts.sql`, and
    `0003_host_portal.sql`, `0004_tenant_owner_portal.sql`,
    `0005_tenant_store_settings.sql`, `0006_tenant_rest_connections.sql`, and
-   all later migrations, including `0012_tenant_domain_verification.sql` and
-   `0013_platform_setup_settings.sql`.
+   all later migrations, including `0012_tenant_domain_verification.sql`,
+   `0013_platform_setup_settings.sql`, and
+   `0014_tenant_database_providers.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

@@ -2,6 +2,19 @@ import { z } from "zod";
 
 const SecretRefSchema = z.string().min(1);
 
+function isTenantSupabaseProjectUrl(value: string): boolean {
+  const url = new URL(value);
+  return (
+    /^[a-z0-9-]+\.supabase\.co$/.test(url.hostname) &&
+    url.pathname === "/" &&
+    !url.search &&
+    !url.hash &&
+    !url.port &&
+    !url.username &&
+    !url.password
+  );
+}
+
 const restBaseFields = {
   type: z.literal("rest"),
   baseUrl: z.url({ protocol: /^https?$/ }),
@@ -47,6 +60,75 @@ export const TenantRestConnectionViewSchema = z.object({
   apiKeyConfigured: z.boolean(),
 });
 
+export const TenantSupabaseConnectionInputSchema = z.object({
+  projectUrl: z.url({ protocol: /^https$/ }).refine(isTenantSupabaseProjectUrl),
+  serviceKey: z
+    .string()
+    .min(1)
+    .max(4096)
+    .refine((value) => !/[\x00-\x1f\x7f]/.test(value))
+    .optional(),
+  schema: z.literal("public").default("public"),
+  tenancyMode: z.literal("dedicated-project").default("dedicated-project"),
+});
+
+export const TenantMongoConnectionInputSchema = z.object({
+  connectionString: z.string().min(1).max(4096).optional(),
+  dbName: z
+    .string()
+    .min(1)
+    .max(63)
+    .regex(/^[A-Za-z0-9_-]+$/),
+  tenancyMode: z.literal("dedicated-db").default("dedicated-db"),
+});
+
+export const TenantDatabaseConnectionInputSchema = z.discriminatedUnion(
+  "type",
+  [
+    TenantSupabaseConnectionInputSchema.extend({
+      type: z.literal("supabase"),
+    }),
+    TenantMongoConnectionInputSchema.extend({
+      type: z.literal("mongodb"),
+    }),
+  ],
+);
+
+const TenantRestConnectionProviderViewSchema = z.object({
+  type: z.literal("rest"),
+  baseUrl: z.string(),
+  apiVersion: z.string(),
+  credentialConfigured: z.boolean(),
+});
+
+const TenantSupabaseConnectionViewSchema = z.object({
+  type: z.literal("supabase"),
+  projectUrl: z.string(),
+  schema: z.string(),
+  tenancyMode: z.literal("dedicated-project"),
+  credentialConfigured: z.boolean(),
+  schemaVersion: z.number().int().nonnegative().nullable(),
+});
+
+const TenantMongoConnectionViewSchema = z.object({
+  type: z.literal("mongodb"),
+  dbName: z.string(),
+  tenancyMode: z.literal("dedicated-db"),
+  credentialConfigured: z.boolean(),
+  schemaVersion: z.number().int().nonnegative().nullable(),
+});
+
+export const TenantDataConnectionViewSchema = z.discriminatedUnion("type", [
+  TenantRestConnectionProviderViewSchema,
+  TenantSupabaseConnectionViewSchema,
+  TenantMongoConnectionViewSchema,
+]);
+
+export const TenantDatabaseConnectionViewSchema = z.discriminatedUnion("type", [
+  TenantSupabaseConnectionViewSchema,
+  TenantMongoConnectionViewSchema,
+]);
+
 export const RestHealthCheckResultSchema = z.object({
   status: z.enum(["healthy", "unhealthy"]),
   latencyMs: z.number().int().nonnegative(),
@@ -72,6 +154,24 @@ export const DataProviderConfigSchema = z.discriminatedUnion("type", [
     connectionRef: SecretRefSchema,
     dbName: z.string().min(1),
     tenancyMode: z.enum(["dedicated-db", "shared-collection-tenantId"]),
+  }),
+]);
+
+export const TenantDatabaseProviderConfigSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("supabase"),
+    projectUrl: z
+      .url({ protocol: /^https$/ })
+      .refine(isTenantSupabaseProjectUrl),
+    serviceKeyRef: SecretRefSchema,
+    schema: z.literal("public"),
+    tenancyMode: z.literal("dedicated-project"),
+  }),
+  z.object({
+    type: z.literal("mongodb"),
+    connectionRef: SecretRefSchema,
+    dbName: z.string().min(1).max(63),
+    tenancyMode: z.literal("dedicated-db"),
   }),
 ]);
 
@@ -159,6 +259,15 @@ export type TenantRestDataProviderConfig = z.infer<
 >;
 export type TenantRestConnectionInput = z.infer<
   typeof TenantRestConnectionInputSchema
+>;
+export type TenantSupabaseConnectionInput = z.infer<
+  typeof TenantSupabaseConnectionInputSchema
+>;
+export type TenantMongoConnectionInput = z.infer<
+  typeof TenantMongoConnectionInputSchema
+>;
+export type TenantDatabaseProviderConfig = z.infer<
+  typeof TenantDatabaseProviderConfigSchema
 >;
 export type RestHealthCheckResult = z.infer<typeof RestHealthCheckResultSchema>;
 export type StorageProviderConfig = z.infer<typeof StorageProviderConfigSchema>;

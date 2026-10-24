@@ -35,7 +35,9 @@ import {
   type TenantStaffPermission,
 } from "@/core/domain/tenant-identities";
 import {
+  TenantDatabaseProviderConfigSchema,
   TenantRestDataProviderConfigSchema,
+  type TenantDatabaseProviderConfig,
   type TenantRestDataProviderConfig,
 } from "@/core/domain/tenant-config";
 import {
@@ -1281,6 +1283,84 @@ export class SupabasePlatformStore implements PlatformStore {
       );
     }
     return data ? config : null;
+  }
+
+  async getTenantDatabaseProvider(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantDatabaseProviderConfig | null> {
+    const { data, error } = await this.client
+      .from("platform_tenant_database_providers")
+      .select("config")
+      .eq("tenant_id", tenantId)
+      .eq("host_id", hostId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not load tenant database provider: ${error.message}`,
+      );
+    }
+    return data ? TenantDatabaseProviderConfigSchema.parse(data.config) : null;
+  }
+
+  async updateTenantDatabaseProvider(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantDatabaseProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantDatabaseProviderConfig | null> {
+    const config = TenantDatabaseProviderConfigSchema.parse(input.config);
+    const secretRef =
+      config.type === "supabase" ? config.serviceKeyRef : config.connectionRef;
+    const { data, error } = await this.client.rpc(
+      "update_platform_tenant_database_provider",
+      {
+        p_tenant_id: input.tenantId,
+        p_host_id: input.hostId,
+        p_config: config,
+        p_secret_ref: secretRef,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_resource_id: input.auditEvent.resourceId ?? null,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not update tenant database provider: ${error.message}`,
+      );
+    }
+    return data ? config : null;
+  }
+
+  async deleteTenantDatabaseProvider(input: {
+    tenantId: string;
+    hostId: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<boolean> {
+    const { data, error } = await this.client.rpc(
+      "delete_platform_tenant_database_provider",
+      {
+        p_tenant_id: input.tenantId,
+        p_host_id: input.hostId,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_action: input.auditEvent.action,
+        p_audit_resource_id: input.auditEvent.resourceId ?? null,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not remove tenant database provider: ${error.message}`,
+      );
+    }
+    return Boolean(data);
   }
 
   async listTenantsForHost(hostId: string): Promise<TenantRecord[]> {

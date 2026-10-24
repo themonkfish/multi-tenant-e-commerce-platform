@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ProductUpdateSchema } from "@/core/domain/product";
 import { canAccessPermission } from "@/core/tenancy/scope";
-import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
+import { TenantDataBackendError } from "@/core/ports/data";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -12,7 +12,7 @@ type ProductRouteContext = {
 };
 
 function backendError(error: unknown) {
-  if (error instanceof RestBackendError) {
+  if (error instanceof TenantDataBackendError) {
     const status =
       error.status === 404
         ? 404
@@ -69,7 +69,8 @@ export async function GET(_request: Request, context: ProductRouteContext) {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message === "Tenant REST backend is not configured"
+      (error.message === "Tenant REST backend is not configured" ||
+        error.message === "Tenant database provider is not configured")
     ) {
       return NextResponse.json(
         { error: "connection_not_configured" },
@@ -131,7 +132,8 @@ export async function PATCH(request: Request, context: ProductRouteContext) {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message === "Tenant REST backend is not configured"
+      (error.message === "Tenant REST backend is not configured" ||
+        error.message === "Tenant database provider is not configured")
     ) {
       return NextResponse.json(
         { error: "connection_not_configured" },
@@ -176,7 +178,8 @@ export async function DELETE(request: Request, context: ProductRouteContext) {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message === "Tenant REST backend is not configured"
+      (error.message === "Tenant REST backend is not configured" ||
+        error.message === "Tenant database provider is not configured")
     ) {
       return NextResponse.json(
         { error: "connection_not_configured" },

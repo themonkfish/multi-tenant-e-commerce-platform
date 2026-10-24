@@ -10,7 +10,10 @@ import type {
   TenantStoreSettings,
   TenantStatus,
 } from "@/core/domain/host-portal";
-import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
+import type {
+  TenantDatabaseProviderConfig,
+  TenantRestDataProviderConfig,
+} from "@/core/domain/tenant-config";
 import type { PlatformSettings } from "@/core/domain/platform-settings";
 import type {
   CustomerAccount,
@@ -233,6 +236,23 @@ export interface PlatformStore
     updatedAt: string;
     auditEvent: AuditEvent;
   }): Promise<TenantRestDataProviderConfig | null>;
+  getTenantDatabaseProvider(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantDatabaseProviderConfig | null>;
+  updateTenantDatabaseProvider(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantDatabaseProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantDatabaseProviderConfig | null>;
+  deleteTenantDatabaseProvider(input: {
+    tenantId: string;
+    hostId: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<boolean>;
   listTenantsForHost(hostId: string): Promise<TenantRecord[]>;
   listTenantDomainClaims(hostId: string): Promise<TenantDomainClaim[]>;
   createTenantDomainClaim(input: {

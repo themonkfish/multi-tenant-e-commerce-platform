@@ -24,6 +24,7 @@
     "@supabase/supabase-js": "^2.109.0",
     "@tanstack/react-query": "^5.104.5",
     "jose": "^6.2.13",
+    "mongodb": "^7.7.0",
     "next": "16.4.2",
     "next-intl": "^4.14.9",
     "otpauth": "^9.5.2",

@@ -37,7 +37,9 @@ import {
   type TenantStaffPermission,
 } from "@/core/domain/tenant-identities";
 import {
+  TenantDatabaseProviderConfigSchema,
   TenantRestDataProviderConfigSchema,
+  type TenantDatabaseProviderConfig,
   type TenantRestDataProviderConfig,
 } from "@/core/domain/tenant-config";
 import {
@@ -124,6 +126,16 @@ const FileStateSchema = z.object({
       }),
     )
     .default([]),
+  tenantDatabaseProviders: z
+    .array(
+      z.object({
+        tenantId: z.uuid(),
+        hostId: z.uuid(),
+        config: TenantDatabaseProviderConfigSchema,
+        updatedAt: z.iso.datetime(),
+      }),
+    )
+    .default([]),
   auditEvents: z.array(AuditEventSchema),
   secrets: z.array(SecretRecordSchema),
   rateLimits: z.record(
@@ -153,6 +165,7 @@ const EMPTY_STATE: FileState = {
   tenantDomainClaims: [],
   tenantStoreSettings: [],
   tenantRestConnections: [],
+  tenantDatabaseProviders: [],
   auditEvents: [],
   secrets: [],
   rateLimits: {},
@@ -1104,6 +1117,111 @@ export class FilePlatformStore implements PlatformStore {
       state.auditEvents.push(input.auditEvent);
       await this.writeState(state);
       return config;
+    });
+  }
+
+  async getTenantDatabaseProvider(
+    tenantId: string,
+    hostId: string,
+  ): Promise<TenantDatabaseProviderConfig | null> {
+    const state = await this.readState();
+    const tenant = state.tenants.find(
+      (candidate) => candidate.id === tenantId && candidate.hostId === hostId,
+    );
+    if (!tenant) {
+      throw new Error("Tenant not found in requested host scope");
+    }
+    return (
+      state.tenantDatabaseProviders.find(
+        (candidate) =>
+          candidate.tenantId === tenantId && candidate.hostId === hostId,
+      )?.config ?? null
+    );
+  }
+
+  async updateTenantDatabaseProvider(input: {
+    tenantId: string;
+    hostId: string;
+    config: TenantDatabaseProviderConfig;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantDatabaseProviderConfig | null> {
+    const config = TenantDatabaseProviderConfigSchema.parse(input.config);
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId &&
+          candidate.hostId === input.hostId &&
+          candidate.status === "active",
+      );
+      const host = state.hosts.find(
+        (candidate) =>
+          candidate.id === input.hostId && candidate.status === "active",
+      );
+      const secretRef =
+        config.type === "supabase"
+          ? config.serviceKeyRef
+          : config.connectionRef;
+      const secret = state.secrets.find(
+        (candidate) =>
+          candidate.ref === secretRef && candidate.tenantId === input.tenantId,
+      );
+      if (!tenant || !host || !secret) {
+        return null;
+      }
+
+      const configIndex = state.tenantDatabaseProviders.findIndex(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.hostId === input.hostId,
+      );
+      const record = {
+        tenantId: input.tenantId,
+        hostId: input.hostId,
+        config,
+        updatedAt: input.updatedAt,
+      };
+      if (configIndex === -1) {
+        state.tenantDatabaseProviders.push(record);
+      } else {
+        state.tenantDatabaseProviders[configIndex] = record;
+      }
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return config;
+    });
+  }
+
+  async deleteTenantDatabaseProvider(input: {
+    tenantId: string;
+    hostId: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<boolean> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId &&
+          candidate.hostId === input.hostId &&
+          candidate.status === "active",
+      );
+      const host = state.hosts.find(
+        (candidate) =>
+          candidate.id === input.hostId && candidate.status === "active",
+      );
+      if (!tenant || !host) return false;
+      const index = state.tenantDatabaseProviders.findIndex(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.hostId === input.hostId,
+      );
+      if (index === -1) return false;
+      state.tenantDatabaseProviders.splice(index, 1);
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return true;
     });
   }
 

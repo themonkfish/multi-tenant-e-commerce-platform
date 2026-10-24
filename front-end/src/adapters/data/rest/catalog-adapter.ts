@@ -7,6 +7,7 @@ import type {
   ProductQuery,
   CatalogPort,
 } from "@/core/ports/data";
+import { TenantDataBackendError } from "@/core/ports/data";
 import { ProductInputSchema, ProductUpdateSchema } from "@/core/domain/product";
 import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
 import {
@@ -50,12 +51,9 @@ const PageSchema = z.object({
 
 const MAX_PAGE_SIZE = 100;
 
-export class RestBackendError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
+export class RestBackendError extends TenantDataBackendError {
+  constructor(status: number, message: string) {
+    super(status, message);
     this.name = "RestBackendError";
   }
 }

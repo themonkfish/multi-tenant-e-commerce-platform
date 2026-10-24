@@ -5,10 +5,10 @@ import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog"
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantCatalogSession } from "@/lib/server/session";
-import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
+import { TenantDataBackendError } from "@/core/ports/data";
 
 function backendError(error: unknown) {
-  if (error instanceof RestBackendError) {
+  if (error instanceof TenantDataBackendError) {
     const status =
       error.status === 404
         ? 404
@@ -75,7 +75,8 @@ export async function GET(request: Request) {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message === "Tenant REST backend is not configured"
+      (error.message === "Tenant REST backend is not configured" ||
+        error.message === "Tenant database provider is not configured")
     ) {
       return NextResponse.json(
         { error: "connection_not_configured" },
@@ -141,7 +142,8 @@ export async function POST(request: Request) {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message === "Tenant REST backend is not configured"
+      (error.message === "Tenant REST backend is not configured" ||
+        error.message === "Tenant database provider is not configured")
     ) {
       return NextResponse.json(
         { error: "connection_not_configured" },
