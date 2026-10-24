@@ -25,8 +25,9 @@ Status snapshot as of 2026-10-24:
   storefront landing preview. A browser-persisted cart now submits
   authenticated, server-validated orders. Tenant custom domains can be claimed
   with TXT ownership and platform CNAME records, then routed after verification;
-  registrar automation, TLS provisioning, and the full commerce runtime remain
-  future work.
+  provider-neutral HTTPS/TLS readiness checks are available. Domain attachment
+  at the hosting provider, registrar automation, and the full commerce runtime
+  remain future work.
 - Tenant product and order APIs are available through the standalone backend;
   tenant database providers, live tenant-specific payments, and storage remain
   future work.
@@ -79,6 +80,8 @@ Status snapshot as of 2026-10-24:
 - [x] Host Owners can add tenant custom domains, receive DNS verification
       instructions, and activate exact-domain routing only after TXT ownership
       and platform CNAME records resolve.
+- [x] Host Owners can check verified domains for public HTTPS reachability and
+      a valid, unexpired TLS certificate without provider-specific credentials.
 - [x] Tenant storefront cart: persisted cart state, add-to-cart actions, and a
       focused cart page are wired to the storefront.
 - [x] Authenticated server-side order creation revalidates active catalog
@@ -376,8 +379,12 @@ to a live storefront. REST catalog requests use the saved connection, but
 tenant creation does not provision databases or TLS certificates. Tenant custom
 domains can be added in the Host portal; add the displayed CNAME pointing to the
 platform domain and the TXT ownership record, then select **Verify DNS**. Only
-verified domains route to that tenant. DNS propagation and the hosting provider's
-custom-domain/TLS configuration are managed outside this app. Health tests and catalog requests reject private/internal DNS
+verified domains route to that tenant. Add the hostname to the hosting provider
+and configure it to serve this app; then use **Check HTTPS and TLS** to verify
+public HTTPS reachability and certificate validity. This check pins a public DNS
+address, rejects private/internal answers, does not follow redirects, and is
+rate-limited. Provider attachment and certificate issuance remain manual.
+Health tests and catalog requests reject private/internal DNS
 answers (including mixed public/private answers), use a pinned public address,
 do not follow redirects, and are limited to five attempts per account per
 15-minute window.

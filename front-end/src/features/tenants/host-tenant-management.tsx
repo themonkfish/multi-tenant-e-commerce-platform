@@ -18,6 +18,29 @@ const DomainClaimResponseSchema = z.object({
     txt: z.object({ name: z.string(), value: z.string() }),
   }),
 });
+const DomainReadinessResponseSchema = z.object({
+  domain: z.string(),
+  readiness: z.discriminatedUnion("status", [
+    z.object({
+      status: z.literal("ready"),
+      httpStatus: z.number().int(),
+      certificateExpiresAt: z.string().nullable(),
+    }),
+    z.object({
+      status: z.literal("http_error"),
+      httpStatus: z.number().int(),
+      certificateExpiresAt: z.string().nullable(),
+    }),
+    z.object({
+      status: z.enum([
+        "tls_not_ready",
+        "unreachable",
+        "blocked_target",
+        "timeout",
+      ]),
+    }),
+  ]),
+});
 
 function errorCode(body: unknown): unknown {
   return typeof body === "object" && body !== null && "error" in body
@@ -58,6 +81,9 @@ function describeTenantError(code: unknown): string {
   }
   if (code === "domain_claim_not_found") {
     return "That domain verification is no longer pending. Refresh the page and try again.";
+  }
+  if (code === "verified_domain_not_found") {
+    return "That domain is not verified for this tenant.";
   }
   if (code === "rate_limited") {
     return "Too many changes. Wait a few minutes and try again.";
@@ -379,9 +405,18 @@ export function HostTenantManagement({
                     {tenant.slug} · {tenant.plan}
                   </p>
                   {tenant.domains.length > 0 && (
-                    <p className="mt-1 break-all text-sm text-slate-500">
-                      Verified domains: {tenant.domains.join(", ")}
-                    </p>
+                    <div className="mt-3 space-y-3">
+                      <p className="text-sm font-medium text-slate-700">
+                        Verified domains
+                      </p>
+                      {tenant.domains.map((domain) => (
+                        <DomainReadinessControl
+                          domain={domain}
+                          key={domain}
+                          tenantId={tenant.id}
+                        />
+                      ))}
+                    </div>
                   )}
                   <form
                     className="mt-3 flex flex-wrap gap-2"
@@ -500,6 +535,108 @@ export function HostTenantManagement({
       </section>
     </div>
   );
+}
+
+function DomainReadinessControl({
+  domain,
+  tenantId,
+}: {
+  domain: string;
+  tenantId: string;
+}) {
+  const [result, setResult] = useState<
+    z.infer<typeof DomainReadinessResponseSchema>["readiness"] | null
+  >(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function checkReadiness() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/host/tenants/${tenantId}/domains/readiness`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain }),
+        },
+      );
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(
+          errorCode(body) === "rate_limited"
+            ? "Too many readiness checks. Wait a few minutes and try again."
+            : describeTenantError(errorCode(body)),
+        );
+        return;
+      }
+      const parsed = DomainReadinessResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError("The server returned an invalid readiness result.");
+        return;
+      }
+      setResult(parsed.data.readiness);
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-slate-200 p-3">
+      <p className="break-all text-sm font-medium text-slate-800">{domain}</p>
+      <p className="mt-1 text-xs text-slate-600">
+        Add this hostname to your hosting provider and configure it to serve
+        this app. The provider must provision a valid TLS certificate.
+      </p>
+      <button
+        className="mt-2 rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+        disabled={busy}
+        onClick={() => void checkReadiness()}
+        type="button"
+      >
+        {busy ? "Checking…" : "Check HTTPS and TLS"}
+      </button>
+      {result && (
+        <p
+          className={`mt-2 text-sm ${
+            result.status === "ready" ? "text-green-800" : "text-amber-800"
+          }`}
+          role="status"
+        >
+          {result.status === "ready"
+            ? `HTTPS and TLS are working (HTTP ${result.httpStatus}). Certificate expires ${
+                result.certificateExpiresAt
+                  ? new Date(result.certificateExpiresAt).toLocaleString()
+                  : "at an unknown date"
+              }.`
+            : result.status === "http_error"
+              ? `TLS is valid, but the app returned HTTP ${result.httpStatus}. Check the hosting provider's domain routing.`
+              : readinessMessage(result.status)}
+        </p>
+      )}
+      {error && (
+        <p className="mt-2 text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function readinessMessage(status: string): string {
+  if (status === "tls_not_ready") {
+    return "The HTTPS endpoint did not present a valid certificate for this domain. Check the hosting provider's domain and certificate settings.";
+  }
+  if (status === "blocked_target") {
+    return "The domain currently resolves to a non-public address, so it was not checked.";
+  }
+  if (status === "timeout") {
+    return "The HTTPS check timed out. Confirm the domain is attached to the hosting provider and try again.";
+  }
+  return "The HTTPS endpoint could not be reached. Confirm the domain is attached to the hosting provider and DNS is pointing to it.";
 }
 
 function DomainVerificationControl({

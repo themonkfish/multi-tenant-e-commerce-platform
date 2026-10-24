@@ -68,7 +68,8 @@ test mode are implemented. Storefront/domain provisioning, live payments,
 tenant-specific Stripe Connect accounts, storage, tax, and shipping are not
 yet fully implemented. Host Owners can register tenant domains after DNS TXT
 ownership and CNAME verification; registrar automation and TLS provisioning
-remain external. Invitation links must be shared manually until email
+remain manual. The Host portal can check public HTTPS reachability and TLS
+validity after the domain is attached to the hosting provider. Invitation links must be shared manually until email
 delivery is configured.
 
 The tenant product API supports `GET`/`POST /api/tenant/products` and

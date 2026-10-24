@@ -172,8 +172,10 @@ select **Add custom domain**. Add both DNS records shown in the portal:
 
 Select **Verify DNS** after the records resolve. The domain becomes a tenant
 storefront route only after both records match. DNS propagation can take time.
-Domain registration, hosting-provider custom-domain configuration, and TLS
-certificates are managed outside the app.
+Then add the hostname to your hosting provider and configure it to serve this
+app. Select **Check HTTPS and TLS** to confirm the site is publicly reachable
+and has a valid, unexpired certificate. The check does not configure your
+provider or issue certificates; those steps are manual.
 
 ### Invite the Tenant Owner
 
