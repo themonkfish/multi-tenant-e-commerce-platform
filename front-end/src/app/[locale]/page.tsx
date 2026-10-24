@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import {
@@ -38,6 +39,7 @@ export default async function HomePage({ params }: HomePageProps) {
       status: "draft" | "active" | "archived";
       price: { amount: number; currency: string };
       sku?: string;
+      imageUrl?: string | null;
     }> = [];
 
     try {
@@ -203,14 +205,25 @@ export default async function HomePage({ params }: HomePageProps) {
                     className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
                     key={product.id}
                   >
-                    <div
-                      className="mb-4 flex h-28 items-center justify-center rounded-lg text-lg font-semibold text-white"
-                      style={{
-                        backgroundColor: settings.branding.primaryColor,
-                      }}
-                    >
-                      {product.title.charAt(0).toUpperCase()}
-                    </div>
+                    {product.imageUrl ? (
+                      <Image
+                        alt={product.title}
+                        className="mb-4 h-28 w-full rounded-lg object-cover"
+                        src={product.imageUrl}
+                        width={640}
+                        height={224}
+                        unoptimized
+                      />
+                    ) : (
+                      <div
+                        className="mb-4 flex h-28 items-center justify-center rounded-lg text-lg font-semibold text-white"
+                        style={{
+                          backgroundColor: settings.branding.primaryColor,
+                        }}
+                      >
+                        {product.title.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h4 className="font-semibold text-slate-900">

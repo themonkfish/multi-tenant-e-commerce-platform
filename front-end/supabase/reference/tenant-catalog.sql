@@ -7,10 +7,21 @@ create table if not exists public.tenant_products (
   price_amount integer not null check (price_amount >= 0),
   price_currency text not null check (price_currency ~ '^[A-Z]{3}$'),
   sku text check (sku is null or char_length(sku) <= 100),
+  image_url text check (
+    image_url is null or
+    (image_url ~ '^https://' and char_length(image_url) <= 2048)
+  ),
   created_at timestamptz not null,
   updated_at timestamptz not null,
   unique (tenant_id, slug)
 );
+
+alter table public.tenant_products
+  add column if not exists image_url text
+  check (
+    image_url is null or
+    (image_url ~ '^https://' and char_length(image_url) <= 2048)
+  );
 
 create index if not exists tenant_products_tenant_created_idx
   on public.tenant_products (tenant_id, created_at desc);
@@ -62,18 +73,18 @@ begin
     if existing_tenant_id <> p_tenant_id then
       raise exception 'This Supabase project is initialized for another tenant';
     end if;
-    if existing_version < 1 then
+    if existing_version < 2 then
       update public.tenant_schema_metadata
-        set version = 1, updated_at = now()
+        set version = 2, updated_at = now()
         where id = 'tenant-catalog';
-      return 1;
+      return 2;
     end if;
     return existing_version;
   end if;
 
   insert into public.tenant_schema_metadata (id, tenant_id, version, updated_at)
-    values ('tenant-catalog', p_tenant_id, 1, now());
-  return 1;
+    values ('tenant-catalog', p_tenant_id, 2, now());
+  return 2;
 end;
 $$;
 

@@ -20,6 +20,7 @@ const product: Product = {
   status: "active",
   price: { amount: 1999, currency: "USD" },
   sku: "BAG-1",
+  imageUrl: "https://cdn.example.com/tenant/product.jpg",
   createdAt: now,
   updatedAt: now,
 };
@@ -95,6 +96,7 @@ describe("RestCatalogAdapter", () => {
         status: product.status,
         price: product.price,
         sku: product.sku,
+        imageUrl: product.imageUrl,
       }),
     ).resolves.toEqual(product);
     expect(transport).toHaveBeenLastCalledWith(
@@ -103,12 +105,18 @@ describe("RestCatalogAdapter", () => {
       expect.objectContaining({
         method: "POST",
         path: "/products",
-        body: expect.objectContaining({ tenantId }),
+        body: expect.objectContaining({
+          tenantId,
+          imageUrl: product.imageUrl,
+        }),
       }),
     );
 
     await expect(
-      adapter.updateProduct(tenantId, product.id, { title: "Updated bag" }),
+      adapter.updateProduct(tenantId, product.id, {
+        title: "Updated bag",
+        imageUrl: null,
+      }),
     ).resolves.toEqual(product);
     expect(transport).toHaveBeenLastCalledWith(
       config,
@@ -116,7 +124,7 @@ describe("RestCatalogAdapter", () => {
       expect.objectContaining({
         method: "PATCH",
         path: "/products/product-1",
-        body: { title: "Updated bag" },
+        body: { title: "Updated bag", imageUrl: null },
       }),
     );
 

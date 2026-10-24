@@ -26,6 +26,10 @@ const ProductRowSchema = z.object({
   price_amount: z.number().int().nonnegative(),
   price_currency: z.string().length(3),
   sku: z.string().nullable(),
+  image_url: z
+    .url({ protocol: /^https$/ })
+    .max(2048)
+    .nullable(),
   created_at: z.iso.datetime(),
   updated_at: z.iso.datetime(),
 });
@@ -49,6 +53,7 @@ type SupabaseTenantDatabase = {
           price_amount: number;
           price_currency: string;
           sku: string | null;
+          image_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -61,6 +66,7 @@ type SupabaseTenantDatabase = {
           price_amount: number;
           price_currency: string;
           sku?: string | null;
+          image_url?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -71,6 +77,7 @@ type SupabaseTenantDatabase = {
           price_amount?: number;
           price_currency?: string;
           sku?: string | null;
+          image_url?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -192,6 +199,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
         price_amount: product.price.amount,
         price_currency: product.price.currency,
         sku: product.sku ?? null,
+        image_url: product.imageUrl ?? null,
         created_at: now,
         updated_at: now,
       })
@@ -225,6 +233,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
       changes.price_currency = update.price.currency;
     }
     if (update.sku !== undefined) changes.sku = update.sku;
+    if (update.imageUrl !== undefined) changes.image_url = update.imageUrl;
     const { data, error } = await this.client
       .from(TABLE)
       .update(changes)
@@ -290,6 +299,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
       status: value.status,
       price: { amount: value.price_amount, currency: value.price_currency },
       ...(value.sku === null ? {} : { sku: value.sku }),
+      ...(value.image_url === null ? {} : { imageUrl: value.image_url }),
       createdAt: value.created_at,
       updatedAt: value.updated_at,
     };

@@ -34,8 +34,8 @@ Status snapshot as of 2026-10-24:
   providers; order APIs continue through the REST backend. Tenant-specific
   live card payments remain future work. Tenant Owner-managed S3-compatible
   storage configuration and tenant-scoped JPEG/PNG/WebP uploads are
-  implemented; wiring uploaded assets into the product editor remains future
-  work.
+  implemented; catalog writers can attach uploaded images to products and
+  render them across the tenant storefront.
 - Tenant Owner-managed Staff catalog/order permissions and Tenant-scoped
   Customer sign-in/order reads are now server-enforced; isolated demo
   credentials and sample Customer orders support local testing.
@@ -281,12 +281,16 @@ Status snapshot as of 2026-10-24:
       audit logging.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
-      tenant-scoped paths. Product-editor integration remains.
+      tenant-scoped paths. Catalog writers can upload, preview, save, and remove
+      product images; storefront cards and detail pages render saved images.
 - [ ] Add additional storage providers based on the v1 scope.
 
 #### Commerce experiences
 
-- [ ] Product/catalog CRUD, variants, categories, and image management.
+- [ ] Product/catalog CRUD, variants, and categories.
+- [x] Product image management: tenant-scoped uploads, HTTPS image URLs saved
+      through all catalog adapters, and storefront rendering. Tenant Supabase
+      catalog schemas must be upgraded to version 2.
 - [ ] Orders, customers, inventory, discounts, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
@@ -409,8 +413,15 @@ features are implemented.
     `GET /api/tenant/products?page=1&limit=20`,
     `POST /api/tenant/products`, and
     `GET`/`PATCH`/`DELETE /api/tenant/products/{productId}`. These routes
-    proxy product operations to the connected backend. There is not yet a
-    product-management UI.
+    proxy product operations to the connected backend. The Tenant catalog UI
+    supports product CRUD and attaching images from the configured storage
+    provider.
+
+Tenant Supabase catalog projects use schema version 2 for product images.
+Apply the current `supabase/reference/tenant-catalog.sql` to an existing
+Supabase tenant project, then use the Tenant Owner database setup to initialize
+the schema. MongoDB Atlas catalogs advance to version 2 through the same
+initialize-schema action.
 
 The tenant portal saves branding and locale metadata but does not yet apply it
 to a live storefront. REST catalog requests use the saved connection, but

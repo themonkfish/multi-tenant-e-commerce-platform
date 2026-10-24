@@ -34,6 +34,11 @@ const ProductDocumentSchema = z.object({
     currency: z.string().length(3),
   }),
   sku: z.string().optional(),
+  imageUrl: z
+    .url({ protocol: /^https$/ })
+    .max(2048)
+    .nullable()
+    .optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -55,6 +60,7 @@ type TenantProductDocument = {
   status: "draft" | "active" | "archived";
   price: { amount: number; currency: string };
   sku?: string;
+  imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -307,6 +313,7 @@ export class MongoTenantCatalog implements CatalogPort {
                     },
                   },
                   sku: { bsonType: "string", maxLength: 100 },
+                  imageUrl: { bsonType: ["string", "null"], maxLength: 2048 },
                   createdAt: { bsonType: "string" },
                   updatedAt: { bsonType: "string" },
                 },
@@ -411,6 +418,7 @@ export class MongoTenantCatalog implements CatalogPort {
       status: product.status,
       price: product.price,
       ...(product.sku ? { sku: product.sku } : {}),
+      ...(product.imageUrl === undefined ? {} : { imageUrl: product.imageUrl }),
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };

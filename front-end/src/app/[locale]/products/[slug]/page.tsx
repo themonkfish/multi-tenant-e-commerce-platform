@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
@@ -36,6 +37,7 @@ export default async function TenantProductDetailPage({
     status: "draft" | "active" | "archived";
     price: { amount: number; currency: string };
     sku?: string;
+    imageUrl?: string | null;
   } | null = null;
 
   try {
@@ -116,12 +118,23 @@ export default async function TenantProductDetailPage({
       </header>
 
       <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div
-          className="flex h-40 items-center justify-center text-4xl font-semibold text-white"
-          style={{ backgroundColor: settings.branding.primaryColor }}
-        >
-          {product.title.charAt(0).toUpperCase()}
-        </div>
+        {product.imageUrl ? (
+          <Image
+            alt={product.title}
+            className="h-64 w-full object-cover sm:h-96"
+            src={product.imageUrl}
+            width={1280}
+            height={768}
+            unoptimized
+          />
+        ) : (
+          <div
+            className="flex h-40 items-center justify-center text-4xl font-semibold text-white"
+            style={{ backgroundColor: settings.branding.primaryColor }}
+          >
+            {product.title.charAt(0).toUpperCase()}
+          </div>
+        )}
         <div className="space-y-6 p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -180,8 +193,8 @@ export default async function TenantProductDetailPage({
           <p className="max-w-2xl text-lg leading-8 text-slate-600">
             Product details are rendered from the tenant’s connected catalog
             backend. This preview includes a cart flow placeholder and a simple
-            checkout completion state, while full commerce runtime remains future
-            work.
+            checkout completion state, while full commerce runtime remains
+            future work.
           </p>
         </div>
       </article>

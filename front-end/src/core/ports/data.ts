@@ -16,6 +16,7 @@ export type Product = {
   status: "draft" | "active" | "archived";
   price: Money;
   sku?: string;
+  imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 };

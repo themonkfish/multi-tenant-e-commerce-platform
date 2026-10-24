@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
@@ -36,6 +37,7 @@ export default async function TenantProductCatalogPage({
     status: "draft" | "active" | "archived";
     price: { amount: number; currency: string };
     sku?: string;
+    imageUrl?: string | null;
   }> = [];
   try {
     const catalog = await createTenantCatalogAdapter(
@@ -118,12 +120,23 @@ export default async function TenantProductCatalogPage({
               className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
               key={product.id}
             >
-              <div
-                className="flex h-28 items-center justify-center text-2xl font-semibold text-white"
-                style={{ backgroundColor: settings.branding.primaryColor }}
-              >
-                {product.title.charAt(0).toUpperCase()}
-              </div>
+              {product.imageUrl ? (
+                <Image
+                  alt={product.title}
+                  className="h-28 w-full object-cover"
+                  src={product.imageUrl}
+                  width={640}
+                  height={224}
+                  unoptimized
+                />
+              ) : (
+                <div
+                  className="flex h-28 items-center justify-center text-2xl font-semibold text-white"
+                  style={{ backgroundColor: settings.branding.primaryColor }}
+                >
+                  {product.title.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div className="space-y-4 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -173,7 +186,9 @@ export default async function TenantProductCatalogPage({
                     <Link
                       className="rounded-md px-3 py-2 text-sm font-medium text-white"
                       href={`/${locale}/products/${product.slug}`}
-                      style={{ backgroundColor: settings.branding.primaryColor }}
+                      style={{
+                        backgroundColor: settings.branding.primaryColor,
+                      }}
                     >
                       View item
                     </Link>

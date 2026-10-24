@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from "react";
 import type { Product } from "@/core/ports/data";
@@ -15,6 +17,7 @@ type DraftProduct = {
   status: Product["status"];
   price: { amount: number; currency: string };
   sku: string;
+  imageUrl: string;
 };
 
 const EMPTY_DRAFT: DraftProduct = {
@@ -23,6 +26,7 @@ const EMPTY_DRAFT: DraftProduct = {
   status: "draft",
   price: { amount: 0, currency: "USD" },
   sku: "",
+  imageUrl: "",
 };
 
 function toDraft(product?: Product | null): DraftProduct {
@@ -38,6 +42,7 @@ function toDraft(product?: Product | null): DraftProduct {
       currency: product.price.currency,
     },
     sku: product.sku ?? "",
+    imageUrl: product.imageUrl ?? "",
   };
 }
 
@@ -49,12 +54,61 @@ export function TenantProductManagement({
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftProduct>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const totalCount = useMemo(() => products.length, [products]);
+
+  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setUploadingImage(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/tenant/storage/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        const message =
+          typeof body === "object" && body !== null && "error" in body
+            ? String(body.error)
+            : "The image could not be uploaded.";
+        throw new Error(message);
+      }
+      const storedFile =
+        typeof body === "object" && body !== null && "file" in body
+          ? body.file
+          : null;
+      const imageUrl =
+        typeof storedFile === "object" &&
+        storedFile !== null &&
+        "url" in storedFile &&
+        typeof storedFile.url === "string"
+          ? storedFile.url
+          : null;
+      if (!imageUrl || new URL(imageUrl).protocol !== "https:") {
+        throw new Error("The upload returned an invalid image URL.");
+      }
+      setDraft((current) => ({ ...current, imageUrl }));
+      setNotice("Image uploaded. Save the product to publish it.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "The image could not be uploaded.",
+      );
+    } finally {
+      setUploadingImage(false);
+    }
+  }
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -105,6 +159,9 @@ export function TenantProductManagement({
     setError(null);
     setNotice(null);
 
+    const existingImageUrl = editingId
+      ? products.find((product) => product.id === editingId)?.imageUrl
+      : null;
     const payload = {
       title: draft.title.trim(),
       slug: draft.slug.trim(),
@@ -113,6 +170,11 @@ export function TenantProductManagement({
         amount: Number(draft.price.amount),
         currency: draft.price.currency.trim().toUpperCase(),
       },
+      ...(draft.imageUrl.trim()
+        ? { imageUrl: draft.imageUrl.trim() }
+        : existingImageUrl
+          ? { imageUrl: null }
+          : {}),
       ...(draft.sku.trim() ? { sku: draft.sku.trim() } : {}),
     };
 
@@ -244,6 +306,7 @@ export function TenantProductManagement({
         {canWrite && (
           <button
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-100"
+            disabled={uploadingImage}
             onClick={() => {
               setEditingId(null);
               setDraft(EMPTY_DRAFT);
@@ -364,10 +427,54 @@ export function TenantProductManagement({
             />
           </label>
 
+          <div className="space-y-2 text-sm font-medium sm:col-span-2">
+            <span>Product image</span>
+            {draft.imageUrl ? (
+              <Image
+                alt="Product image preview"
+                className="h-40 w-40 rounded-md border border-slate-200 object-cover"
+                src={draft.imageUrl}
+                width={320}
+                height={320}
+                unoptimized
+              />
+            ) : (
+              <p className="text-sm font-normal text-slate-600">
+                Upload a JPEG, PNG, or WebP image (maximum 10 MiB).
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="max-w-full text-sm font-normal"
+                disabled={uploadingImage || saving}
+                onChange={(event) => void handleImageUpload(event)}
+                type="file"
+              />
+              {draft.imageUrl && (
+                <button
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+                  disabled={uploadingImage || saving}
+                  onClick={() =>
+                    setDraft((current) => ({ ...current, imageUrl: "" }))
+                  }
+                  type="button"
+                >
+                  Remove image
+                </button>
+              )}
+              {uploadingImage && (
+                <span className="text-sm font-normal text-slate-600">
+                  Uploading…
+                </span>
+              )}
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-3 sm:col-span-2">
             <button
               className="rounded-md bg-indigo-700 px-4 py-2 font-medium text-white hover:bg-indigo-800 disabled:opacity-60"
-              disabled={saving}
+              disabled={saving || uploadingImage}
               type="submit"
             >
               {saving
@@ -451,6 +558,7 @@ export function TenantProductManagement({
                       <div className="flex flex-wrap gap-2">
                         <button
                           className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-50"
+                          disabled={uploadingImage}
                           onClick={() => {
                             setEditingId(product.id);
                             setDraft(toDraft(product));

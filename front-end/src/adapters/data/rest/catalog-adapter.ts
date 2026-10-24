@@ -36,6 +36,11 @@ const ProductSchema = z.object({
   status: z.enum(["draft", "active", "archived"]),
   price: MoneySchema,
   sku: z.string().optional(),
+  imageUrl: z
+    .url({ protocol: /^https$/ })
+    .max(2048)
+    .nullable()
+    .optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
