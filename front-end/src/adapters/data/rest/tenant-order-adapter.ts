@@ -64,6 +64,10 @@ export class RestTenantOrderAdapter {
         ...(order.shippingAmount !== undefined
           ? { shippingAmount: order.shippingAmount }
           : {}),
+        ...(order.discountCode ? { discountCode: order.discountCode } : {}),
+        ...(order.discountAmount !== undefined
+          ? { discountAmount: order.discountAmount }
+          : {}),
         total: order.total,
         currency: order.currency,
         itemCount: order.itemCount,

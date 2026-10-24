@@ -230,6 +230,14 @@ export interface PlatformStore
     orderId: string;
     auditEvent: AuditEvent;
   }): Promise<CustomerOrder | null>;
+  reserveDiscountRedemption(input: {
+    tenantId: string;
+    orderId: string;
+    code: string;
+    now: string;
+  }): Promise<boolean>;
+  releaseDiscountRedemption(tenantId: string, orderId: string): Promise<void>;
+  commitDiscountRedemption(tenantId: string, orderId: string): Promise<void>;
   getTenantStoreSettings(
     tenantId: string,
     hostId: string,

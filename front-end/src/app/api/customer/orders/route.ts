@@ -10,6 +10,11 @@ import {
   findProductVariantPricing,
   ProductVariantSelectionsSchema,
 } from "@/core/domain/product";
+import {
+  calculateDiscountAmount,
+  findTenantDiscount,
+  validateTenantDiscount,
+} from "@/core/domain/discounts";
 import type { Product } from "@/core/ports/data";
 import type { InventoryReservationItem } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
@@ -33,6 +38,14 @@ const CreateOrderSchema = z
   .object({
     idempotencyKey: z.uuid(),
     paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
+    discountCode: z
+      .string()
+      .trim()
+      .min(3)
+      .max(40)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .transform((code) => code.toUpperCase())
+      .optional(),
     deliveryAddress: CustomerDeliveryAddressSchema,
     items: z
       .array(
@@ -240,11 +253,30 @@ export async function POST(request: Request) {
       order.deliveryAddress,
       parsed.data.deliveryAddress,
     );
-    if (!sameCart || !sameAddress) {
+    const sameDiscount =
+      (order.discountCode ?? "") === (parsed.data.discountCode ?? "");
+    if (!sameCart || !sameAddress || !sameDiscount) {
       return NextResponse.json(
         { error: "idempotency_key_conflict" },
         { status: 409 },
       );
+    }
+    if (order.discountCode) {
+      const reserved = await store.reserveDiscountRedemption({
+        tenantId: order.tenantId,
+        orderId: order.id,
+        code: order.discountCode,
+        now: new Date().toISOString(),
+      });
+      if (!reserved) {
+        return NextResponse.json(
+          { error: "discount_limit_reached" },
+          { status: 409 },
+        );
+      }
+      if (order.paymentStatus === "paid" || order.paymentStatus === "cod_due") {
+        await store.commitDiscountRedemption(order.tenantId, order.id);
+      }
     }
     if (order.paymentMethod === "cash_on_delivery") {
       if (order.paymentStatus === "cod_due") {
@@ -521,7 +553,31 @@ export async function POST(request: Request) {
       subtotal >= shippingSettings.shipping.freeShippingThreshold
         ? 0
         : shippingSettings.shipping.flatRate;
-    const total = subtotal + shippingAmount;
+    const discountCode = parsed.data.discountCode;
+    const discount = discountCode
+      ? findTenantDiscount(shippingSettings.discounts, discountCode)
+      : undefined;
+    const discountError = discountCode
+      ? validateTenantDiscount(discount, subtotal)
+      : null;
+    if (discountError) {
+      return NextResponse.json({ error: discountError }, { status: 400 });
+    }
+    if (
+      discount &&
+      (discount.type === "fixed_amount" ||
+        discount.minimumSubtotal !== undefined) &&
+      currency !== shippingSettings.locale.currency
+    ) {
+      return NextResponse.json(
+        { error: "discount_currency_unsupported" },
+        { status: 400 },
+      );
+    }
+    const discountAmount = discount
+      ? calculateDiscountAmount(discount, subtotal)
+      : 0;
+    const total = subtotal - discountAmount + shippingAmount;
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
     if (
       !Number.isSafeInteger(total) ||
@@ -552,6 +608,8 @@ export async function POST(request: Request) {
       items,
       subtotal,
       shippingAmount,
+      ...(discountCode ? { discountCode } : {}),
+      discountAmount,
       total,
       currency,
       itemCount,
@@ -572,10 +630,27 @@ export async function POST(request: Request) {
         ? `${orderId}-cod`
         : `${orderId}-1`;
     const stockItems = inventoryItems(products, parsed.data.items);
+    if (
+      discountCode &&
+      !(await store.reserveDiscountRedemption({
+        tenantId: session.scope.id,
+        orderId,
+        code: discountCode,
+        now: new Date().toISOString(),
+      }))
+    ) {
+      return NextResponse.json(
+        { error: "discount_limit_reached" },
+        { status: 409 },
+      );
+    }
     const reserved =
       stockItems.length === 0 ||
       (await catalog.reserveInventory({ reservationId, items: stockItems }));
     if (!reserved) {
+      if (discountCode) {
+        await store.releaseDiscountRedemption(session.scope.id, orderId);
+      }
       return NextResponse.json(
         { error: "insufficient_stock" },
         { status: 409 },
@@ -586,6 +661,9 @@ export async function POST(request: Request) {
       result = await store.createCustomerOrder(newOrder);
     } catch (error) {
       await catalog.releaseInventory(reservationId);
+      if (discountCode) {
+        await store.releaseDiscountRedemption(session.scope.id, orderId);
+      }
       throw error;
     }
     order = result.order;
@@ -611,7 +689,15 @@ export async function POST(request: Request) {
       (order.subtotal ?? order.total - (order.shippingAmount ?? 0)) ===
         newOrder.subtotal &&
       (order.shippingAmount ?? 0) === newOrder.shippingAmount;
-    if (!storedCartMatches || !storedAddressMatches || !storedAmountsMatch) {
+    const storedDiscountMatches =
+      (order.discountCode ?? "") === (newOrder.discountCode ?? "") &&
+      (order.discountAmount ?? 0) === newOrder.discountAmount;
+    if (
+      !storedCartMatches ||
+      !storedAddressMatches ||
+      !storedAmountsMatch ||
+      !storedDiscountMatches
+    ) {
       return NextResponse.json(
         { error: "idempotency_key_conflict" },
         { status: 409 },
@@ -634,6 +720,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "order_not_found" }, { status: 404 });
   }
   if (order.paymentMethod === "cash_on_delivery") {
+    if (order.discountCode) {
+      await store.commitDiscountRedemption(order.tenantId, order.id);
+    }
     if (order.items.some((item) => item.inventoryTracked)) {
       const catalog = await createTenantCatalogAdapter(
         session.scope.id,
@@ -756,6 +845,9 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (error instanceof StripePaymentConfigurationError) {
+      if (order.discountCode) {
+        await store.releaseDiscountRedemption(order.tenantId, order.id);
+      }
       return NextResponse.json(
         { error: "payment_not_configured" },
         { status: 503 },

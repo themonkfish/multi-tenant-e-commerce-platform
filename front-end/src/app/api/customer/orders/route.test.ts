@@ -106,6 +106,7 @@ function checkoutRequest(
     expectedUnitPrice?: number;
     variantSelections?: Record<string, string>;
   }[] = [{ productId: product.id, quantity: 2 }],
+  discountCode?: string,
 ) {
   return new Request("http://store.localhost:3000/api/customer/orders", {
     method: "POST",
@@ -118,6 +119,7 @@ function checkoutRequest(
       idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
       deliveryAddress,
       items,
+      ...(discountCode ? { discountCode } : {}),
     }),
   });
 }
@@ -157,12 +159,21 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     shipping: { flatRate: number; freeShippingThreshold?: number } = {
       flatRate: 0,
     },
+    discounts: {
+      code: string;
+      type: "percentage" | "fixed_amount";
+      value: number;
+      minimumSubtotal?: number;
+      expiresAt?: string;
+      redemptionLimit?: number;
+    }[] = [],
   ) {
     return {
       ...store,
       getTenantStoreSettings: vi.fn().mockResolvedValue({
         locale: { currency },
         shipping,
+        discounts,
       }),
     };
   }
@@ -300,6 +311,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
+
     getPlatformStore.mockReturnValue(
       withShippingSettings(store, "USD", { flatRate: 200 }),
     );
@@ -327,6 +339,80 @@ describe("POST /api/customer/orders Stripe checkout", () => {
           subtotal: 2500,
           shippingAmount: 200,
           total: 2700,
+        }),
+      }),
+    );
+  });
+
+  it("applies a percentage discount before shipping and reserves its redemption", async () => {
+    const order = makeOrder({
+      subtotal: 2500,
+      discountCode: "SAVE10",
+      discountAmount: 250,
+      shippingAmount: 200,
+      total: 2450,
+    });
+    const store = {
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getCustomerOrder: vi.fn().mockResolvedValue(null),
+      reserveDiscountRedemption: vi.fn().mockResolvedValue(true),
+      releaseDiscountRedemption: vi.fn().mockResolvedValue(undefined),
+      createCustomerOrder: vi.fn().mockResolvedValue({ order, created: true }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+      prepareCustomerOrderPayment: vi.fn().mockResolvedValue({
+        order: { ...order, paymentAttempt: 1 },
+        attempt: 1,
+      }),
+      saveCustomerOrderPaymentSession: vi.fn().mockResolvedValue({
+        ...order,
+        paymentAttempt: 1,
+        paymentSessionId: "cs_test_example",
+      }),
+    };
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue(
+      withShippingSettings(store, "USD", { flatRate: 200 }, [
+        { code: "SAVE10", type: "percentage", value: 10 },
+      ]),
+    );
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue(product),
+    });
+    createStripeCheckoutSession.mockResolvedValue({
+      id: "cs_test_example",
+      url: checkoutUrl,
+    });
+
+    const response = await POST(checkoutRequest(undefined, "SAVE10"));
+
+    expect(response.status).toBe(200);
+    expect(store.reserveDiscountRedemption).toHaveBeenCalledWith({
+      tenantId,
+      orderId,
+      code: "SAVE10",
+      now: expect.any(String),
+    });
+    expect(store.createCustomerOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subtotal: 2500,
+        discountCode: "SAVE10",
+        discountAmount: 250,
+        shippingAmount: 200,
+        total: 2450,
+      }),
+    );
+    expect(createStripeCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: expect.objectContaining({
+          subtotal: 2500,
+          discountAmount: 250,
+          shippingAmount: 200,
+          total: 2450,
         }),
       }),
     );

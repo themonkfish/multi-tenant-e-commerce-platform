@@ -53,6 +53,9 @@ export function TenantStoreSettingsForm({
   initialSettings: TenantStoreSettings;
 }) {
   const [settings, setSettings] = useState(initialSettings);
+  const [discountsText, setDiscountsText] = useState(
+    JSON.stringify(initialSettings.discounts, null, 2),
+  );
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -81,6 +84,14 @@ export function TenantStoreSettingsForm({
       setNotice("");
       return;
     }
+    let discounts: unknown;
+    try {
+      discounts = JSON.parse(discountsText);
+    } catch {
+      setError("Discount codes must be valid JSON.");
+      setNotice("");
+      return;
+    }
     const rawSettings = {
       branding: {
         name: form.get("brandName"),
@@ -105,6 +116,7 @@ export function TenantStoreSettingsForm({
           ? { freeShippingThreshold }
           : {}),
       },
+      discounts,
     };
     const validated = TenantStoreSettingsSchema.safeParse(rawSettings);
     if (!validated.success) {
@@ -146,6 +158,9 @@ export function TenantStoreSettingsForm({
         return;
       }
       setSettings(responseSettings.data);
+      setDiscountsText(
+        JSON.stringify(responseSettings.data.discounts, null, 2),
+      );
       setNotice("Store settings saved.");
     } catch {
       setError("The request could not reach the server. Please try again.");
@@ -209,6 +224,25 @@ export function TenantStoreSettingsForm({
           </label>
         </div>
       </fieldset>
+      <label className="space-y-2 text-sm font-medium sm:col-span-2">
+        Discount codes (JSON)
+        <textarea
+          className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs font-normal"
+          name="discounts"
+          rows={8}
+          value={discountsText}
+          onChange={(event) => setDiscountsText(event.target.value)}
+          spellCheck={false}
+        />
+        <span className="block font-normal text-slate-600">
+          Up to 100 unique codes. Use type <code>percentage</code> with value
+          1–99, or <code>fixed_amount</code> with a value in minor currency
+          units. Optional fields are <code>minimumSubtotal</code> (minor units),
+          ISO <code>expiresAt</code>, and <code>redemptionLimit</code>. Example:{" "}
+          <code>{'[{"code":"SAVE10","type":"percentage","value":10}]'}</code>{" "}
+          Fixed amounts and minimums use the default store currency.
+        </span>
+      </label>
       <label className="space-y-1 text-sm font-medium">
         Logo URL (HTTPS)
         <input

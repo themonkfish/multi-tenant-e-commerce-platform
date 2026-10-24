@@ -118,6 +118,17 @@ const FileStateSchema = z.object({
       }),
     )
     .default([]),
+  discountRedemptions: z
+    .array(
+      z.object({
+        tenantId: z.uuid(),
+        orderId: z.string().min(1).max(100),
+        code: z.string().min(3).max(40),
+        status: z.enum(["reserved", "released", "committed"]),
+        updatedAt: z.iso.datetime(),
+      }),
+    )
+    .default([]),
   tenantRestConnections: z
     .array(
       z.object({
@@ -176,6 +187,7 @@ const EMPTY_STATE: FileState = {
   tenants: [],
   tenantDomainClaims: [],
   tenantStoreSettings: [],
+  discountRedemptions: [],
   tenantRestConnections: [],
   tenantDatabaseProviders: [],
   tenantStorageProviders: [],
@@ -1078,6 +1090,97 @@ export class FilePlatformStore implements PlatformStore {
       const updated = CustomerOrderSchema.parse(order);
       await this.writeState(state);
       return updated;
+    });
+  }
+
+  async reserveDiscountRedemption(input: {
+    tenantId: string;
+    orderId: string;
+    code: string;
+    now: string;
+  }): Promise<boolean> {
+    const normalizedCode = input.code.trim().toUpperCase();
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const prior = state.discountRedemptions.find(
+        (redemption) =>
+          redemption.tenantId === input.tenantId &&
+          redemption.orderId === input.orderId,
+      );
+      if (prior?.status === "reserved" || prior?.status === "committed") {
+        return prior.code === normalizedCode;
+      }
+      const settings = state.tenantStoreSettings.find(
+        (record) => record.tenantId === input.tenantId,
+      )?.settings;
+      const discount = settings?.discounts.find(
+        (candidate) => candidate.code === normalizedCode,
+      );
+      if (
+        !discount ||
+        (discount.expiresAt !== undefined &&
+          Date.parse(discount.expiresAt) <= Date.parse(input.now))
+      ) {
+        return false;
+      }
+      if (discount.redemptionLimit !== undefined) {
+        const activeRedemptions = state.discountRedemptions.filter(
+          (redemption) =>
+            redemption.tenantId === input.tenantId &&
+            redemption.code === normalizedCode &&
+            redemption.status !== "released",
+        ).length;
+        if (activeRedemptions >= discount.redemptionLimit) {
+          return false;
+        }
+      }
+      const record = {
+        tenantId: input.tenantId,
+        orderId: input.orderId,
+        code: normalizedCode,
+        status: "reserved" as const,
+        updatedAt: input.now,
+      };
+      if (prior) Object.assign(prior, record);
+      else state.discountRedemptions.push(record);
+      await this.writeState(state);
+      return true;
+    });
+  }
+
+  async releaseDiscountRedemption(
+    tenantId: string,
+    orderId: string,
+  ): Promise<void> {
+    await this.withLock(async () => {
+      const state = await this.readState();
+      const redemption = state.discountRedemptions.find(
+        (candidate) =>
+          candidate.tenantId === tenantId && candidate.orderId === orderId,
+      );
+      if (redemption?.status === "reserved") {
+        redemption.status = "released";
+        redemption.updatedAt = new Date().toISOString();
+        await this.writeState(state);
+      }
+    });
+  }
+
+  async commitDiscountRedemption(
+    tenantId: string,
+    orderId: string,
+  ): Promise<void> {
+    await this.withLock(async () => {
+      const state = await this.readState();
+      const redemption = state.discountRedemptions.find(
+        (candidate) =>
+          candidate.tenantId === tenantId && candidate.orderId === orderId,
+      );
+      if (redemption?.status === "reserved") {
+        redemption.status = "committed";
+        redemption.updatedAt = new Date().toISOString();
+        await this.writeState(state);
+      }
     });
   }
 

@@ -638,7 +638,7 @@ describe("FilePlatformStore", () => {
     ).resolves.toBeNull();
   });
 
-  it("persists tenant brand and locale settings only within active tenant scope", async () => {
+  it("persists tenant brand, locale, and discount settings only within active tenant scope", async () => {
     const store = await createStore();
     const host = hostConfig({ status: "active" });
     await store.createHost(host, hostAudit());
@@ -669,6 +669,14 @@ describe("FilePlatformStore", () => {
         currencies: ["GBP", "EUR"],
       },
       shipping: { flatRate: 100, freeShippingThreshold: 2000 },
+      discounts: [
+        {
+          code: "SAVE10",
+          type: "percentage",
+          value: 10,
+          redemptionLimit: 1,
+        },
+      ],
     };
     await expect(
       store.updateTenantStoreSettings({
@@ -699,6 +707,40 @@ describe("FilePlatformStore", () => {
     await expect(
       store.getTenantStoreSettings(tenant.id, host.id, tenant.name),
     ).resolves.toEqual(settings);
+    await expect(
+      store.reserveDiscountRedemption({
+        tenantId: tenant.id,
+        orderId: "order-a",
+        code: "save10",
+        now: new Date().toISOString(),
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      store.reserveDiscountRedemption({
+        tenantId: tenant.id,
+        orderId: "order-b",
+        code: "SAVE10",
+        now: new Date().toISOString(),
+      }),
+    ).resolves.toBe(false);
+    await store.releaseDiscountRedemption(tenant.id, "order-a");
+    await expect(
+      store.reserveDiscountRedemption({
+        tenantId: tenant.id,
+        orderId: "order-b",
+        code: "SAVE10",
+        now: new Date().toISOString(),
+      }),
+    ).resolves.toBe(true);
+    await store.commitDiscountRedemption(tenant.id, "order-b");
+    await expect(
+      store.reserveDiscountRedemption({
+        tenantId: tenant.id,
+        orderId: "order-c",
+        code: "SAVE10",
+        now: new Date().toISOString(),
+      }),
+    ).resolves.toBe(false);
     expect(
       TenantStoreSettingsSchema.safeParse({
         ...settings,

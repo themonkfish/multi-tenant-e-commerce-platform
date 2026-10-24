@@ -557,12 +557,31 @@ export function TenantOrderManagement({
               <span>
                 {formatCurrencyAmount(
                   selected.subtotal ??
-                    selected.total - (selected.shippingAmount ?? 0),
+                    selected.items.reduce(
+                      (sum, item) => sum + item.unitPrice * item.quantity,
+                      0,
+                    ),
                   selected.currency,
                   locale,
                 )}
               </span>
             </li>
+            {(selected.discountAmount ?? 0) > 0 && (
+              <li className="flex justify-between p-3 text-sm text-slate-600">
+                <span>
+                  Discount
+                  {selected.discountCode ? ` (${selected.discountCode})` : ""}
+                </span>
+                <span>
+                  −
+                  {formatCurrencyAmount(
+                    selected.discountAmount ?? 0,
+                    selected.currency,
+                    locale,
+                  )}
+                </span>
+              </li>
+            )}
             <li className="flex justify-between p-3 text-sm text-slate-600">
               <span>Shipping</span>
               <span>

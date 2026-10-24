@@ -96,12 +96,31 @@ export function StorefrontDemoCheckout({
         <span>Subtotal</span>
         <span>
           {formatCurrencyAmount(
-            order.subtotal ?? order.total - (order.shippingAmount ?? 0),
+            order.subtotal ??
+              order.items.reduce(
+                (sum, item) => sum + item.unitPrice * item.quantity,
+                0,
+              ),
             order.currency,
             locale,
           )}
         </span>
       </p>
+      {(order.discountAmount ?? 0) > 0 && (
+        <p className="mt-2 flex justify-between text-sm text-slate-600">
+          <span>
+            Discount{order.discountCode ? ` (${order.discountCode})` : ""}
+          </span>
+          <span>
+            −
+            {formatCurrencyAmount(
+              order.discountAmount ?? 0,
+              order.currency,
+              locale,
+            )}
+          </span>
+        </p>
+      )}
       <p className="mt-2 flex justify-between text-sm text-slate-600">
         <span>Shipping</span>
         <span>

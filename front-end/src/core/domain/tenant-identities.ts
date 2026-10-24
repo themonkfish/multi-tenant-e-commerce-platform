@@ -96,6 +96,8 @@ const CustomerOrderBaseSchema = z.object({
   items: z.array(CustomerOrderItemSchema).default([]),
   subtotal: z.number().int().min(0).max(2_147_483_647).optional(),
   shippingAmount: z.number().int().min(0).max(2_147_483_647).optional(),
+  discountCode: z.string().trim().min(3).max(40).optional(),
+  discountAmount: z.number().int().min(0).max(2_147_483_647).optional(),
   total: z.number().int().min(0).max(2_147_483_647),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),
@@ -117,21 +119,28 @@ const CustomerOrderBaseSchema = z.object({
 function validateOrderAmounts(
   order: Pick<
     z.infer<typeof CustomerOrderBaseSchema>,
-    "items" | "subtotal" | "shippingAmount" | "total"
+    "items" | "subtotal" | "shippingAmount" | "discountAmount" | "total"
   >,
   context: z.RefinementCtx,
 ) {
-  if (order.subtotal === undefined && order.shippingAmount === undefined)
+  if (
+    order.subtotal === undefined &&
+    order.shippingAmount === undefined &&
+    order.discountAmount === undefined
+  )
     return;
   const subtotal =
     order.subtotal ??
     order.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const shippingAmount = order.shippingAmount ?? 0;
+  const discountAmount = order.discountAmount ?? 0;
   if (
     !Number.isSafeInteger(subtotal) ||
     !Number.isSafeInteger(shippingAmount) ||
+    !Number.isSafeInteger(discountAmount) ||
+    discountAmount > subtotal ||
     !Number.isSafeInteger(order.total) ||
-    subtotal + shippingAmount !== order.total
+    subtotal - discountAmount + shippingAmount !== order.total
   ) {
     context.addIssue({
       code: "custom",

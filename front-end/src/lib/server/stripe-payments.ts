@@ -48,10 +48,14 @@ export async function createStripeCheckoutSession(input: {
     (total, item) => total + item.unitPrice * item.quantity,
     0,
   );
+  const discountAmount = input.order.discountAmount ?? 0;
   if (
     !Number.isSafeInteger(itemSubtotal) ||
     itemSubtotal !== (input.order.subtotal ?? itemSubtotal) ||
-    itemSubtotal + (input.order.shippingAmount ?? 0) !== input.order.total
+    discountAmount > itemSubtotal ||
+    (discountAmount > 0 && !input.order.discountCode) ||
+    itemSubtotal - discountAmount + (input.order.shippingAmount ?? 0) !==
+      input.order.total
   ) {
     throw new Error("Stripe Checkout order amounts do not match");
   }
@@ -60,17 +64,27 @@ export async function createStripeCheckoutSession(input: {
     tenantId: input.order.tenantId,
     customerId: input.order.customerId,
     orderId: input.order.id,
+    ...(input.order.discountCode
+      ? { discountCode: input.order.discountCode }
+      : {}),
+    ...(discountAmount > 0 ? { discountAmount: String(discountAmount) } : {}),
   };
-  return createStripeClient(secretKey).checkout.sessions.create(
-    {
-      mode: "payment",
-      client_reference_id: input.order.id,
-      success_url: input.successUrl,
-      cancel_url: input.cancelUrl,
-      metadata,
-      payment_intent_data: { metadata },
-      line_items: [
-        ...input.order.items.map((item) => ({
+  const itemLineItems =
+    discountAmount > 0
+      ? [
+          {
+            quantity: 1,
+            price_data: {
+              currency: input.order.currency.toLowerCase(),
+              unit_amount: itemSubtotal - discountAmount,
+              product_data: {
+                name: `Items after ${input.order.discountCode} discount`,
+                description: `Subtotal ${itemSubtotal}; discount ${discountAmount}`,
+              },
+            },
+          },
+        ]
+      : input.order.items.map((item) => ({
           quantity: item.quantity,
           price_data: {
             currency: item.currency.toLowerCase(),
@@ -93,7 +107,17 @@ export async function createStripeCheckoutSession(input: {
               },
             },
           },
-        })),
+        }));
+  return createStripeClient(secretKey).checkout.sessions.create(
+    {
+      mode: "payment",
+      client_reference_id: input.order.id,
+      success_url: input.successUrl,
+      cancel_url: input.cancelUrl,
+      metadata,
+      payment_intent_data: { metadata },
+      line_items: [
+        ...itemLineItems,
         ...((input.order.shippingAmount ?? 0) > 0
           ? [
               {

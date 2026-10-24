@@ -93,6 +93,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
   if (isFailed && order.paymentStatus === "failed") {
+    if (order.discountCode) {
+      await store.releaseDiscountRedemption(order.tenantId, order.id);
+    }
     if (order.items.some((item) => item.inventoryTracked)) {
       const hostId = await getActiveTenantHostId(store, tenantId);
       const catalog = await createTenantCatalogAdapter(tenantId, hostId);
@@ -126,11 +129,21 @@ export async function POST(request: Request) {
     const catalog = await createTenantCatalogAdapter(tenantId, hostId);
     if (updated.paymentStatus !== "paid") {
       await catalog.releaseInventory(`${order.id}-${order.paymentAttempt}`);
+      if (order.discountCode) {
+        await store.releaseDiscountRedemption(order.tenantId, order.id);
+      }
       return NextResponse.json({ received: true });
     }
     await catalog.commitInventory(`${order.id}-${order.paymentAttempt}`);
-  } else if (updated.paymentStatus !== "paid") {
+  }
+  if (updated.paymentStatus !== "paid") {
+    if (order.discountCode) {
+      await store.releaseDiscountRedemption(order.tenantId, order.id);
+    }
     return NextResponse.json({ received: true });
+  }
+  if (order.discountCode) {
+    await store.commitDiscountRedemption(order.tenantId, order.id);
   }
   if (updated.backendSyncStatus === "synced") {
     return NextResponse.json({ received: true });

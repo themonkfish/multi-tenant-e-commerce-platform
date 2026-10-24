@@ -357,6 +357,8 @@ export type PlatformDatabase = {
           items: Json;
           subtotal: number;
           shipping_amount: number;
+          discount_code: string | null;
+          discount_amount: number;
           total: number;
           currency: string;
           item_count: number;
@@ -380,6 +382,8 @@ export type PlatformDatabase = {
           items?: Json;
           subtotal?: number;
           shipping_amount?: number;
+          discount_code?: string | null;
+          discount_amount?: number;
           total: number;
           currency: string;
           item_count: number;
@@ -398,6 +402,8 @@ export type PlatformDatabase = {
           status?: "Confirmed" | "Processing" | "Shipped";
           subtotal?: number;
           shipping_amount?: number;
+          discount_code?: string | null;
+          discount_amount?: number;
           payment_status?: "pending" | "paid" | "failed" | "cod_due";
           payment_method?: "stripe" | "cash_on_delivery";
           delivery_address?: Json | null;
@@ -440,6 +446,7 @@ export type PlatformDatabase = {
           branding: Json;
           locale: Json;
           shipping: Json;
+          discounts: Json;
           updated_at: string;
         };
         Insert: {
@@ -448,12 +455,14 @@ export type PlatformDatabase = {
           branding: Json;
           locale: Json;
           shipping?: Json;
+          discounts?: Json;
           updated_at: string;
         };
         Update: {
           branding?: Json;
           locale?: Json;
           shipping?: Json;
+          discounts?: Json;
           updated_at?: string;
         };
         Relationships: [];
@@ -556,6 +565,23 @@ export type PlatformDatabase = {
           p_now: string;
         };
         Returns: boolean;
+      };
+      reserve_platform_discount_redemption: {
+        Args: {
+          p_tenant_id: string;
+          p_order_id: string;
+          p_code: string;
+          p_now: string;
+        };
+        Returns: boolean;
+      };
+      release_platform_discount_redemption: {
+        Args: { p_tenant_id: string; p_order_id: string };
+        Returns: undefined;
+      };
+      commit_platform_discount_redemption: {
+        Args: { p_tenant_id: string; p_order_id: string };
+        Returns: undefined;
       };
       consume_platform_recovery_code: {
         Args: { p_admin_id: string; p_code_hash: string };
@@ -720,6 +746,7 @@ export type PlatformDatabase = {
           p_branding: Json;
           p_locale: Json;
           p_shipping: Json;
+          p_discounts: Json;
           p_updated_at: string;
           p_actor_id: string;
           p_audit_id: string;

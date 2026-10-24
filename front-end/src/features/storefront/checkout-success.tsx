@@ -197,12 +197,33 @@ export function StorefrontCheckoutSuccess({
             <span>
               {formatCurrencyAmount(
                 currentOrder.subtotal ??
-                  currentOrder.total - (currentOrder.shippingAmount ?? 0),
+                  currentOrder.items.reduce(
+                    (sum, item) => sum + item.unitPrice * item.quantity,
+                    0,
+                  ),
                 currentOrder.currency,
                 locale,
               )}
             </span>
           </div>
+          {(currentOrder.discountAmount ?? 0) > 0 && (
+            <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
+              <span>
+                Discount
+                {currentOrder.discountCode
+                  ? ` (${currentOrder.discountCode})`
+                  : ""}
+              </span>
+              <span>
+                −
+                {formatCurrencyAmount(
+                  currentOrder.discountAmount ?? 0,
+                  currentOrder.currency,
+                  locale,
+                )}
+              </span>
+            </div>
+          )}
           <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
             <span>Shipping</span>
             <span>

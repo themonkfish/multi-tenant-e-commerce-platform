@@ -53,11 +53,16 @@ Status snapshot as of 2026-10-24:
   Tenant operator with an audit event. Checkout now requires a validated
   India delivery address for all payments, calculates tenant-configured flat
   shipping fees and free-shipping thresholds from server-verified item prices,
-  and snapshots subtotal, shipping, and total. Payment retries are idempotent. Variant
-  inventory is opt-in and reserved atomically at checkout; failed/expired card
-  payments release reservations, while successful card and COD orders consume
-  them. Basic fulfillment tracking is supported when Tenant operators ship an
-  order; live carrier integrations and live card payments remain future work.
+  and snapshots subtotal, shipping, and total. Tenant Owners can configure
+  percentage and fixed-amount discount codes with optional minimum subtotals,
+  expiry dates, and redemption limits; one code applies to the merchandise
+  subtotal before shipping. Discount amounts and minimum subtotals use minor
+  currency units, and fixed discounts/minimums require the store's default
+  currency. Payment retries are idempotent. Variant inventory is opt-in and
+  reserved atomically at checkout; failed/expired card payments release
+  reservations, while successful card and COD orders consume them. Basic
+  fulfillment tracking is supported when Tenant operators ship an order; live
+  carrier integrations and live card payments remain future work.
   Stripe Connect onboarding is blocked pending confirmation that India is
   eligible for the platform country.
 - Tenant Owners can configure AWS S3 or an S3-compatible service with encrypted
@@ -120,12 +125,18 @@ Status snapshot as of 2026-10-24:
       free-shipping threshold in the store's default currency. Checkout
       validates India delivery details for card and COD orders and calculates
       the final shipping amount from current catalog prices on the server.
+- [x] Tenant Owners can configure percentage and fixed-amount discount codes
+      with optional minimum subtotals, expiry timestamps, and redemption caps.
+      Checkout validates discounts against server-priced merchandise,
+      reserves capped redemptions through payment, and snapshots the code,
+      discount, subtotal, shipping, and final total.
 - [x] Idempotent Tenant REST order ingestion persists order snapshots in
       SQLite; delivery status is recorded in the platform store and failed or
       pending sync can be retried by the owning Customer. The backend order
-      contract accepts and persists `subtotal`, `shippingAmount`, and the
-      validated `deliveryAddress` provided in `POST /{apiVersion}/orders`.
-      Order line items include the server-resolved variant SKU and unit price.
+      contract accepts and persists `subtotal`, `discountCode`,
+      `discountAmount`, `shippingAmount`, and the validated
+      `deliveryAddress` provided in `POST /{apiVersion}/orders`. Order line
+      items include the server-resolved variant SKU and unit price.
 - [x] Tenant Owners and explicitly permissioned Staff can list, paginate,
       inspect, and advance Tenant order statuses; Customer order history is
       updated to reflect operational status changes. Shipment tracking numbers,
@@ -244,15 +255,16 @@ Status snapshot as of 2026-10-24:
      platform-country eligibility; regional gateways are deferred.
    - Wire uploaded assets into product image management.
    - Basic address capture, configurable flat shipping, and order tracking are
-     implemented. Continue with tax and discount workflows around synchronized
-     Tenant backend order snapshots; variant inventory reservation is implemented.
+     implemented. Discount codes and variant inventory reservation are
+     implemented; continue with tax workflows around synchronized Tenant
+     backend order snapshots.
 
 5. **P2 — Storefront runtime upgrade**
    - Add production checkout settings and payment operations; the current Stripe
      integration is restricted to test mode.
    - Completed: storefront name search, category browsing, pagination, and
      product option selection with server-validated order snapshots.
-   - Per-variant pricing and SKU remain future catalog work; inventory tracking
+   - Per-variant pricing and SKU overrides are implemented; inventory tracking
      and checkout reservation are implemented.
    - Extend basic fulfillment tracking with carrier integrations.
 
@@ -334,7 +346,10 @@ Status snapshot as of 2026-10-24:
 - [x] Product image management: tenant-scoped uploads, HTTPS image URLs saved
       through all catalog adapters, and storefront rendering. Tenant Supabase
       catalog schemas must be upgraded to version 6.
-- [ ] Orders, customers, discounts, shipping, and tax workflows.
+- [x] Tenant discount codes with server-side price validation, single-code
+      checkout, fixed/percentage calculation, pre-shipping application, and
+      reserved/committed redemption limits.
+- [ ] Complete orders, customer, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
       confirmation/history.
@@ -566,8 +581,8 @@ Before deploying the app:
    `0013_platform_setup_settings.sql`, and
    `0014_tenant_database_providers.sql`, `0015_cash_on_delivery.sql`, and
    `0016_tenant_storage_providers.sql`,
-   `0017_order_fulfillment_tracking.sql`, and
-   `0018_checkout_shipping.sql`.
+   `0017_order_fulfillment_tracking.sql`,
+   `0018_checkout_shipping.sql`, and `0019_discount_codes.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

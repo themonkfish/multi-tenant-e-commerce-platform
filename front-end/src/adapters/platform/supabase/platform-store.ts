@@ -961,6 +961,8 @@ export class SupabasePlatformStore implements PlatformStore {
         items: order.items,
         subtotal: order.subtotal ?? order.total - (order.shippingAmount ?? 0),
         shipping_amount: order.shippingAmount ?? 0,
+        discount_code: order.discountCode ?? null,
+        discount_amount: order.discountAmount ?? 0,
         total: order.total,
         currency: order.currency,
         item_count: order.itemCount,
@@ -1297,7 +1299,7 @@ export class SupabasePlatformStore implements PlatformStore {
   ): Promise<TenantStoreSettings> {
     const { data, error } = await this.client
       .from("platform_tenant_settings")
-      .select("branding, locale, shipping")
+      .select("branding, locale, shipping, discounts")
       .eq("tenant_id", tenantId)
       .eq("host_id", hostId)
       .maybeSingle();
@@ -1311,7 +1313,55 @@ export class SupabasePlatformStore implements PlatformStore {
       branding: data.branding,
       locale: data.locale,
       shipping: data.shipping,
+      discounts: data.discounts,
     });
+  }
+
+  async reserveDiscountRedemption(input: {
+    tenantId: string;
+    orderId: string;
+    code: string;
+    now: string;
+  }): Promise<boolean> {
+    const { data, error } = await this.client.rpc(
+      "reserve_platform_discount_redemption",
+      {
+        p_tenant_id: input.tenantId,
+        p_order_id: input.orderId,
+        p_code: input.code.trim().toUpperCase(),
+        p_now: input.now,
+      },
+    );
+    if (error) {
+      throw new Error(`Could not reserve discount code: ${error.message}`);
+    }
+    return data;
+  }
+
+  async releaseDiscountRedemption(
+    tenantId: string,
+    orderId: string,
+  ): Promise<void> {
+    const { error } = await this.client.rpc(
+      "release_platform_discount_redemption",
+      { p_tenant_id: tenantId, p_order_id: orderId },
+    );
+    if (error) {
+      throw new Error(`Could not release discount code: ${error.message}`);
+    }
+  }
+
+  async commitDiscountRedemption(
+    tenantId: string,
+    orderId: string,
+  ): Promise<void> {
+    const { error } = await this.client.rpc(
+      "commit_platform_discount_redemption",
+      { p_tenant_id: tenantId, p_order_id: orderId },
+    );
+    if (error) {
+      throw new Error(`Could not commit discount code: ${error.message}`);
+    }
   }
 
   async updateTenantStoreSettings(input: {
@@ -1330,6 +1380,7 @@ export class SupabasePlatformStore implements PlatformStore {
         p_branding: settings.branding,
         p_locale: settings.locale,
         p_shipping: settings.shipping,
+        p_discounts: settings.discounts,
         p_updated_at: input.updatedAt,
         p_actor_id: input.auditEvent.actorId,
         p_audit_id: input.auditEvent.id,
@@ -1891,6 +1942,8 @@ function customerOrderFromRow(row: {
   items: unknown;
   subtotal: number;
   shipping_amount: number;
+  discount_code: string | null;
+  discount_amount: number;
   total: number;
   currency: string;
   item_count: number;
@@ -1913,6 +1966,8 @@ function customerOrderFromRow(row: {
     items: row.items,
     subtotal: row.subtotal,
     shippingAmount: row.shipping_amount,
+    ...(row.discount_code ? { discountCode: row.discount_code } : {}),
+    discountAmount: row.discount_amount ?? 0,
     total: row.total,
     currency: row.currency,
     itemCount: row.item_count,

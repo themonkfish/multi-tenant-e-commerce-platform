@@ -89,6 +89,37 @@ const LocaleTagSchema = z
 
 const CurrencyCodeSchema = z.string().regex(/^[A-Z]{3}$/);
 
+export const TenantDiscountSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .min(3)
+      .max(40)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .transform((value) => value.toUpperCase()),
+    type: z.enum(["percentage", "fixed_amount"]),
+    value: z.number().int().positive().max(2_147_483_647),
+    minimumSubtotal: z.number().int().positive().max(2_147_483_647).optional(),
+    expiresAt: z.iso.datetime().optional(),
+    redemptionLimit: z.number().int().positive().max(1_000_000).optional(),
+  })
+  .strict()
+  .refine(
+    (discount) => discount.type !== "percentage" || discount.value <= 99,
+    "Percentage discounts must be between 1 and 99",
+  );
+
+const TenantDiscountsSchema = z
+  .array(TenantDiscountSchema)
+  .max(100)
+  .refine(
+    (discounts) =>
+      new Set(discounts.map((discount) => discount.code)).size ===
+      discounts.length,
+    "Discount codes must be unique",
+  );
+
 export const TenantStoreSettingsSchema = z
   .object({
     branding: z.object({
@@ -120,6 +151,7 @@ export const TenantStoreSettingsSchema = z
           shipping.freeShippingThreshold === undefined || shipping.flatRate > 0,
         "A free-shipping threshold requires a positive flat shipping rate",
       ),
+    discounts: TenantDiscountsSchema.default([]),
   })
   .superRefine((settings, context) => {
     if (!settings.locale.locales.includes(settings.locale.defaultLocale)) {
@@ -157,5 +189,6 @@ export function createDefaultTenantStoreSettings(
       currencies: ["USD"],
     },
     shipping: { flatRate: 0 },
+    discounts: [],
   };
 }

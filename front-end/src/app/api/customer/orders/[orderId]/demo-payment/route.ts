@@ -84,6 +84,9 @@ export async function POST(
     );
   }
   if (updated.paymentStatus !== "paid") {
+    if (order.discountCode) {
+      await store.releaseDiscountRedemption(order.tenantId, order.id);
+    }
     if (order.items.some((item) => item.inventoryTracked)) {
       const catalog = await createTenantCatalogAdapter(
         order.tenantId,
@@ -100,6 +103,9 @@ export async function POST(
       session.scope.hostId,
     );
     await catalog.commitInventory(`${order.id}-${order.paymentAttempt}`);
+  }
+  if (order.discountCode) {
+    await store.commitDiscountRedemption(order.tenantId, order.id);
   }
   const deliveredOrder = await syncCustomerOrderToTenant({
     store,

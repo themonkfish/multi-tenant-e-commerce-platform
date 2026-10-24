@@ -31,6 +31,14 @@ export function StorefrontCartPage({
   const clear = useCartStore((state) => state.clear);
   const idempotencyKey = useRef(crypto.randomUUID());
   const [checkingOut, setCheckingOut] = useState(false);
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string;
+    amount: number;
+    signature: string;
+  } | null>(null);
+  const [discountError, setDiscountError] = useState("");
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<
     "stripe" | "cash_on_delivery"
@@ -53,6 +61,20 @@ export function StorefrontCartPage({
     () => items.reduce((total, item) => total + item.quantity * item.price, 0),
     [items],
   );
+  const cartSignature = JSON.stringify(
+    items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      price: item.price,
+      variantSelections: item.variantSelections ?? {},
+    })),
+  );
+  const activeDiscount =
+    appliedDiscount?.signature === cartSignature &&
+    appliedDiscount.code === discountCode.trim().toUpperCase()
+      ? appliedDiscount
+      : null;
+  const discountAmount = activeDiscount?.amount ?? 0;
   const estimatedShipping =
     shipping.freeShippingThreshold !== undefined &&
     subtotal >= shipping.freeShippingThreshold
@@ -61,6 +83,70 @@ export function StorefrontCartPage({
   const shippingCurrencyMismatch =
     items.some((item) => item.currency !== currency) &&
     (shipping.flatRate > 0 || shipping.freeShippingThreshold !== undefined);
+
+  async function applyDiscount() {
+    setApplyingDiscount(true);
+    setDiscountError("");
+    setAppliedDiscount(null);
+    try {
+      const response = await fetch("/api/customer/discounts/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: discountCode,
+          items: items.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+            ...(item.variantSelections
+              ? { variantSelections: item.variantSelections }
+              : {}),
+          })),
+        }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        const code =
+          typeof body === "object" && body !== null && "error" in body
+            ? String(body.error)
+            : "";
+        setDiscountError(
+          code === "discount_expired"
+            ? "This discount code has expired."
+            : code === "discount_minimum_not_met"
+              ? "Your subtotal does not meet this code's minimum."
+              : code === "discount_limit_reached"
+                ? "This discount code has reached its redemption limit."
+                : code === "rate_limited"
+                  ? "Too many code checks. Wait a few minutes and try again."
+                  : "This discount code is invalid or unavailable.",
+        );
+        return;
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("code" in body) ||
+        typeof body.code !== "string" ||
+        !("discountAmount" in body) ||
+        typeof body.discountAmount !== "number"
+      ) {
+        setDiscountError("The server returned an invalid discount response.");
+        return;
+      }
+      const normalizedCode = body.code;
+      setDiscountCode(normalizedCode);
+      setAppliedDiscount({
+        code: normalizedCode,
+        amount: body.discountAmount,
+        signature: cartSignature,
+      });
+      idempotencyKey.current = crypto.randomUUID();
+    } catch {
+      setDiscountError("The discount code could not be checked. Try again.");
+    } finally {
+      setApplyingDiscount(false);
+    }
+  }
 
   async function onCheckout() {
     if (!signedIn) {
@@ -84,6 +170,7 @@ export function StorefrontCartPage({
         body: JSON.stringify({
           idempotencyKey: idempotencyKey.current,
           paymentMethod,
+          ...(activeDiscount ? { discountCode: activeDiscount.code } : {}),
           deliveryAddress,
           items: items.map((item) => ({
             productId: item.id,
@@ -112,31 +199,42 @@ export function StorefrontCartPage({
           return;
         }
         setError(
-          code === "cart_changed"
-            ? "A product changed, its price was updated, or it is no longer available. Review your cart and try again."
-            : code === "insufficient_stock"
-              ? "One or more variants no longer have enough stock. Review your cart and try again."
-              : code === "connection_not_configured"
-                ? "This store has not connected a product backend, so checkout is unavailable."
-                : code === "tenant_backend_unavailable"
-                  ? "The store's product backend is temporarily unavailable. Try again later."
-                  : code === "payment_not_configured"
-                    ? "Secure checkout is not configured for this store."
-                    : code === "payment_provider_unavailable"
-                      ? "Secure checkout is temporarily unavailable. Try again later."
-                      : code === "cash_on_delivery_currency_unsupported"
-                        ? "Cash on delivery is available only for INR orders."
-                        : code === "invalid_cart"
-                          ? "Enter a valid Indian delivery address and mobile number."
-                          : code === "shipping_currency_unsupported"
-                            ? `Shipping rates are configured in ${currency}. Update the store's default currency or shipping settings.`
-                            : code === "free_checkout_not_supported"
-                              ? "Free orders cannot be checked out using card payment."
-                              : code === "idempotency_key_conflict"
-                                ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
-                                : code === "rate_limited"
-                                  ? "Too many checkout attempts. Wait a few minutes and try again."
-                                  : "The order could not be placed. Please try again.",
+          code === "discount_limit_reached"
+            ? "This discount code has reached its redemption limit. Remove it or choose another code."
+            : code === "discount_minimum_not_met"
+              ? "Your subtotal no longer meets this discount code's minimum."
+              : code === "discount_expired"
+                ? "This discount code has expired. Remove it or choose another code."
+                : code === "discount_currency_unsupported"
+                  ? `This discount requires the default store currency (${currency}).`
+                  : code === "discount_code_invalid"
+                    ? "This discount code is no longer valid."
+                    : code === "cart_changed"
+                      ? "A product changed, its price was updated, or it is no longer available. Review your cart and try again."
+                      : code === "insufficient_stock"
+                        ? "One or more variants no longer have enough stock. Review your cart and try again."
+                        : code === "connection_not_configured"
+                          ? "This store has not connected a product backend, so checkout is unavailable."
+                          : code === "tenant_backend_unavailable"
+                            ? "The store's product backend is temporarily unavailable. Try again later."
+                            : code === "payment_not_configured"
+                              ? "Secure checkout is not configured for this store."
+                              : code === "payment_provider_unavailable"
+                                ? "Secure checkout is temporarily unavailable. Try again later."
+                                : code ===
+                                    "cash_on_delivery_currency_unsupported"
+                                  ? "Cash on delivery is available only for INR orders."
+                                  : code === "invalid_cart"
+                                    ? "Enter a valid Indian delivery address and mobile number."
+                                    : code === "shipping_currency_unsupported"
+                                      ? `Shipping rates are configured in ${currency}. Update the store's default currency or shipping settings.`
+                                      : code === "free_checkout_not_supported"
+                                        ? "Free orders cannot be checked out using card payment."
+                                        : code === "idempotency_key_conflict"
+                                          ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
+                                          : code === "rate_limited"
+                                            ? "Too many checkout attempts. Wait a few minutes and try again."
+                                            : "The order could not be placed. Please try again.",
         );
         return;
       }
@@ -268,6 +366,41 @@ export function StorefrontCartPage({
             can try checkout again.
           </p>
         )}
+        <div className="mt-4 space-y-2 border-y border-slate-200 py-4">
+          <label className="block text-sm font-medium text-slate-800">
+            Discount code
+            <input
+              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+              value={discountCode}
+              onChange={(event) => {
+                setDiscountCode(event.target.value.toUpperCase());
+                setAppliedDiscount(null);
+                setDiscountError("");
+              }}
+              maxLength={40}
+              disabled={checkingOut || applyingDiscount}
+              placeholder="Enter code"
+            />
+          </label>
+          <button
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:opacity-60"
+            type="button"
+            disabled={!discountCode.trim() || applyingDiscount || checkingOut}
+            onClick={() => void applyDiscount()}
+          >
+            {applyingDiscount ? "Checking…" : "Apply code"}
+          </button>
+          {discountError && (
+            <p className="text-sm text-red-700" role="alert">
+              {discountError}
+            </p>
+          )}
+          {activeDiscount && (
+            <p className="text-sm text-green-700" role="status">
+              {activeDiscount.code} applied.
+            </p>
+          )}
+        </div>
         <div className="mt-4 space-y-3 text-sm text-slate-700">
           <div className="flex items-center justify-between">
             <span>Subtotal</span>
@@ -279,6 +412,19 @@ export function StorefrontCartPage({
               )}
             </span>
           </div>
+          {discountAmount > 0 && (
+            <div className="flex items-center justify-between">
+              <span>Discount ({activeDiscount?.code})</span>
+              <span>
+                −
+                {formatCurrencyAmount(
+                  discountAmount,
+                  items[0]?.currency ?? currency,
+                  locale,
+                )}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span>Shipping</span>
             <span>
@@ -294,7 +440,9 @@ export function StorefrontCartPage({
               <span>Total</span>
               <span>
                 {formatCurrencyAmount(
-                  shippingCurrencyMismatch ? 0 : subtotal + estimatedShipping,
+                  shippingCurrencyMismatch
+                    ? 0
+                    : subtotal - discountAmount + estimatedShipping,
                   items[0]?.currency ?? currency,
                   locale,
                 )}

@@ -91,7 +91,48 @@ describe("Stripe Checkout session creation", () => {
     expect(session.line_items[0].price_data.unit_amount).toBe(2500);
   });
 
-  it("rejects order totals that do not match the item and shipping amounts", async () => {
+  it("applies the discount to merchandise before adding shipping", async () => {
+    const discountedOrder: CustomerOrder = {
+      ...order,
+      discountCode: "SAVE10",
+      discountAmount: 500,
+      total: 4700,
+    };
+    await createStripeCheckoutSession({
+      order: discountedOrder,
+      attempt: 1,
+      successUrl: "https://shop.example/checkout/success",
+      cancelUrl: "https://shop.example/cart",
+    });
+
+    const [session] = createSession.mock.calls[0];
+    expect(session.line_items).toHaveLength(2);
+    expect(session.line_items[0]).toMatchObject({
+      quantity: 1,
+      price_data: {
+        currency: "inr",
+        unit_amount: 4500,
+        product_data: {
+          name: "Items after SAVE10 discount",
+        },
+      },
+    });
+    expect(session.metadata).toMatchObject({
+      discountCode: "SAVE10",
+      discountAmount: "500",
+    });
+    expect(
+      session.line_items.reduce(
+        (
+          total: number,
+          item: { quantity: number; price_data: { unit_amount: number } },
+        ) => total + item.quantity * item.price_data.unit_amount,
+        0,
+      ),
+    ).toBe(discountedOrder.total);
+  });
+
+  it("rejects order totals that do not match item, discount, and shipping amounts", async () => {
     await expect(
       createStripeCheckoutSession({
         order: { ...order, total: 5199 },
