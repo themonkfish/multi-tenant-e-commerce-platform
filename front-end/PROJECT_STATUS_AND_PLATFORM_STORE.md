@@ -57,6 +57,8 @@ Status snapshot as of 2026-10-24:
   credentials. Catalog writers can upload signature-validated JPEG, PNG, and
   WebP images up to 10 MB; the server generates tenant-scoped object keys and
   proxies uploads to storage.
+- Baseline security response headers are configured globally for pages and API
+  routes. HSTS is enabled only in production.
 
 ### Completed
 
@@ -185,7 +187,7 @@ Status snapshot as of 2026-10-24:
       for current flows. Rate limits use the configured PlatformStore and
       mutation limits are per-account; production monitoring, a shared
       distributed rate-limit service, automated migration deployment,
-      backup/restore, and full security headers still need work.
+      and backup/restore still need work.
 
 ### Pending roadmap
 
