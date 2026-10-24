@@ -146,7 +146,9 @@ export interface PlatformStore
     tenantId: string;
     active?: boolean;
     passwordHash?: string;
+    permissions?: TenantStaffPermission[];
   }): Promise<TenantStaff | null>;
+  deleteTenantStaff(staffId: string, tenantId: string): Promise<boolean>;
   getTenantStaffByEmail(
     tenantId: string,
     email: string,

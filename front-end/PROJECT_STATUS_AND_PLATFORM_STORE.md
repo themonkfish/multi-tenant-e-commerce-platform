@@ -133,9 +133,9 @@ Status snapshot as of 2026-10-24:
       boundaries, Customer-owned order reads, and owner-only Staff management
       are checked on the server.
 - [x] Tenant Staff login and Tenant Owner-managed Staff accounts with catalog
-      read/write permissions, disable/reactivate, and password-reset controls;
-      Tenant-specific Customer registration/login and own-order views are
-      available on active Tenant domains.
+      and order permissions, permission editing, disable/reactivate,
+      password-reset, and deletion controls; Tenant-specific Customer
+      registration/login and own-order views are available on active domains.
 - [x] Demo Staff and Customer fixtures, two sample Customer orders, and
       additive seeding for existing isolated demo stores.
 - [x] Supabase platform schema migrations for bootstrap, hosts, and the Host
@@ -173,8 +173,9 @@ Status snapshot as of 2026-10-24:
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, automated domain/TLS
-      provisioning, tenant backends, Staff lifecycle controls, and
-      expanded RBAC remain. Branding/locale settings now flow into the tenant
+      provisioning, tenant backends, and expanded RBAC remain. Staff account
+      permission editing, disabling, password reset, and deletion are
+      implemented. Branding/locale settings now flow into the tenant
       domain landing preview, the catalog listing, and product detail pages when
       a backend is configured; the full customer storefront and commerce
       runtime remain future work. Resolved domain scopes
@@ -243,7 +244,7 @@ Status snapshot as of 2026-10-24:
    - Add compliance and export/deletion workflows for tenant data.
 
 7. **P3 — Growth and expansion work**
-   - Add CMS, reviews, reporting, staff permissions, webhooks, PWA support,
+   - Add CMS, reviews, reporting, expanded staff roles, webhooks, PWA support,
      and theming tools.
    - Expand i18n and localized storefront customer experiences beyond the
      current English-only foundation.
@@ -259,8 +260,8 @@ Status snapshot as of 2026-10-24:
       when tenant data is introduced into a cache.
 - [x] Enforce role permissions and scopes for platform, host, tenant, Staff,
       and Customer operations on the server.
-- [ ] Add Staff permission editing, account deletion, and broader
-      Staff-management controls.
+- [x] Add Tenant Owner Staff permission editing and account deletion with
+      tenant-scoped operations and audit events.
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
       portal with backend, storage, payment, catalog, and staff settings.
 - [x] Complete the setup wizard's connection check, platform theme/legal
@@ -319,7 +320,7 @@ Status snapshot as of 2026-10-24:
       handling, and production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
-- [ ] Later growth work: CMS, reviews, reporting, staff permissions, webhooks,
+- [ ] Later growth work: CMS, reviews, reporting, expanded staff roles, webhooks,
       PWA, and theming tools.
 
 #### Production decisions and hardening

@@ -988,6 +988,20 @@ describe("FilePlatformStore", () => {
       }),
     ).rejects.toThrow("An account with this email already exists");
 
+    await expect(
+      store.deleteTenantStaff(staff.id, otherTenant.id),
+    ).resolves.toBe(false);
+    await expect(store.deleteTenantStaff(staff.id, tenant.id)).resolves.toBe(
+      true,
+    );
+    await expect(store.listTenantStaff(tenant.id)).resolves.toEqual([]);
+    await expect(
+      store.getTenantStaffForTenant(staff.id, tenant.id),
+    ).resolves.toBeNull();
+    await expect(store.deleteTenantStaff(staff.id, tenant.id)).resolves.toBe(
+      false,
+    );
+
     const customer = await store.createCustomerAccount({
       id: randomUUID(),
       tenantId: tenant.id,

@@ -25,7 +25,8 @@ export function TenantStaffManagement({
 
   async function updateStaff(
     staffId: string,
-    update: { active: boolean } | { password: string },
+    update:
+      { active: boolean } | { password: string } | { permissions: string[] },
   ) {
     setBusy(true);
     setError("");
@@ -73,14 +74,70 @@ export function TenantStaffManagement({
       setNotice(
         "password" in update
           ? "Staff password reset. Share the new password securely."
-          : updated.active
-            ? "Staff account reactivated."
-            : "Staff account disabled.",
+          : "permissions" in update
+            ? "Staff permissions updated."
+            : updated.active
+              ? "Staff account reactivated."
+              : "Staff account disabled.",
       );
       return true;
     } catch {
       setError("The request could not reach the server. Please try again.");
       return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateStaffPermissions(
+    staffId: string,
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const permissions = form.getAll("permissions").map(String);
+    if (permissions.length === 0) {
+      setError("Assign at least one permission to each staff account.");
+      setNotice("");
+      return;
+    }
+    await updateStaff(staffId, { permissions });
+  }
+
+  async function deleteStaff(staffId: string) {
+    if (
+      !window.confirm(
+        "Permanently delete this staff account? This immediately revokes its access.",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/tenant/staff/${staffId}`, {
+        method: "DELETE",
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        const code =
+          typeof body === "object" && body !== null && "error" in body
+            ? body.error
+            : undefined;
+        setError(
+          code === "rate_limited"
+            ? "Too many staff changes. Try again later."
+            : code === "staff_not_found"
+              ? "That staff account could not be found for this store."
+              : "The staff account could not be deleted.",
+        );
+        return;
+      }
+      setStaff((current) => current.filter((member) => member.id !== staffId));
+      setNotice("Staff account deleted.");
+    } catch {
+      setError("The request could not reach the server. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -256,6 +313,52 @@ export function TenantStaffManagement({
                   {member.active ? "Disable" : "Reactivate"}
                 </button>
               </div>
+              <form
+                className="mt-3 flex flex-wrap items-center gap-4"
+                key={`${member.id}-${member.permissions.join(":")}`}
+                onSubmit={(event) =>
+                  void updateStaffPermissions(member.id, event)
+                }
+              >
+                <fieldset className="flex flex-wrap gap-4">
+                  <legend className="sr-only">
+                    Permissions for {member.email}
+                  </legend>
+                  {(
+                    [
+                      ["catalog:read", "Read catalog"],
+                      ["catalog:write", "Manage catalog"],
+                      ["orders:read", "Read orders"],
+                      ["orders:write", "Update order status"],
+                    ] as const
+                  ).map(([permission, label]) => (
+                    <label className="flex items-center gap-2" key={permission}>
+                      <input
+                        type="checkbox"
+                        name="permissions"
+                        value={permission}
+                        defaultChecked={member.permissions.includes(permission)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </fieldset>
+                <button
+                  className="rounded-md border border-indigo-300 px-3 py-1.5 text-sm font-medium text-indigo-800 disabled:opacity-60"
+                  disabled={busy}
+                  type="submit"
+                >
+                  Save permissions
+                </button>
+                <button
+                  className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 disabled:opacity-60"
+                  disabled={busy}
+                  onClick={() => void deleteStaff(member.id)}
+                  type="button"
+                >
+                  Delete account
+                </button>
+              </form>
               <form
                 className="mt-3 flex flex-wrap items-end gap-2"
                 onSubmit={resetStaffPassword}

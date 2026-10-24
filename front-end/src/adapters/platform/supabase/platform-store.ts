@@ -747,11 +747,19 @@ export class SupabasePlatformStore implements PlatformStore {
     tenantId: string;
     active?: boolean;
     passwordHash?: string;
+    permissions?: TenantStaffPermission[];
   }): Promise<TenantStaff | null> {
-    const updates: { active?: boolean; password_hash?: string } = {};
+    const updates: {
+      active?: boolean;
+      password_hash?: string;
+      permissions?: TenantStaffPermission[];
+    } = {};
     if (input.active !== undefined) updates.active = input.active;
     if (input.passwordHash !== undefined) {
       updates.password_hash = input.passwordHash;
+    }
+    if (input.permissions !== undefined) {
+      updates.permissions = input.permissions;
     }
     const { data, error } = await this.client
       .from("platform_tenant_staff")
@@ -779,6 +787,22 @@ export class SupabasePlatformStore implements PlatformStore {
           createdAt: data.created_at,
         })
       : null;
+  }
+
+  async deleteTenantStaff(staffId: string, tenantId: string): Promise<boolean> {
+    const { data, error } = await this.client
+      .from("platform_tenant_staff")
+      .delete()
+      .eq("id", staffId)
+      .eq("tenant_id", tenantId)
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        `Could not delete tenant staff account: ${error.message}`,
+      );
+    }
+    return data !== null;
   }
 
   async getTenantStaffByEmail(

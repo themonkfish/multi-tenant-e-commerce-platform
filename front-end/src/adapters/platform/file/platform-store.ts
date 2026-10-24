@@ -680,6 +680,7 @@ export class FilePlatformStore implements PlatformStore {
     tenantId: string;
     active?: boolean;
     passwordHash?: string;
+    permissions?: TenantStaffPermission[];
   }): Promise<TenantStaff | null> {
     return this.withLock(async () => {
       const state = await this.readState();
@@ -694,9 +695,25 @@ export class FilePlatformStore implements PlatformStore {
       if (input.passwordHash !== undefined) {
         staff.passwordHash = input.passwordHash;
       }
+      if (input.permissions !== undefined) {
+        staff.permissions = input.permissions;
+      }
       const updated = TenantStaffSchema.parse(staff);
       await this.writeState(state);
       return updated;
+    });
+  }
+
+  async deleteTenantStaff(staffId: string, tenantId: string): Promise<boolean> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const index = state.tenantStaff.findIndex(
+        (staff) => staff.id === staffId && staff.tenantId === tenantId,
+      );
+      if (index < 0) return false;
+      state.tenantStaff.splice(index, 1);
+      await this.writeState(state);
+      return true;
     });
   }
 
