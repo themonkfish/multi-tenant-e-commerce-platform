@@ -2,15 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const {
   getPlatformStore,
+  createTenantCatalogAdapter,
   syncCustomerOrderToTenant,
   verifyStripeWebhookEvent,
 } = vi.hoisted(() => ({
   getPlatformStore: vi.fn(),
+  createTenantCatalogAdapter: vi.fn(),
   syncCustomerOrderToTenant: vi.fn(),
   verifyStripeWebhookEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/server/platform", () => ({ getPlatformStore }));
+vi.mock("@/adapters/data/rest/tenant-catalog", () => ({
+  createTenantCatalogAdapter,
+}));
 vi.mock("@/lib/server/customer-order-sync", () => ({
   syncCustomerOrderToTenant,
 }));
@@ -135,8 +140,10 @@ describe("Stripe payment webhook", () => {
     const store = {
       getCustomerOrder: vi.fn().mockResolvedValue(order),
       updateCustomerOrderPayment: vi.fn(),
-      listHosts: vi.fn(),
-      listTenantsForHost: vi.fn(),
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId, status: "active" }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId, status: "active" }]),
     };
     getPlatformStore.mockReturnValue(store);
     verifyStripeWebhookEvent.mockReturnValue(checkoutEvent());
@@ -162,7 +169,14 @@ describe("Stripe payment webhook", () => {
       customerId,
       status: "Confirmed",
       createdAt: "2026-10-22T12:00:00.000Z",
-      items: [],
+      items: [
+        {
+          productId: "product-1",
+          quantity: 1,
+          inventoryTracked: true,
+          variantSelections: { Size: "M" },
+        },
+      ],
       total: 2500,
       currency: "USD",
       itemCount: 1,
@@ -177,10 +191,14 @@ describe("Stripe payment webhook", () => {
         ...order,
         paymentStatus: "failed",
       }),
-      listHosts: vi.fn(),
-      listTenantsForHost: vi.fn(),
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId, status: "active" }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId, status: "active" }]),
     };
+    const releaseInventory = vi.fn().mockResolvedValue(undefined);
     getPlatformStore.mockReturnValue(store);
+    createTenantCatalogAdapter.mockResolvedValue({ releaseInventory });
     verifyStripeWebhookEvent.mockReturnValue(
       checkoutEvent("checkout.session.async_payment_failed"),
     );
@@ -191,6 +209,15 @@ describe("Stripe payment webhook", () => {
     expect(store.updateCustomerOrderPayment).toHaveBeenCalledWith(
       expect.objectContaining({ status: "failed", sessionId }),
     );
+    expect(releaseInventory).toHaveBeenCalledWith(`${orderId}-1`);
     expect(syncCustomerOrderToTenant).not.toHaveBeenCalled();
+
+    store.getCustomerOrder.mockResolvedValue({
+      ...order,
+      paymentStatus: "failed",
+    });
+    const retryResponse = await POST(webhookRequest());
+    expect(retryResponse.status).toBe(200);
+    expect(releaseInventory).toHaveBeenCalledTimes(2);
   });
 });

@@ -9,6 +9,7 @@ import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
 import { isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getCustomerSession } from "@/lib/server/session";
+import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 
 const DemoPaymentSchema = z
   .object({ result: z.enum(["paid", "failed"]) })
@@ -83,9 +84,23 @@ export async function POST(
     );
   }
   if (updated.paymentStatus !== "paid") {
+    if (order.items.some((item) => item.inventoryTracked)) {
+      const catalog = await createTenantCatalogAdapter(
+        order.tenantId,
+        session.scope.hostId,
+      );
+      await catalog.releaseInventory(`${order.id}-${order.paymentAttempt}`);
+    }
     return NextResponse.json({ order: updated });
   }
 
+  if (order.items.some((item) => item.inventoryTracked)) {
+    const catalog = await createTenantCatalogAdapter(
+      order.tenantId,
+      session.scope.hostId,
+    );
+    await catalog.commitInventory(`${order.id}-${order.paymentAttempt}`);
+  }
   const deliveredOrder = await syncCustomerOrderToTenant({
     store,
     tenantId: order.tenantId,

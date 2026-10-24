@@ -6,6 +6,7 @@ import {
   ProductInputSchema,
   ProductOptionsSchema,
   ProductUpdateSchema,
+  ProductVariantsSchema,
 } from "@/core/domain/product";
 import type { TenantDatabaseProviderConfig } from "@/core/domain/tenant-config";
 import type {
@@ -14,6 +15,7 @@ import type {
   Product,
   ProductInput,
   ProductQuery,
+  InventoryReservationItem,
 } from "@/core/ports/data";
 import { TenantDataBackendError } from "@/core/ports/data";
 import {
@@ -32,6 +34,7 @@ const ProductRowSchema = z.object({
   sku: z.string().nullable(),
   category: z.string().min(1).max(80).nullable(),
   options: ProductOptionsSchema,
+  variants: ProductVariantsSchema.nullable(),
   image_url: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -61,6 +64,7 @@ type SupabaseTenantDatabase = {
           sku: string | null;
           category: string | null;
           options: { name: string; values: string[] }[];
+          variants: { selections: Record<string, string>; stock: number }[] | null;
           image_url: string | null;
           created_at: string;
           updated_at: string;
@@ -76,6 +80,7 @@ type SupabaseTenantDatabase = {
           sku?: string | null;
           category?: string | null;
           options?: { name: string; values: string[] }[];
+          variants?: { selections: Record<string, string>; stock: number }[] | null;
           image_url?: string | null;
           created_at: string;
           updated_at: string;
@@ -89,6 +94,7 @@ type SupabaseTenantDatabase = {
           sku?: string | null;
           category?: string | null;
           options?: { name: string; values: string[] }[];
+          variants?: { selections: Record<string, string>; stock: number }[] | null;
           image_url?: string | null;
           updated_at?: string;
         };
@@ -124,6 +130,22 @@ type SupabaseTenantDatabase = {
       list_tenant_product_categories: {
         Args: { p_tenant_id: string; p_status: string | null };
         Returns: { category: string }[];
+      };
+      reserve_tenant_product_inventory: {
+        Args: {
+          p_tenant_id: string;
+          p_reservation_id: string;
+          p_items: InventoryReservationItem[];
+        };
+        Returns: boolean;
+      };
+      release_tenant_product_inventory: {
+        Args: { p_tenant_id: string; p_reservation_id: string };
+        Returns: undefined;
+      };
+      commit_tenant_product_inventory: {
+        Args: { p_tenant_id: string; p_reservation_id: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;
@@ -232,6 +254,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
         sku: product.sku ?? null,
         category: product.category ?? null,
         options: product.options ?? [],
+        variants: product.variants ?? null,
         image_url: product.imageUrl ?? null,
         created_at: now,
         updated_at: now,
@@ -268,6 +291,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
     if (update.sku !== undefined) changes.sku = update.sku;
     if (update.category !== undefined) changes.category = update.category;
     if (update.options !== undefined) changes.options = update.options;
+    if (update.variants !== undefined) changes.variants = update.variants;
     if (update.imageUrl !== undefined) changes.image_url = update.imageUrl;
     const { data, error } = await this.client
       .from(TABLE)
@@ -314,6 +338,41 @@ export class SupabaseTenantCatalog implements CatalogPort {
     return Array.from(new Set(categories));
   }
 
+  async reserveInventory(input: {
+    reservationId: string;
+    items: InventoryReservationItem[];
+  }): Promise<boolean> {
+    const { data, error } = await this.client.rpc(
+      "reserve_tenant_product_inventory",
+      {
+        p_tenant_id: this.tenantId,
+        p_reservation_id: input.reservationId,
+        p_items: input.items,
+      },
+    );
+    if (error) {
+      if (error.code === "P0001") return false;
+      this.throwBackend(error.message, error.code);
+    }
+    return z.boolean().parse(data);
+  }
+
+  async releaseInventory(reservationId: string): Promise<void> {
+    const { error } = await this.client.rpc(
+      "release_tenant_product_inventory",
+      { p_tenant_id: this.tenantId, p_reservation_id: reservationId },
+    );
+    if (error) this.throwBackend(error.message, error.code);
+  }
+
+  async commitInventory(reservationId: string): Promise<void> {
+    const { error } = await this.client.rpc(
+      "commit_tenant_product_inventory",
+      { p_tenant_id: this.tenantId, p_reservation_id: reservationId },
+    );
+    if (error) this.throwBackend(error.message, error.code);
+  }
+
   async getSchemaVersion(): Promise<number | null> {
     const { data, error } = await this.client
       .from("tenant_schema_metadata")
@@ -356,6 +415,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
       ...(value.sku === null ? {} : { sku: value.sku }),
       ...(value.category === null ? {} : { category: value.category }),
       options: value.options,
+      ...(value.variants === null ? {} : { variants: value.variants }),
       ...(value.image_url === null ? {} : { imageUrl: value.image_url }),
       createdAt: value.created_at,
       updatedAt: value.updated_at,

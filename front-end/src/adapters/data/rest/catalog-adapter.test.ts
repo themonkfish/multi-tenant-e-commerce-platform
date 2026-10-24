@@ -173,6 +173,57 @@ describe("RestCatalogAdapter", () => {
     expect(transport).not.toHaveBeenCalled();
   });
 
+  it("reserves tracked stock and exposes idempotent reservation actions", async () => {
+    const transport = mockTransport({ reserved: true });
+    const adapter = new RestCatalogAdapter(
+      config,
+      "secret",
+      tenantId,
+      transport,
+    );
+    const reservationId = "ORD-550e8400-e29b-41d4-a716-446655440001-1";
+    const items = [
+      {
+        productId: product.id,
+        selections: { Color: "Black" },
+        quantity: 2,
+      },
+    ];
+
+    await expect(
+      adapter.reserveInventory({ reservationId, items }),
+    ).resolves.toBe(true);
+    expect(transport).toHaveBeenLastCalledWith(
+      config,
+      "secret",
+      expect.objectContaining({
+        method: "POST",
+        path: "/products/inventory/reservations",
+        body: { reservationId, items, tenantId },
+      }),
+    );
+
+    transport.mockResolvedValue({ status: 204, body: null });
+    await adapter.releaseInventory(reservationId);
+    expect(transport).toHaveBeenLastCalledWith(
+      config,
+      "secret",
+      expect.objectContaining({
+        method: "POST",
+        path: `/products/inventory/reservations/${reservationId}/release`,
+      }),
+    );
+    await adapter.commitInventory(reservationId);
+    expect(transport).toHaveBeenLastCalledWith(
+      config,
+      "secret",
+      expect.objectContaining({
+        method: "POST",
+        path: `/products/inventory/reservations/${reservationId}/commit`,
+      }),
+    );
+  });
+
   it("passes search and category filters and returns unique product categories", async () => {
     const transport = mockTransport({
       data: [product],

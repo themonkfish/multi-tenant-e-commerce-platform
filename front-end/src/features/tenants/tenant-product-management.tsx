@@ -10,7 +10,10 @@ import {
   type FormEvent,
 } from "react";
 import type { Product } from "@/core/ports/data";
-import { ProductOptionsSchema } from "@/core/domain/product";
+import {
+  ProductOptionsSchema,
+  ProductVariantsSchema,
+} from "@/core/domain/product";
 
 type DraftProduct = {
   title: string;
@@ -21,6 +24,7 @@ type DraftProduct = {
   category: string;
   imageUrl: string;
   optionsText: string;
+  inventoryText: string;
 };
 
 const EMPTY_DRAFT: DraftProduct = {
@@ -32,6 +36,7 @@ const EMPTY_DRAFT: DraftProduct = {
   category: "",
   imageUrl: "",
   optionsText: "",
+  inventoryText: "",
 };
 
 function toDraft(product?: Product | null): DraftProduct {
@@ -51,6 +56,14 @@ function toDraft(product?: Product | null): DraftProduct {
     imageUrl: product.imageUrl ?? "",
     optionsText: (product.options ?? [])
       .map((option) => `${option.name}: ${option.values.join(", ")}`)
+      .join("\n"),
+    inventoryText: (product.variants ?? [])
+      .map((variant) => {
+        const selection = Object.entries(variant.selections)
+          .map(([name, value]) => `${name}=${value}`)
+          .join(", ");
+        return `${selection || "Stock"}: ${variant.stock}`;
+      })
       .join("\n"),
   };
 }
@@ -209,6 +222,32 @@ export function TenantProductManagement({
               .filter(Boolean),
           };
         }),
+      variants: draft.inventoryText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+                const separator = line.lastIndexOf(":");
+                const selectionsText =
+                  separator < 0 ? "" : line.slice(0, separator).trim();
+                const quantity =
+                  separator < 0 ? Number.NaN : Number(line.slice(separator + 1));
+                const selections =
+                  selectionsText === "" || selectionsText === "Stock"
+                    ? {}
+                    : Object.fromEntries(
+                        selectionsText.split(",").map((part) => {
+                          const equals = part.indexOf("=");
+                          return equals < 1
+                            ? [part.trim(), ""]
+                            : [
+                                part.slice(0, equals).trim(),
+                                part.slice(equals + 1).trim(),
+                              ];
+                        }),
+                      );
+          return { selections, stock: quantity };
+        }),
     };
 
     if (!payload.title || !payload.slug || !payload.price.currency) {
@@ -230,6 +269,14 @@ export function TenantProductManagement({
     }
     if (!ProductOptionsSchema.safeParse(payload.options).success) {
       setError("Use up to 3 unique options, each with 1–20 unique values.");
+      setSaving(false);
+      return;
+    }
+    if (
+      payload.variants &&
+      !ProductVariantsSchema.safeParse(payload.variants).success
+    ) {
+      setError("Enter a valid non-negative stock quantity for every variant.");
       setSaving(false);
       return;
     }
@@ -376,6 +423,28 @@ export function TenantProductManagement({
               placeholder="Trail running cap"
               required
             />
+          </label>
+
+          <label className="space-y-1 text-sm font-medium sm:col-span-2">
+            Variant stock (optional)
+            <textarea
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm font-normal"
+              rows={4}
+              value={draft.inventoryText}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  inventoryText: event.target.value,
+                }))
+              }
+              placeholder={"Size=S, Color=Blue: 10\nSize=M, Color=Blue: 4"}
+            />
+            <span className="block font-normal text-slate-600">
+              Optional: enter one combination per line as Option=Value, ...:
+              quantity. Configure every combination to track stock. Leave
+              blank for untracked stock. Maximum 200 variants; stock is capped
+              at 1,000,000 per variant.
+            </span>
           </label>
 
           <label className="space-y-1 text-sm font-medium">

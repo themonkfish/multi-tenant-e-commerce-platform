@@ -104,4 +104,28 @@ describe("product options", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("requires stock entries for all valid option combinations", () => {
+    const result = ProductInputSchema.safeParse({
+      ...product,
+      options: [
+        { name: "Size", values: ["S", "M"] },
+        { name: "Color", values: ["Blue", "Black"] },
+      ],
+      variants: [
+        { selections: { Size: "S", Color: "Blue" }, stock: 3 },
+        { selections: { Size: "S", Color: "Black" }, stock: 1 },
+        { selections: { Size: "M", Color: "Blue" }, stock: 0 },
+        { selections: { Size: "M", Color: "Black" }, stock: 2 },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(
+      ProductInputSchema.safeParse({
+        ...product,
+        options: [{ name: "Size", values: ["S", "M"] }],
+        variants: [{ selections: { Size: "S" }, stock: 3 }],
+      }).success,
+    ).toBe(false);
+  });
 });

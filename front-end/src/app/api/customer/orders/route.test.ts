@@ -252,6 +252,10 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     const variantProduct = {
       ...product,
       options: [{ name: "Size", values: ["S", "M"] }],
+      variants: [
+        { selections: { Size: "S" }, stock: 5 },
+        { selections: { Size: "M" }, stock: 4 },
+      ],
     };
     const order = makeOrder({
       items: [
@@ -288,6 +292,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     getPlatformStore.mockReturnValue(store);
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(variantProduct),
+      reserveInventory: vi.fn().mockResolvedValue(true),
     });
     createStripeCheckoutSession.mockResolvedValue({
       id: "cs_test_example",
@@ -311,11 +316,25 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         items: [
           expect.objectContaining({
             variantSelections: { Size: "M" },
+            inventoryTracked: true,
             unitPrice: product.price.amount,
           }),
         ],
       }),
     );
+    expect(createTenantCatalogAdapter).toHaveBeenCalled();
+    expect(
+      (await createTenantCatalogAdapter.mock.results[0].value).reserveInventory,
+    ).toHaveBeenCalledWith({
+      reservationId: `${orderId}-1`,
+      items: [
+        {
+          productId: product.id,
+          selections: { Size: "M" },
+          quantity: 1,
+        },
+      ],
+    });
   });
 
   it("rejects invalid option selections before creating an order", async () => {
@@ -334,6 +353,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
+
     getPlatformStore.mockReturnValue(store);
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(variantProduct),
@@ -351,6 +371,44 @@ describe("POST /api/customer/orders Stripe checkout", () => {
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ error: "cart_changed" });
+    expect(store.createCustomerOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects checkout when the atomic stock reservation fails", async () => {
+    const variantProduct = {
+      ...product,
+      options: [{ name: "Size", values: ["S"] }],
+      variants: [{ selections: { Size: "S" }, stock: 1 }],
+    };
+    const store = {
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getCustomerOrder: vi.fn().mockResolvedValue(null),
+      createCustomerOrder: vi.fn(),
+    };
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue(variantProduct),
+      reserveInventory: vi.fn().mockResolvedValue(false),
+    });
+
+    const response = await POST(
+      checkoutRequest([
+        {
+          productId: product.id,
+          quantity: 1,
+          variantSelections: { Size: "S" },
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "insufficient_stock" });
     expect(store.createCustomerOrder).not.toHaveBeenCalled();
   });
 

@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { z } from "zod";
 import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
 import { getPlatformStore } from "@/lib/server/platform";
+import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import {
   StripePaymentConfigurationError,
   verifyStripeWebhookEvent,
@@ -91,6 +92,14 @@ export async function POST(request: Request) {
   if (isFailed && order.paymentStatus === "paid") {
     return NextResponse.json({ received: true });
   }
+  if (isFailed && order.paymentStatus === "failed") {
+    if (order.items.some((item) => item.inventoryTracked)) {
+      const hostId = await getActiveTenantHostId(store, tenantId);
+      const catalog = await createTenantCatalogAdapter(tenantId, hostId);
+      await catalog.releaseInventory(`${order.id}-${order.paymentAttempt}`);
+    }
+    return NextResponse.json({ received: true });
+  }
 
   const paymentIntentId =
     "payment_intent" in checkout
@@ -112,7 +121,15 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
-  if (updated.paymentStatus !== "paid") {
+  const hostId = await getActiveTenantHostId(store, tenantId);
+  if (order.items.some((item) => item.inventoryTracked)) {
+    const catalog = await createTenantCatalogAdapter(tenantId, hostId);
+    if (updated.paymentStatus !== "paid") {
+      await catalog.releaseInventory(`${order.id}-${order.paymentAttempt}`);
+      return NextResponse.json({ received: true });
+    }
+    await catalog.commitInventory(`${order.id}-${order.paymentAttempt}`);
+  } else if (updated.paymentStatus !== "paid") {
     return NextResponse.json({ received: true });
   }
   if (updated.backendSyncStatus === "synced") {
@@ -122,7 +139,7 @@ export async function POST(request: Request) {
   const syncedOrder = await syncCustomerOrderToTenant({
     store,
     tenantId,
-    hostId: await getActiveTenantHostId(store, tenantId),
+    hostId,
     order: updated,
   });
   if (syncedOrder.backendSyncStatus !== "synced") {

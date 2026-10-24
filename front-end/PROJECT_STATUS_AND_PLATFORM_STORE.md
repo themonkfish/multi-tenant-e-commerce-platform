@@ -47,8 +47,10 @@ Status snapshot as of 2026-10-24:
   signed payment webhooks before syncing card orders to the Tenant backend.
   India-only INR cash-on-delivery orders require an Indian delivery address,
   are synced as unpaid orders, and can be marked collected by an authorized
-  Tenant operator with an audit event. Payment retries are idempotent. Live
-  card payments, inventory, and fulfillment remain unimplemented; Stripe
+  Tenant operator with an audit event. Payment retries are idempotent. Variant
+  inventory is opt-in and reserved atomically at checkout; failed/expired card
+  payments release reservations, while successful card and COD orders consume
+  them. Live card payments and fulfillment remain unimplemented; Stripe
   Connect onboarding is blocked pending confirmation that India is eligible
   for the platform country.
 - Tenant Owners can configure AWS S3 or an S3-compatible service with encrypted
@@ -218,16 +220,17 @@ Status snapshot as of 2026-10-24:
      Cash on Delivery, are implemented. Stripe Connect is blocked pending
      platform-country eligibility; regional gateways are deferred.
    - Wire uploaded assets into product image management.
-   - Build customer, inventory, shipping, tax, and discount workflows around
-     synchronized Tenant backend order snapshots.
+   - Build customer, shipping, tax, and discount workflows around synchronized
+     Tenant backend order snapshots; variant inventory reservation is implemented.
 
 5. **P2 — Storefront runtime upgrade**
    - Add production checkout settings and payment operations; the current Stripe
      integration is restricted to test mode.
    - Completed: storefront name search, category browsing, pagination, and
      product option selection with server-validated order snapshots.
-   - Per-variant pricing, SKU, and inventory remain future catalog work.
-   - Connect order placement to payment, inventory, and fulfillment workflows.
+   - Per-variant pricing and SKU remain future catalog work; inventory tracking
+     and checkout reservation are implemented.
+   - Connect order placement to fulfillment workflows.
 
 6. **P3 — Platform operations and scale**
    - Add observability, CI/CD, automated migration deployment, audit tooling,
@@ -294,20 +297,22 @@ Status snapshot as of 2026-10-24:
 
 - [x] Product option variants across REST, Supabase, and MongoDB catalogs,
       storefront selection, distinct cart lines, and server-validated order
-      snapshots. Per-variant price, SKU, and inventory remain future work.
+      snapshots. Optional per-variant stock tracking, atomic checkout
+      reservations, and payment-state transitions are implemented; per-variant
+      price and SKU remain future work.
 - [x] Tenant product categories and storefront name search, category filters,
       and pagination across REST, Supabase, and MongoDB catalog providers.
 - [x] Product image management: tenant-scoped uploads, HTTPS image URLs saved
       through all catalog adapters, and storefront rendering. Tenant Supabase
-      catalog schemas must be upgraded to version 4.
-- [ ] Orders, customers, inventory, discounts, shipping, and tax workflows.
+      catalog schemas must be upgraded to version 5.
+- [ ] Orders, customers, discounts, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
       confirmation/history.
 - [x] Tenant-specific Customer authentication and own-order read access;
       order totals are calculated from active Tenant catalog prices.
-- [ ] Full tenant commerce runtime: add live payment processing, inventory,
-      shipping/tax handling, and production checkout orchestration.
+- [ ] Full tenant commerce runtime: add live payment processing, shipping/tax
+      handling, and production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
 - [ ] Later growth work: CMS, reviews, reporting, staff permissions, webhooks,
@@ -317,7 +322,9 @@ Status snapshot as of 2026-10-24:
 
 - [ ] Choose background jobs, email delivery, custom-domain/SSL strategy,
       tenant-aware caching, and customer identity model.
-- [ ] Define inventory reservation and payment-failure behavior.
+- [x] Define inventory reservation and payment-failure behavior. Reservations
+      occur at checkout; failed/expired card payments release them, and COD
+      orders consume stock when placed.
 - [ ] Add observability, CI/CD, dependency/license scanning, SBOM and third-
       party notices, backups, tenant export/deletion, and compliance workflows.
 - [ ] Decide whether tenants may move between hosts or data providers, how
@@ -411,13 +418,14 @@ features are implemented.
     in the tenant project before testing and initialization; MongoDB Atlas
     collections and indexes are initialized by the app. Database providers
     take precedence over REST for catalog operations. The supported database
-    schema is version 4; test results report incompatible versions, and the
+    schema is version 5; test results report incompatible versions, and the
     app will not initialize a database with a newer version.
     MongoDB initializes a `tenant_products` collection with a strict product
     document validator, tenant-scoped slug and creation-time indexes, and a
     tenant-bound `tenant_schema_metadata` version record. Products support
-    optional categories and option variants; database-backed search matches
-    product titles.
+    optional categories, option variants, and variant stock; database-backed
+    search matches product titles. MongoDB inventory operations require
+    transaction-capable deployment support.
     Only dedicated
     Supabase projects and dedicated MongoDB databases are currently supported;
     shared-database tenancy modes are not enabled for these direct credentials.
@@ -426,21 +434,32 @@ features are implemented.
     `POST /api/tenant/products`, and
     `GET`/`PATCH`/`DELETE /api/tenant/products/{productId}`. These routes
     proxy product operations to the connected backend. The Tenant catalog UI
-    supports product CRUD, categories, and attaching images from the configured
-    storage provider and edit option groups (up to 3 options, 20 values each).
+    supports product CRUD, categories, image uploads, option groups (up to 3
+    options, 20 values each), and optional per-variant stock entries. Track
+    stock by entering every option combination in the stock editor; leave it
+    blank to disable stock tracking for that product.
     REST backends must accept and return the optional `options` array of
     `{ "name": "Size", "values": ["S", "M"] }` product entries, apply
     `search`, `category`, and `status` filters to `GET /{apiVersion}/products`,
     and implement
     `GET /{apiVersion}/products/categories?tenantId=...&status=active` with a
-    `{ "data": ["Category"] }` response for category browsing.
+    `{ "data": ["Category"] }` response for category browsing. Backends must
+    also implement atomic inventory reservations:
+    `POST /{apiVersion}/products/inventory/reservations` accepts
+    `{ "tenantId": "...", "reservationId": "...", "items": [{ "productId": "...", "selections": { "Size": "M" }, "quantity": 1 }] }`
+    and returns `{ "reserved": true|false }`. A reservation ID must be
+    idempotent and tenant-scoped; insufficient stock must reserve nothing.
+    `POST /{apiVersion}/products/inventory/reservations/{reservationId}/release`
+    and `/commit` must perform idempotent state transitions and reject
+    cross-tenant requests. Release restores reserved quantities; commit
+    consumes them.
 
-Tenant Supabase catalog projects use schema version 4 for product images,
-categories, and product option variants. Apply the current
+Tenant Supabase catalog projects use schema version 5 for product images,
+categories, product option variants, and inventory reservations. Apply the current
 `supabase/reference/tenant-catalog.sql` to an
 existing Supabase tenant project, then use the Tenant Owner database setup to
 initialize the schema. MongoDB Atlas catalogs update their product validator
-and advance to version 4 through the same initialize-schema action.
+and advance to version 5 through the same initialize-schema action.
 
 The tenant portal saves branding and locale metadata but does not yet apply it
 to a live storefront. REST catalog requests use the saved connection, but

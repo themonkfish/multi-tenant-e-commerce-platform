@@ -11,6 +11,7 @@ export type CartItem = {
   currency: string;
   quantity: number;
   variantSelections?: Record<string, string>;
+  availableStock?: number;
 };
 
 export type CartItemInput = {
@@ -20,6 +21,7 @@ export type CartItemInput = {
   price: number;
   currency: string;
   variantSelections?: Record<string, string>;
+  availableStock?: number;
 };
 
 export function getCartItemKey(item: CartItemInput | CartItem): string {
@@ -48,6 +50,12 @@ export const useCartStore = create<CartState>()(
         const existing = get().items.find(
           (candidate) => getCartItemKey(candidate) === key,
         );
+        if (
+          item.availableStock !== undefined &&
+          (existing?.quantity ?? 0) >= item.availableStock
+        ) {
+          return;
+        }
         set({
           items: existing
             ? get().items.map((candidate) =>

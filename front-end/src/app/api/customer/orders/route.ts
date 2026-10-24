@@ -8,6 +8,7 @@ import {
 } from "@/core/domain/tenant-identities";
 import { ProductVariantSelectionsSchema } from "@/core/domain/product";
 import type { Product } from "@/core/ports/data";
+import type { InventoryReservationItem } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -119,6 +120,43 @@ function selectionsMatchProduct(
   );
 }
 
+function hasAvailableStock(
+  product: Product,
+  selections: Record<string, string> | undefined,
+  quantity: number,
+): boolean {
+  if (!product.variants?.length) return true;
+  const requested = Object.entries(selections ?? {}).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  const variant = product.variants.find(
+    (candidate) =>
+      JSON.stringify(
+        Object.entries(candidate.selections).sort(([a], [b]) =>
+          a.localeCompare(b),
+        ),
+      ) === JSON.stringify(requested),
+  );
+  return Boolean(variant && variant.stock >= quantity);
+}
+
+function inventoryItems(
+  products: Product[],
+  items: z.infer<typeof CreateOrderSchema>["items"],
+): InventoryReservationItem[] {
+  return products.flatMap((product, index) =>
+    product.variants?.length
+      ? [
+          {
+            productId: product.id,
+            selections: items[index].variantSelections ?? {},
+            quantity: items[index].quantity,
+          },
+        ]
+      : [],
+  );
+}
+
 export async function GET() {
   const session = await getCustomerSession();
   if (!session || session.scope.kind !== "tenant") {
@@ -209,6 +247,13 @@ export async function POST(request: Request) {
     }
     if (order.paymentMethod === "cash_on_delivery") {
       if (order.paymentStatus === "cod_due") {
+        if (order.items.some((item) => item.inventoryTracked)) {
+          const catalog = await createTenantCatalogAdapter(
+            session.scope.id,
+            session.scope.hostId,
+          );
+          await catalog.commitInventory(`${order.id}-cod`);
+        }
         if (order.backendSyncStatus !== "synced") {
           order = await syncCustomerOrderToTenant({
             store,
@@ -301,8 +346,9 @@ export async function POST(request: Request) {
 
   if (!order) {
     let products: Product[];
+    let catalog: Awaited<ReturnType<typeof createTenantCatalogAdapter>>;
     try {
-      const catalog = await createTenantCatalogAdapter(
+      catalog = await createTenantCatalogAdapter(
         session.scope.id,
         session.scope.hostId,
       );
@@ -376,6 +422,22 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      products.some(
+        (product, index) =>
+          !hasAvailableStock(
+            product,
+            parsed.data.items[index].variantSelections,
+            parsed.data.items[index].quantity,
+          ),
+      )
+    ) {
+      return NextResponse.json(
+        { error: "insufficient_stock" },
+        { status: 409 },
+      );
+    }
+
     const currency = products[0]?.price.currency;
     if (
       !currency ||
@@ -407,6 +469,7 @@ export async function POST(request: Request) {
       ...(parsed.data.items[index].variantSelections
         ? { variantSelections: parsed.data.items[index].variantSelections }
         : {}),
+      ...(product.variants?.length ? { inventoryTracked: true } : {}),
       unitPrice: product.price.amount,
       currency: product.price.currency,
     }));
@@ -456,7 +519,27 @@ export async function POST(request: Request) {
           ? "pending"
           : "not_configured",
     });
-    const result = await store.createCustomerOrder(newOrder);
+    const reservationId =
+      parsed.data.paymentMethod === "cash_on_delivery"
+        ? `${orderId}-cod`
+        : `${orderId}-1`;
+    const stockItems = inventoryItems(products, parsed.data.items);
+    const reserved =
+      stockItems.length === 0 ||
+      (await catalog.reserveInventory({ reservationId, items: stockItems }));
+    if (!reserved) {
+      return NextResponse.json(
+        { error: "insufficient_stock" },
+        { status: 409 },
+      );
+    }
+    let result;
+    try {
+      result = await store.createCustomerOrder(newOrder);
+    } catch (error) {
+      await catalog.releaseInventory(reservationId);
+      throw error;
+    }
     order = result.order;
     orderCreated = result.created;
     const storedCartMatches =
@@ -498,6 +581,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "order_not_found" }, { status: 404 });
   }
   if (order.paymentMethod === "cash_on_delivery") {
+    if (order.items.some((item) => item.inventoryTracked)) {
+      const catalog = await createTenantCatalogAdapter(
+        session.scope.id,
+        session.scope.hostId,
+      );
+      await catalog.commitInventory(`${order.id}-cod`);
+    }
     const syncedOrder =
       order.backendSyncStatus === "synced"
         ? order
@@ -511,6 +601,39 @@ export async function POST(request: Request) {
       { order: syncedOrder, cashOnDelivery: true },
       { status: orderCreated ? 201 : 200 },
     );
+  }
+  if (!orderCreated) {
+    const items = order.items.flatMap((item) =>
+      item.inventoryTracked
+        ? [
+            {
+              productId: item.productId,
+              selections: item.variantSelections ?? {},
+              quantity: item.quantity,
+            },
+          ]
+        : [],
+    );
+    if (items.length > 0) {
+      const catalog = await createTenantCatalogAdapter(
+        session.scope.id,
+        session.scope.hostId,
+      );
+      const nextAttempt = order.paymentAttempt + 1;
+      if (order.paymentAttempt > 0) {
+        await catalog.releaseInventory(`${order.id}-${order.paymentAttempt}`);
+      }
+      const reserved = await catalog.reserveInventory({
+        reservationId: `${order.id}-${nextAttempt}`,
+        items,
+      });
+      if (!reserved) {
+        return NextResponse.json(
+          { error: "insufficient_stock" },
+          { status: 409 },
+        );
+      }
+    }
   }
   const prepared = await store.prepareCustomerOrderPayment({
     tenantId: session.scope.id,

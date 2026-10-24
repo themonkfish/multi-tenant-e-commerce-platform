@@ -5,6 +5,7 @@ import type {
   Product,
   ProductInput,
   ProductQuery,
+  InventoryReservationItem,
   CatalogPort,
 } from "@/core/ports/data";
 import { TenantDataBackendError } from "@/core/ports/data";
@@ -12,6 +13,8 @@ import {
   ProductInputSchema,
   ProductOptionsSchema,
   ProductUpdateSchema,
+  ProductVariantSelectionsSchema,
+  ProductVariantsSchema,
 } from "@/core/domain/product";
 import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
 import {
@@ -42,6 +45,7 @@ const ProductSchema = z.object({
   sku: z.string().optional(),
   category: z.string().min(1).max(80).nullable().optional(),
   options: ProductOptionsSchema.optional(),
+  variants: ProductVariantsSchema.optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -63,6 +67,21 @@ const PageSchema = z.object({
 const CategoriesSchema = z.object({
   data: z.array(z.string().min(1).max(80)),
 });
+const InventoryReservationSchema = z
+  .object({
+    reservationId: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
+    items: z
+      .array(
+        z.object({
+          productId: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
+          selections: ProductVariantSelectionsSchema,
+          quantity: z.number().int().positive().max(100),
+        }),
+      )
+      .min(1)
+      .max(20),
+  })
+  .strict();
 
 const MAX_PAGE_SIZE = 100;
 
@@ -71,6 +90,7 @@ export class RestBackendError extends TenantDataBackendError {
     super(status, message);
     this.name = "RestBackendError";
   }
+
 }
 
 type RestTransport = (
@@ -188,6 +208,44 @@ export class RestCatalogAdapter implements CatalogPort {
     return Array.from(new Set(CategoriesSchema.parse(response.body).data)).sort(
       (left, right) => left.localeCompare(right),
     );
+  }
+
+  async reserveInventory(input: {
+    reservationId: string;
+    items: InventoryReservationItem[];
+  }): Promise<boolean> {
+    const payload = InventoryReservationSchema.parse(input);
+    const response = await this.request({
+      method: "POST",
+      path: "/products/inventory/reservations",
+      body: { ...payload, tenantId: this.tenantId },
+    });
+    return z.object({ reserved: z.boolean() }).parse(response.body).reserved;
+  }
+
+  async releaseInventory(reservationId: string): Promise<void> {
+    await this.reservationAction("release", reservationId);
+  }
+
+  async commitInventory(reservationId: string): Promise<void> {
+    await this.reservationAction("commit", reservationId);
+  }
+
+  private async reservationAction(
+    action: "release" | "commit",
+    reservationId: string,
+  ): Promise<void> {
+    const id = z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .parse(reservationId);
+    await this.request({
+      method: "POST",
+      path: `/products/inventory/reservations/${id}/${action}`,
+      body: { tenantId: this.tenantId },
+    });
   }
 
   private async request(request: RestHttpRequest): Promise<RestHttpResponse> {

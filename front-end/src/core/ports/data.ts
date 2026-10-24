@@ -8,6 +8,17 @@ export type ProductOption = {
   values: string[];
 };
 
+export type ProductVariant = {
+  selections: Record<string, string>;
+  stock: number;
+};
+
+export type InventoryReservationItem = {
+  productId: string;
+  selections: Record<string, string>;
+  quantity: number;
+};
+
 export type Paginated<T> = {
   data: T[];
   meta: { page: number; limit: number; total: number };
@@ -23,6 +34,7 @@ export type Product = {
   sku?: string;
   category?: string | null;
   options?: ProductOption[];
+  variants?: ProductVariant[];
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +65,12 @@ export interface CatalogPort {
     tenantId: string,
     status?: Product["status"],
   ): Promise<string[]>;
+  reserveInventory(input: {
+    reservationId: string;
+    items: InventoryReservationItem[];
+  }): Promise<boolean>;
+  releaseInventory(reservationId: string): Promise<void>;
+  commitInventory(reservationId: string): Promise<void>;
 }
 
 export class TenantDataBackendError extends Error {

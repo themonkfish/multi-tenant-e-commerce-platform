@@ -9,6 +9,9 @@ const catalogAdapter: CatalogPort = {
   updateProduct: vi.fn(),
   deleteProduct: vi.fn(),
   listProductCategories: vi.fn(),
+  reserveInventory: vi.fn(),
+  releaseInventory: vi.fn(),
+  commitInventory: vi.fn(),
 };
 
 describe("createDataAdapterFactory", () => {

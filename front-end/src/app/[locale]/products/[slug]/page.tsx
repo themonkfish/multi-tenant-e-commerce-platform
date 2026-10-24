@@ -39,6 +39,7 @@ export default async function TenantProductDetailPage({
     sku?: string;
     category?: string | null;
     options?: { name: string; values: string[] }[];
+    variants?: { selections: Record<string, string>; stock: number }[];
     imageUrl?: string | null;
   } | null = null;
 
@@ -191,6 +192,7 @@ export default async function TenantProductDetailPage({
                 currency: product.price.currency,
               }}
               options={product.options}
+              variants={product.variants}
             />
             <Link
               className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"

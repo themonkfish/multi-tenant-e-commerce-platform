@@ -106,6 +106,8 @@ export function StorefrontCartPage({
         setError(
           code === "cart_changed"
             ? "A product changed or is no longer available. Review your cart and try again."
+            : code === "insufficient_stock"
+              ? "One or more variants no longer have enough stock. Review your cart and try again."
             : code === "connection_not_configured"
               ? "This store has not connected a product backend, so checkout is unavailable."
               : code === "tenant_backend_unavailable"

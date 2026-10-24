@@ -51,6 +51,7 @@ export default async function TenantProductCatalogPage({
     sku?: string;
     category?: string | null;
     options?: { name: string; values: string[] }[];
+    variants?: { selections: Record<string, string>; stock: number }[];
     imageUrl?: string | null;
   }> = [];
   let categories: string[] = [];
@@ -313,6 +314,7 @@ export default async function TenantProductCatalogPage({
                         currency: product.price.currency,
                       }}
                       options={product.options}
+                      variants={product.variants}
                     />
                     <Link
                       className="rounded-md px-3 py-2 text-sm font-medium text-white"

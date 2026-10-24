@@ -6,16 +6,20 @@ import {
   type Collection,
   type Db,
   type Document,
+  type ClientSession,
 } from "mongodb";
 import { z } from "zod";
 import {
   ProductInputSchema,
   ProductOptionsSchema,
+  ProductVariantSelectionsSchema,
   ProductUpdateSchema,
+  ProductVariantsSchema,
 } from "@/core/domain/product";
 import type { TenantDatabaseProviderConfig } from "@/core/domain/tenant-config";
 import type {
   CatalogPort,
+  InventoryReservationItem,
   Paginated,
   Product,
   ProductInput,
@@ -40,6 +44,7 @@ const ProductDocumentSchema = z.object({
   sku: z.string().optional(),
   category: z.string().min(1).max(80).nullable().optional(),
   options: ProductOptionsSchema.optional(),
+  variants: ProductVariantsSchema.optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -56,6 +61,7 @@ const SchemaMetadataSchema = z.object({
 
 const PRODUCT_COLLECTION = "tenant_products";
 const METADATA_COLLECTION = "tenant_schema_metadata";
+const RESERVATIONS_COLLECTION = "tenant_inventory_reservations";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -72,6 +78,7 @@ type TenantProductDocument = {
   sku?: string;
   category?: string | null;
   options?: { name: string; values: string[] }[];
+  variants?: { selections: Record<string, string>; stock: number }[];
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -84,6 +91,41 @@ type TenantSchemaMetadataDocument = {
   updatedAt?: Date;
   createdAt?: Date;
 };
+
+type InventoryReservationDocument = {
+  _id: string;
+  tenantId: string;
+  status: "reserved" | "released" | "committed";
+  items: InventoryReservationItem[];
+  createdAt: Date;
+  updatedAt?: Date;
+};
+
+function sameInventoryItems(
+  left: InventoryReservationItem[],
+  right: InventoryReservationItem[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((item, index) => {
+      const other = right[index];
+      return (
+        item.productId === other.productId &&
+        item.quantity === other.quantity &&
+        JSON.stringify(
+          Object.entries(item.selections).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        ) ===
+          JSON.stringify(
+            Object.entries(other.selections).sort(([a], [b]) =>
+              a.localeCompare(b),
+            ),
+          )
+      );
+    })
+  );
+}
 
 export function validateMongoConnectionString(connectionString: string): URL {
   let url: URL;
@@ -278,11 +320,184 @@ export class MongoTenantCatalog implements CatalogPort {
     });
   }
 
+  async reserveInventory(input: {
+    reservationId: string;
+    items: InventoryReservationItem[];
+  }): Promise<boolean> {
+    const reservationId = this.reservationId(input.reservationId);
+    const items = z
+      .array(
+        z.object({
+          productId: z.string().min(1).max(128),
+          selections: ProductVariantSelectionsSchema,
+          quantity: z.number().int().positive().max(100),
+        }),
+      )
+      .min(1)
+      .max(20)
+      .parse(input.items);
+    return this.withClient(async (client, db) => {
+      const session = client.startSession();
+      try {
+        let reserved = false;
+        await session.withTransaction(async () => {
+          const reservations = db.collection<InventoryReservationDocument>(
+            RESERVATIONS_COLLECTION,
+          );
+          const prior = await reservations.findOne(
+            { _id: reservationId, tenantId: this.tenantId },
+            { session },
+          );
+          if (prior) {
+            reserved =
+              (prior.status === "reserved" || prior.status === "committed") &&
+              sameInventoryItems(prior.items, items);
+            return;
+          }
+          for (const item of items) {
+            const changed = await this.adjustInventoryStock(
+              db,
+              session,
+              item,
+              -item.quantity,
+            );
+            if (!changed) {
+              throw new Error("insufficient_inventory");
+            }
+          }
+          await reservations.insertOne(
+            {
+              _id: reservationId,
+              tenantId: this.tenantId,
+              status: "reserved",
+              items,
+              createdAt: new Date(),
+            },
+            { session },
+          );
+          reserved = true;
+        });
+        return reserved;
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "insufficient_inventory"
+        ) {
+          return false;
+        }
+        throw error;
+      } finally {
+        await session.endSession();
+      }
+    });
+  }
+
+  async releaseInventory(reservationId: string): Promise<void> {
+    await this.transitionInventoryReservation(reservationId, "released");
+  }
+
+  async commitInventory(reservationId: string): Promise<void> {
+    await this.transitionInventoryReservation(reservationId, "committed");
+  }
+
+  private async transitionInventoryReservation(
+    value: string,
+    nextStatus: "released" | "committed",
+  ): Promise<void> {
+    const reservationId = this.reservationId(value);
+    await this.withClient(async (client, db) => {
+      const session = client.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const reservations = db.collection<InventoryReservationDocument>(
+            RESERVATIONS_COLLECTION,
+          );
+          const reservation = await reservations.findOne(
+            { _id: reservationId, tenantId: this.tenantId },
+            { session },
+          );
+          if (!reservation || reservation.status !== "reserved") return;
+          if (nextStatus === "released") {
+            const items = z
+              .array(
+                z.object({
+                  productId: z.string().min(1),
+                  selections: ProductVariantSelectionsSchema,
+                  quantity: z.number().int().positive(),
+                }),
+              )
+              .parse(reservation.items);
+            for (const item of items) {
+              const changed = await this.adjustInventoryStock(
+                db,
+                session,
+                item,
+                item.quantity,
+              );
+              if (!changed) {
+                throw new TenantDataBackendError(
+                  409,
+                  "Reserved inventory variant no longer exists",
+                );
+              }
+            }
+          }
+          await reservations.updateOne(
+            { _id: reservationId, tenantId: this.tenantId, status: "reserved" },
+            { $set: { status: nextStatus, updatedAt: new Date() } },
+            { session },
+          );
+        });
+      } finally {
+        await session.endSession();
+      }
+    });
+  }
+
   async checkConnection(): Promise<number | null> {
     return this.withClient(async (client, db) => {
       await db.command({ ping: 1 });
       return this.getSchemaVersionFromDb(db);
     });
+  }
+
+  private async adjustInventoryStock(
+    db: Db,
+    session: ClientSession,
+    item: InventoryReservationItem,
+    delta: number,
+  ): Promise<boolean> {
+    const collection = db.collection<TenantProductDocument>(PRODUCT_COLLECTION);
+    const product = await collection.findOne(
+      { _id: this.productId(item.productId), tenantId: this.tenantId },
+      { session },
+    );
+    if (!product?.variants) return false;
+    const index = product.variants.findIndex(
+      (variant) =>
+        JSON.stringify(
+          Object.entries(variant.selections).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        ) ===
+        JSON.stringify(
+          Object.entries(item.selections).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        ),
+    );
+    if (index < 0) return false;
+    const stock = product.variants[index].stock + delta;
+    if (stock < 0 || stock > 1_000_000) return false;
+    const variants = product.variants.map((variant, variantIndex) =>
+      variantIndex === index ? { ...variant, stock } : variant,
+    );
+    const result = await collection.updateOne(
+      { _id: product._id, tenantId: this.tenantId },
+      { $set: { variants } },
+      { session },
+    );
+    return result.modifiedCount === 1;
   }
 
   async getSchemaVersion(): Promise<number | null> {
@@ -364,6 +579,24 @@ export class MongoTenantCatalog implements CatalogPort {
                     maxItems: 20,
                     items: { bsonType: "string", minLength: 1, maxLength: 40 },
                   },
+                  variants: {
+                    bsonType: "array",
+                    minItems: 1,
+                    maxItems: 200,
+                    items: {
+                      bsonType: "object",
+                      required: ["selections", "stock"],
+                      properties: {
+                        selections: { bsonType: "object" },
+                        stock: {
+                          bsonType: ["int", "long", "double"],
+                          minimum: 0,
+                          maximum: 1000000,
+                          multipleOf: 1,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -397,6 +630,24 @@ export class MongoTenantCatalog implements CatalogPort {
           validationAction: "error",
         });
       }
+      const reservationCollectionExists = await db
+        .listCollections({ name: RESERVATIONS_COLLECTION }, { nameOnly: true })
+        .hasNext();
+      if (!reservationCollectionExists) {
+        try {
+          await db.createCollection(RESERVATIONS_COLLECTION, {
+            validationLevel: "strict",
+            validationAction: "error",
+          });
+        } catch (error) {
+          if (!(error instanceof MongoServerError) || error.code !== 48) {
+            throw error;
+          }
+        }
+      }
+      await db
+        .collection<InventoryReservationDocument>(RESERVATIONS_COLLECTION)
+        .createIndex({ tenantId: 1, _id: 1 }, { unique: true });
       await db
         .collection(PRODUCT_COLLECTION)
         .createIndex({ tenantId: 1, slug: 1 }, { unique: true });
@@ -489,7 +740,7 @@ export class MongoTenantCatalog implements CatalogPort {
       ...(product.sku ? { sku: product.sku } : {}),
       ...(product.category === undefined ? {} : { category: product.category }),
       ...(product.options === undefined ? {} : { options: product.options }),
-      ...(product.options === undefined ? {} : { options: product.options }),
+      ...(product.variants === undefined ? {} : { variants: product.variants }),
       ...(product.imageUrl === undefined ? {} : { imageUrl: product.imageUrl }),
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
@@ -507,6 +758,15 @@ export class MongoTenantCatalog implements CatalogPort {
   private productId(id: string): string {
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
       throw new Error("Product ID contains unsupported characters");
+    }
+    return id;
+  }
+
+  private reservationId(id: string): string {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
+      throw new Error(
+        "Inventory reservation ID contains unsupported characters",
+      );
     }
     return id;
   }
