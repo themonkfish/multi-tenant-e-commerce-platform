@@ -40,6 +40,10 @@ import {
   TenantRestDataProviderConfigSchema,
   type TenantRestDataProviderConfig,
 } from "@/core/domain/tenant-config";
+import {
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformSettingsSchema,
+} from "@/core/domain/platform-settings";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -88,6 +92,7 @@ const FileStateSchema = z.object({
   setupTokenHash: z.string().nullable(),
   platformDomain: z.string().nullable(),
   reservedSubdomains: z.array(z.string()),
+  platformSettings: PlatformSettingsSchema.default(DEFAULT_PLATFORM_SETTINGS),
   superAdmins: z.array(SuperAdminSchema),
   hosts: z.array(HostConfigSchema).default([]),
   hostOwnerInvites: z.array(HostOwnerInviteSchema).default([]),
@@ -134,6 +139,7 @@ const EMPTY_STATE: FileState = {
   setupTokenHash: null,
   platformDomain: null,
   reservedSubdomains: [],
+  platformSettings: DEFAULT_PLATFORM_SETTINGS,
   superAdmins: [],
   hosts: [],
   hostOwnerInvites: [],
@@ -170,6 +176,7 @@ export class FilePlatformStore implements PlatformStore {
       initialized: state.initialized,
       ...(state.platformDomain ? { platformDomain: state.platformDomain } : {}),
       reservedSubdomains: state.reservedSubdomains,
+      settings: state.platformSettings,
     };
   }
 
@@ -207,6 +214,7 @@ export class FilePlatformStore implements PlatformStore {
       state.setupTokenHash = input.setupTokenHash;
       state.platformDomain = input.platformDomain;
       state.reservedSubdomains = input.reservedSubdomains;
+      state.platformSettings = PlatformSettingsSchema.parse(input.settings);
       state.superAdmins.push(input.superAdmin);
       await this.writeState(state);
     });

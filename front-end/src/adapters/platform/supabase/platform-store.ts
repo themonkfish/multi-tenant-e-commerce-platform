@@ -38,6 +38,10 @@ import {
   TenantRestDataProviderConfigSchema,
   type TenantRestDataProviderConfig,
 } from "@/core/domain/tenant-config";
+import {
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformSettingsSchema,
+} from "@/core/domain/platform-settings";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -54,7 +58,9 @@ export class SupabasePlatformStore implements PlatformStore {
   async getSetupState(): Promise<PlatformSetupState> {
     const { data, error } = await this.client
       .from("platform_state")
-      .select("initialized, platform_domain, reserved_subdomains")
+      .select(
+        "initialized, platform_domain, reserved_subdomains, platform_settings",
+      )
       .eq("id", 1)
       .single();
     if (error) {
@@ -65,6 +71,9 @@ export class SupabasePlatformStore implements PlatformStore {
       initialized: data.initialized,
       ...(data.platform_domain ? { platformDomain: data.platform_domain } : {}),
       reservedSubdomains: data.reserved_subdomains,
+      settings: PlatformSettingsSchema.parse(
+        data.platform_settings ?? DEFAULT_PLATFORM_SETTINGS,
+      ),
     };
   }
 
@@ -101,16 +110,20 @@ export class SupabasePlatformStore implements PlatformStore {
   }
 
   async createInitialSuperAdmin(input: BootstrapInput): Promise<void> {
-    const { data, error } = await this.client.rpc("claim_platform_bootstrap", {
-      p_setup_token_hash: input.setupTokenHash,
-      p_platform_domain: input.platformDomain,
-      p_reserved_subdomains: input.reservedSubdomains,
-      p_admin_id: input.superAdmin.id,
-      p_admin_email: input.superAdmin.email.toLowerCase(),
-      p_password_hash: input.superAdmin.passwordHash,
-      p_totp_secret_ciphertext: input.superAdmin.totpSecretCiphertext,
-      p_created_at: input.superAdmin.createdAt,
-    });
+    const { data, error } = await this.client.rpc(
+      "claim_platform_bootstrap_with_settings",
+      {
+        p_setup_token_hash: input.setupTokenHash,
+        p_platform_domain: input.platformDomain,
+        p_reserved_subdomains: input.reservedSubdomains,
+        p_platform_settings: input.settings,
+        p_admin_id: input.superAdmin.id,
+        p_admin_email: input.superAdmin.email.toLowerCase(),
+        p_password_hash: input.superAdmin.passwordHash,
+        p_totp_secret_ciphertext: input.superAdmin.totpSecretCiphertext,
+        p_created_at: input.superAdmin.createdAt,
+      },
+    );
     if (error) {
       throw new Error(`Could not create initial Super Admin: ${error.message}`);
     }

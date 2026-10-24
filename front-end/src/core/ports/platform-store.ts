@@ -11,6 +11,7 @@ import type {
   TenantStatus,
 } from "@/core/domain/host-portal";
 import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
+import type { PlatformSettings } from "@/core/domain/platform-settings";
 import type {
   CustomerAccount,
   CustomerOrder,
@@ -26,6 +27,7 @@ export type PlatformSetupState = {
   initialized: boolean;
   platformDomain?: string;
   reservedSubdomains: string[];
+  settings: PlatformSettings;
 };
 
 export type SuperAdminRecord = {
@@ -51,6 +53,7 @@ export type BootstrapInput = {
   setupTokenHash: string;
   platformDomain: string;
   reservedSubdomains: string[];
+  settings: PlatformSettings;
   superAdmin: SuperAdminRecord;
 };
 

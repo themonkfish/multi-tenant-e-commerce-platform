@@ -14,7 +14,9 @@ Status snapshot as of 2026-10-24:
   hardening are in place and working for the current app surface.
 - Platform setup validation is now centralized for platform-domain and
   reserved-subdomain checks, and the setup wizard accepts a custom reserved
-  subdomain list to avoid deployment misconfiguration.
+  subdomain list to avoid deployment misconfiguration. The wizard also checks
+  platform-store/security readiness, saves platform branding/legal links, and
+  provides first-Host guidance. Invitation email delivery remains manual.
 - The file-store developer path is fully usable locally; the Supabase platform
   store is the supported production path once the required migration set is
   applied.
@@ -138,11 +140,11 @@ Status snapshot as of 2026-10-24:
       Order snapshots sync to the connected Tenant backend with a visible and
       retryable delivery status; Tenant order management supports basic status
       transitions. Payments and fulfillment are still pending.
-- [ ] **Setup wizard:** creates the first Super Admin and enrolls TOTP, and
-      now validates the platform domain and reserved subdomains consistently.
-      Remaining gaps are connection verification, email setup, theme/legal
-      settings, and first-host guidance. Platform-store credentials are still
-      configured outside the wizard.
+- [x] **Setup wizard:** validates platform-domain and reserved-subdomain input,
+      verifies required server security configuration and platform-store
+      connectivity before setup, saves platform name/theme/legal links, enrolls
+      TOTP, and gives first-Host guidance. Platform-store credentials remain
+      deployment configuration; email delivery intentionally remains manual.
 - [ ] **Super Admin dashboard:** host creation/status management works;
       editing host details, deletion, invitations, staff/roles, settings, health,
       analytics, domains, billing, and audit-log views remain.
@@ -181,9 +183,9 @@ Status snapshot as of 2026-10-24:
 2. **P1 — Tenant provisioning and platform configuration**
    - Finish tenant storefront provisioning and the managed tenant
      settings flow.
-   - Complete setup-wizard verification, email provider, theme/legal
-     settings, and first-host guidance; reserved-domain validation is now
-     implemented and centralized.
+   - Add an email provider when automated invitation delivery is required;
+     setup verification, theme/legal settings, and first-host guidance are
+     implemented. Reserved-domain validation is centralized.
    - Extend the Tenant Owner portal with storage, payment, catalog, and staff
      configuration controls.
 
@@ -235,9 +237,11 @@ Status snapshot as of 2026-10-24:
       Staff-management controls.
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
       portal with backend, storage, payment, catalog, and staff settings.
-- [ ] Complete the setup wizard's connection check, email provider,
-      theme/legal settings, and optional first-host steps. Reserved-domain
-      configuration is now implemented and centralized.
+- [x] Complete the setup wizard's connection check, platform theme/legal
+      settings, manual invitation-delivery notice, and first-host guidance.
+      Reserved-domain configuration is implemented and centralized.
+- [ ] Configure an email provider for automated Host/Tenant invitation
+      delivery; manual one-time invitation links remain available.
 - [ ] Add automated Supabase migration and deployment checks.
 
 #### Tenant data and integrations
@@ -428,7 +432,8 @@ Before deploying the app:
    `0001_platform_store.sql`, `0002_platform_hosts.sql`, and
    `0003_host_portal.sql`, `0004_tenant_owner_portal.sql`,
    `0005_tenant_store_settings.sql`, `0006_tenant_rest_connections.sql`, and
-   all later migrations, including `0012_tenant_domain_verification.sql`.
+   all later migrations, including `0012_tenant_domain_verification.sql` and
+   `0013_platform_setup_settings.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

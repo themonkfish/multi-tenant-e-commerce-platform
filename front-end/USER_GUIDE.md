@@ -96,19 +96,26 @@ Bootstrap runs once per platform store:
 3. Enter the Super Admin email address and create a password of at least 14
    characters.
 4. Enter the platform hostname, such as `localhost` for local development or
-   the production hostname for a deployment.
-5. Scan the displayed QR code with an authenticator app. If needed, the
+   the production hostname for a deployment, plus the reserved subdomains.
+5. Choose the platform name, brand colors, and optional HTTPS Terms and Privacy
+   URLs. The name and legal links appear in the platform shell.
+6. Select **Verify server configuration and store**. Continue only after the
+   setup token, required encryption/session configuration, and platform store
+   connection pass.
+7. Scan the displayed QR code with an authenticator app. If needed, the
    displayed manual setup key can be entered into the authenticator instead.
-6. Enter the current six-digit authenticator code and finish setup.
-7. Save the ten recovery codes somewhere secure. Each code is one-use and is
+8. Enter the current six-digit authenticator code and finish setup.
+9. Save the ten recovery codes somewhere secure. Each code is one-use and is
    only displayed at this point.
-8. Remove `SETUP_TOKEN` from the environment after setup. Restart the local
-   server if you change `.env.local`.
-9. Sign in at [http://localhost:3000/en/super-admin/login](http://localhost:3000/en/super-admin/login).
+10. Remove `SETUP_TOKEN` from the environment after setup. Restart the local
+    server if you change `.env.local`.
+11. Sign in at [http://localhost:3000/en/super-admin/login](http://localhost:3000/en/super-admin/login),
+    create and activate the first Host, then invite its owner.
 
-The setup wizard does not configure the platform store, email delivery, theme,
-legal pages, or the first Host. Those tasks are handled separately or are not
-available yet.
+The wizard checks the platform-store connection but does not configure the
+platform-store credentials; set those in the deployment environment. Email
+delivery remains manual, and Host/Tenant invitation links must be shared
+securely by an operator.
 
 ## 3. Super Admin: create and manage Hosts
 

@@ -9,6 +9,7 @@ import {
   normalizeHostDomain,
   normalizeReservedSubdomains,
 } from "@/core/domain/host-config";
+import { PlatformSettingsSchema } from "@/core/domain/platform-settings";
 import {
   decryptSecret,
   EncryptedSecretSchema,
@@ -33,6 +34,7 @@ const BootstrapSchema = z.object({
     )
     .max(32)
     .default(["admin", "www", "api"]),
+  platformSettings: PlatformSettingsSchema,
 });
 
 export async function POST(request: Request) {
@@ -144,6 +146,7 @@ export async function POST(request: Request) {
         setupTokenHash: tokenHash,
         platformDomain: domain,
         reservedSubdomains,
+        settings: parsed.data.platformSettings,
         superAdmin: admin,
       });
     } catch (error) {

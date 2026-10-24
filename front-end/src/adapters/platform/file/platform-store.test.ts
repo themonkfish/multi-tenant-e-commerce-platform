@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { HostConfig } from "@/core/domain/host-config";
+import { DEFAULT_PLATFORM_SETTINGS } from "@/core/domain/platform-settings";
 import {
   TenantStoreSettingsSchema,
   type HostOwnerInvite,
@@ -34,6 +35,13 @@ function bootstrapInput(token: string): BootstrapInput {
     setupTokenHash: hashToken(token),
     platformDomain: "platform.example.com",
     reservedSubdomains: ["admin", "www"],
+    settings: {
+      ...DEFAULT_PLATFORM_SETTINGS,
+      name: "Example Commerce",
+      primaryColor: "#123456",
+      accentColor: "#654321",
+      termsUrl: "https://platform.example.com/terms",
+    },
     superAdmin: {
       id: "admin-1",
       email: "admin@example.com",
@@ -126,8 +134,10 @@ describe("FilePlatformStore", () => {
     expect(await store.getSetupState()).toEqual({
       initialized: false,
       reservedSubdomains: [],
+      settings: DEFAULT_PLATFORM_SETTINGS,
     });
     await store.createInitialSuperAdmin(input);
+    expect((await store.getSetupState()).settings).toEqual(input.settings);
     expect(
       await store.getBootstrapAdmin(input.setupTokenHash, "admin@example.com"),
     ).toMatchObject({ id: "admin-1" });
@@ -481,6 +491,7 @@ describe("FilePlatformStore", () => {
           initialized: true,
           platformDomain: "platform.example.com",
           reservedSubdomains: [],
+          settings: DEFAULT_PLATFORM_SETTINGS,
         }),
         getTenantByDomain: store.getTenantByDomain.bind(store),
         getHostById: store.getHostById.bind(store),

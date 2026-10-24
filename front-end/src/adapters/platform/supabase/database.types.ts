@@ -16,6 +16,7 @@ export type PlatformDatabase = {
           setup_token_hash: string | null;
           platform_domain: string | null;
           reserved_subdomains: string[];
+          platform_settings: Json;
         };
         Insert: {
           id?: number;
@@ -23,12 +24,14 @@ export type PlatformDatabase = {
           setup_token_hash?: string | null;
           platform_domain?: string | null;
           reserved_subdomains?: string[];
+          platform_settings?: Json;
         };
         Update: {
           initialized?: boolean;
           setup_token_hash?: string | null;
           platform_domain?: string | null;
           reserved_subdomains?: string[];
+          platform_settings?: Json;
         };
         Relationships: [];
       };
@@ -454,6 +457,20 @@ export type PlatformDatabase = {
           p_setup_token_hash: string;
           p_platform_domain: string;
           p_reserved_subdomains: string[];
+          p_admin_id: string;
+          p_admin_email: string;
+          p_password_hash: string;
+          p_totp_secret_ciphertext: string;
+          p_created_at: string;
+        };
+        Returns: boolean;
+      };
+      claim_platform_bootstrap_with_settings: {
+        Args: {
+          p_setup_token_hash: string;
+          p_platform_domain: string;
+          p_reserved_subdomains: string[];
+          p_platform_settings: Json;
           p_admin_id: string;
           p_admin_email: string;
           p_password_hash: string;

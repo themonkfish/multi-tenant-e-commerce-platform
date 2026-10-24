@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { HostConfig } from "@/core/domain/host-config";
 import type { TenantRecord } from "@/core/domain/host-portal";
 import type { PlatformStore } from "@/core/ports/platform-store";
+import { DEFAULT_PLATFORM_SETTINGS } from "@/core/domain/platform-settings";
 import {
   getReservedPlatformDomains,
   normalizeHostDomain,
@@ -53,6 +54,7 @@ function createStore(
           initialized: true,
           platformDomain: "platform.example.com",
           reservedSubdomains: [],
+          settings: DEFAULT_PLATFORM_SETTINGS,
         })),
     ),
     getHostById: vi.fn(overrides.getHostById ?? (async () => host)),
@@ -102,13 +104,15 @@ describe("normalizeHostDomain and reserved platform subdomains", () => {
         "example.com",
       ]),
     ).toEqual(["api", "admin", "www"]);
-    expect(getReservedPlatformDomains("platform.example.com.", ["API", "www"]))
-      .toEqual(new Set(["api.platform.example.com", "www.platform.example.com"]));
+    expect(
+      getReservedPlatformDomains("platform.example.com.", ["API", "www"]),
+    ).toEqual(
+      new Set(["api.platform.example.com", "www.platform.example.com"]),
+    );
   });
 });
 
 describe("normalizeRequestDomain", () => {
-
   it.each([
     null,
     "",
