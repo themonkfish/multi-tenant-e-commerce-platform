@@ -582,6 +582,18 @@ export function TenantOrderManagement({
                 </span>
               </li>
             )}
+            {(selected.taxAmount ?? 0) > 0 && (
+              <li className="flex justify-between p-3 text-sm text-slate-600">
+                <span>Tax</span>
+                <span>
+                  {formatCurrencyAmount(
+                    selected.taxAmount ?? 0,
+                    selected.currency,
+                    locale,
+                  )}
+                </span>
+              </li>
+            )}
             <li className="flex justify-between p-3 text-sm text-slate-600">
               <span>Shipping</span>
               <span>

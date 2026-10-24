@@ -58,11 +58,13 @@ Status snapshot as of 2026-10-24:
   expiry dates, and redemption limits; one code applies to the merchandise
   subtotal before shipping. Discount amounts and minimum subtotals use minor
   currency units, and fixed discounts/minimums require the store's default
-  currency. Payment retries are idempotent. Variant inventory is opt-in and
-  reserved atomically at checkout; failed/expired card payments release
-  reservations, while successful card and COD orders consume them. Basic
-  fulfillment tracking is supported when Tenant operators ship an order; live
-  carrier integrations and live card payments remain future work.
+  currency. Tenant-configured tax is added to prices after discounts and before
+  shipping, with the rate and amount stored in the order snapshot. Payment
+  retries are idempotent. Variant inventory is opt-in and reserved atomically
+  at checkout; failed/expired card payments release reservations, while
+  successful card and COD orders consume them. Basic fulfillment tracking is
+  supported when Tenant operators ship an order; live carrier integrations and
+  live card payments remain future work.
   Stripe Connect onboarding is blocked pending confirmation that India is
   eligible for the platform country.
 - Tenant Owners can configure AWS S3 or an S3-compatible service with encrypted
@@ -130,13 +132,20 @@ Status snapshot as of 2026-10-24:
       Checkout validates discounts against server-priced merchandise,
       reserves capped redemptions through payment, and snapshots the code,
       discount, subtotal, shipping, and final total.
+- [x] Tenant Owners can configure a tax-exclusive percentage rate (0–100%,
+      up to two decimal places). Checkout calculates tax on merchandise after
+      discounts and before shipping using server-priced order amounts, stores
+      the rate and rounded tax amount in order snapshots, and includes tax in
+      Stripe and COD totals. This basic rate setting is not jurisdiction-aware
+      tax advice or automated tax compliance.
 - [x] Idempotent Tenant REST order ingestion persists order snapshots in
       SQLite; delivery status is recorded in the platform store and failed or
       pending sync can be retried by the owning Customer. The backend order
       contract accepts and persists `subtotal`, `discountCode`,
-      `discountAmount`, `shippingAmount`, and the validated
-      `deliveryAddress` provided in `POST /{apiVersion}/orders`. Order line
-      items include the server-resolved variant SKU and unit price.
+      `discountAmount`, `taxRateBasisPoints`, `taxAmount`, `shippingAmount`,
+      and the validated `deliveryAddress` provided in
+      `POST /{apiVersion}/orders`. Order line items include the server-resolved
+      variant SKU and unit price.
 - [x] Tenant Owners and explicitly permissioned Staff can list, paginate,
       inspect, and advance Tenant order statuses; Customer order history is
       updated to reflect operational status changes. Shipment tracking numbers,
@@ -349,6 +358,9 @@ Status snapshot as of 2026-10-24:
 - [x] Tenant discount codes with server-side price validation, single-code
       checkout, fixed/percentage calculation, pre-shipping application, and
       reserved/committed redemption limits.
+- [x] Tenant-configured tax-exclusive percentage rates with server-side tax
+      calculation on discounted merchandise, order snapshots, payment totals,
+      and customer/Tenant order summaries.
 - [ ] Complete orders, customer, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
@@ -582,7 +594,8 @@ Before deploying the app:
    `0014_tenant_database_providers.sql`, `0015_cash_on_delivery.sql`, and
    `0016_tenant_storage_providers.sql`,
    `0017_order_fulfillment_tracking.sql`,
-   `0018_checkout_shipping.sql`, and `0019_discount_codes.sql`.
+   `0018_checkout_shipping.sql`, `0019_discount_codes.sql`, and
+   `0020_checkout_tax.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { calculateTaxAmount } from "./tax";
 import { ProductVariantSelectionsSchema } from "./product";
 
 export const TenantStaffPermissionSchema = z.enum([
@@ -98,6 +99,8 @@ const CustomerOrderBaseSchema = z.object({
   shippingAmount: z.number().int().min(0).max(2_147_483_647).optional(),
   discountCode: z.string().trim().min(3).max(40).optional(),
   discountAmount: z.number().int().min(0).max(2_147_483_647).optional(),
+  taxRateBasisPoints: z.number().int().min(0).max(10_000).optional(),
+  taxAmount: z.number().int().min(0).max(2_147_483_647).optional(),
   total: z.number().int().min(0).max(2_147_483_647),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),
@@ -119,14 +122,22 @@ const CustomerOrderBaseSchema = z.object({
 function validateOrderAmounts(
   order: Pick<
     z.infer<typeof CustomerOrderBaseSchema>,
-    "items" | "subtotal" | "shippingAmount" | "discountAmount" | "total"
+    | "items"
+    | "subtotal"
+    | "shippingAmount"
+    | "discountAmount"
+    | "taxRateBasisPoints"
+    | "taxAmount"
+    | "total"
   >,
   context: z.RefinementCtx,
 ) {
   if (
     order.subtotal === undefined &&
     order.shippingAmount === undefined &&
-    order.discountAmount === undefined
+    order.discountAmount === undefined &&
+    order.taxRateBasisPoints === undefined &&
+    order.taxAmount === undefined
   )
     return;
   const subtotal =
@@ -134,18 +145,38 @@ function validateOrderAmounts(
     order.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const shippingAmount = order.shippingAmount ?? 0;
   const discountAmount = order.discountAmount ?? 0;
+  const taxAmount = order.taxAmount ?? 0;
+  const taxRateBasisPoints = order.taxRateBasisPoints ?? 0;
+  const hasTaxRate = order.taxRateBasisPoints !== undefined;
+  const hasTaxAmount = order.taxAmount !== undefined;
+  const validTaxRate =
+    Number.isSafeInteger(taxRateBasisPoints) &&
+    taxRateBasisPoints >= 0 &&
+    taxRateBasisPoints <= 10_000;
+  const taxableSubtotal = subtotal - discountAmount;
+  const validTaxableSubtotal =
+    Number.isSafeInteger(taxableSubtotal) && taxableSubtotal >= 0;
+  const expectedTax =
+    validTaxRate && validTaxableSubtotal
+      ? calculateTaxAmount(taxableSubtotal, taxRateBasisPoints)
+      : undefined;
   if (
     !Number.isSafeInteger(subtotal) ||
     !Number.isSafeInteger(shippingAmount) ||
     !Number.isSafeInteger(discountAmount) ||
+    !Number.isSafeInteger(taxAmount) ||
     discountAmount > subtotal ||
+    hasTaxRate !== hasTaxAmount ||
+    (hasTaxRate &&
+      hasTaxAmount &&
+      (!validTaxRate || !validTaxableSubtotal || taxAmount !== expectedTax)) ||
     !Number.isSafeInteger(order.total) ||
-    subtotal - discountAmount + shippingAmount !== order.total
+    subtotal - discountAmount + taxAmount + shippingAmount !== order.total
   ) {
     context.addIssue({
       code: "custom",
       path: ["total"],
-      message: "Order total must equal subtotal plus shipping",
+      message: "Order total must match subtotal, discount, tax, and shipping",
     });
   }
 }

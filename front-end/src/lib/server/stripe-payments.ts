@@ -1,6 +1,7 @@
 import "server-only";
 import Stripe from "stripe";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
+import { calculateTaxAmount } from "@/core/domain/tax";
 import { getServerEnv } from "@/lib/server/env";
 
 export class StripePaymentConfigurationError extends Error {
@@ -49,12 +50,19 @@ export async function createStripeCheckoutSession(input: {
     0,
   );
   const discountAmount = input.order.discountAmount ?? 0;
+  const taxAmount = input.order.taxAmount ?? 0;
+  const taxRateBasisPoints = input.order.taxRateBasisPoints ?? 0;
   if (
     !Number.isSafeInteger(itemSubtotal) ||
     itemSubtotal !== (input.order.subtotal ?? itemSubtotal) ||
     discountAmount > itemSubtotal ||
+    taxAmount !==
+      calculateTaxAmount(itemSubtotal - discountAmount, taxRateBasisPoints) ||
     (discountAmount > 0 && !input.order.discountCode) ||
-    itemSubtotal - discountAmount + (input.order.shippingAmount ?? 0) !==
+    itemSubtotal -
+      discountAmount +
+      taxAmount +
+      (input.order.shippingAmount ?? 0) !==
       input.order.total
   ) {
     throw new Error("Stripe Checkout order amounts do not match");
@@ -68,6 +76,10 @@ export async function createStripeCheckoutSession(input: {
       ? { discountCode: input.order.discountCode }
       : {}),
     ...(discountAmount > 0 ? { discountAmount: String(discountAmount) } : {}),
+    ...(taxAmount > 0 ? { taxAmount: String(taxAmount) } : {}),
+    ...(taxRateBasisPoints > 0
+      ? { taxRateBasisPoints: String(taxRateBasisPoints) }
+      : {}),
   };
   const itemLineItems =
     discountAmount > 0
@@ -118,6 +130,18 @@ export async function createStripeCheckoutSession(input: {
       payment_intent_data: { metadata },
       line_items: [
         ...itemLineItems,
+        ...(taxAmount > 0
+          ? [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: input.order.currency.toLowerCase(),
+                  unit_amount: taxAmount,
+                  product_data: { name: "Tax" },
+                },
+              },
+            ]
+          : []),
         ...((input.order.shippingAmount ?? 0) > 0
           ? [
               {

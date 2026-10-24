@@ -132,6 +132,47 @@ describe("Stripe Checkout session creation", () => {
     ).toBe(discountedOrder.total);
   });
 
+  it("adds tax as a separate line item and verifies the saved total", async () => {
+    const taxedOrder: CustomerOrder = {
+      ...order,
+      discountCode: "SAVE",
+      discountAmount: 200,
+      taxRateBasisPoints: 825,
+      taxAmount: 396,
+      total: 5396,
+    };
+    await createStripeCheckoutSession({
+      order: taxedOrder,
+      attempt: 1,
+      successUrl: "https://shop.example/checkout/success",
+      cancelUrl: "https://shop.example/cart",
+    });
+
+    const [session] = createSession.mock.calls[0];
+    expect(session.line_items).toHaveLength(3);
+    expect(session.line_items[1]).toMatchObject({
+      quantity: 1,
+      price_data: {
+        currency: "inr",
+        unit_amount: 396,
+        product_data: { name: "Tax" },
+      },
+    });
+    expect(session.metadata).toMatchObject({
+      taxAmount: "396",
+      taxRateBasisPoints: "825",
+    });
+    expect(
+      session.line_items.reduce(
+        (
+          total: number,
+          item: { quantity: number; price_data: { unit_amount: number } },
+        ) => total + item.quantity * item.price_data.unit_amount,
+        0,
+      ),
+    ).toBe(taxedOrder.total);
+  });
+
   it("rejects order totals that do not match item, discount, and shipping amounts", async () => {
     await expect(
       createStripeCheckoutSession({

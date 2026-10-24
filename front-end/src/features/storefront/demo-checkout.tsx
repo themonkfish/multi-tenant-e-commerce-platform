@@ -121,6 +121,14 @@ export function StorefrontDemoCheckout({
           </span>
         </p>
       )}
+      {(order.taxAmount ?? 0) > 0 && (
+        <p className="mt-2 flex justify-between text-sm text-slate-600">
+          <span>Tax</span>
+          <span>
+            {formatCurrencyAmount(order.taxAmount ?? 0, order.currency, locale)}
+          </span>
+        </p>
+      )}
       <p className="mt-2 flex justify-between text-sm text-slate-600">
         <span>Shipping</span>
         <span>

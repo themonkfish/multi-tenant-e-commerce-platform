@@ -963,6 +963,8 @@ export class SupabasePlatformStore implements PlatformStore {
         shipping_amount: order.shippingAmount ?? 0,
         discount_code: order.discountCode ?? null,
         discount_amount: order.discountAmount ?? 0,
+        tax_rate_basis_points: order.taxRateBasisPoints ?? 0,
+        tax_amount: order.taxAmount ?? 0,
         total: order.total,
         currency: order.currency,
         item_count: order.itemCount,
@@ -1299,7 +1301,7 @@ export class SupabasePlatformStore implements PlatformStore {
   ): Promise<TenantStoreSettings> {
     const { data, error } = await this.client
       .from("platform_tenant_settings")
-      .select("branding, locale, shipping, discounts")
+      .select("branding, locale, shipping, tax, discounts")
       .eq("tenant_id", tenantId)
       .eq("host_id", hostId)
       .maybeSingle();
@@ -1313,6 +1315,7 @@ export class SupabasePlatformStore implements PlatformStore {
       branding: data.branding,
       locale: data.locale,
       shipping: data.shipping,
+      tax: data.tax,
       discounts: data.discounts,
     });
   }
@@ -1380,6 +1383,7 @@ export class SupabasePlatformStore implements PlatformStore {
         p_branding: settings.branding,
         p_locale: settings.locale,
         p_shipping: settings.shipping,
+        p_tax: settings.tax,
         p_discounts: settings.discounts,
         p_updated_at: input.updatedAt,
         p_actor_id: input.auditEvent.actorId,
@@ -1944,6 +1948,8 @@ function customerOrderFromRow(row: {
   shipping_amount: number;
   discount_code: string | null;
   discount_amount: number;
+  tax_rate_basis_points: number;
+  tax_amount: number;
   total: number;
   currency: string;
   item_count: number;
@@ -1968,6 +1974,8 @@ function customerOrderFromRow(row: {
     shippingAmount: row.shipping_amount,
     ...(row.discount_code ? { discountCode: row.discount_code } : {}),
     discountAmount: row.discount_amount ?? 0,
+    taxRateBasisPoints: row.tax_rate_basis_points ?? 0,
+    taxAmount: row.tax_amount ?? 0,
     total: row.total,
     currency: row.currency,
     itemCount: row.item_count,

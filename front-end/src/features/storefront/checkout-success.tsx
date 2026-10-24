@@ -224,6 +224,18 @@ export function StorefrontCheckoutSuccess({
               </span>
             </div>
           )}
+          {(currentOrder.taxAmount ?? 0) > 0 && (
+            <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
+              <span>Tax</span>
+              <span>
+                {formatCurrencyAmount(
+                  currentOrder.taxAmount ?? 0,
+                  currentOrder.currency,
+                  locale,
+                )}
+              </span>
+            </div>
+          )}
           <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
             <span>Shipping</span>
             <span>

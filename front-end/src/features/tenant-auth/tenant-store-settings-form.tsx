@@ -47,12 +47,26 @@ function displayCurrencyAmount(amount: number, currency: string): string {
   return (amount / 10 ** fractionDigits).toFixed(fractionDigits);
 }
 
+function parseTaxRate(value: FormDataEntryValue | null): number | undefined {
+  const text = String(value ?? "").trim();
+  if (!/^(?:\d{1,3})(?:\.\d{1,2})?$/.test(text)) return undefined;
+  const [whole, fraction = ""] = text.split(".");
+  const rateBasisPoints =
+    Number(whole) * 100 + Number(fraction.padEnd(2, "0") || 0);
+  return rateBasisPoints <= 10_000 ? rateBasisPoints : undefined;
+}
+
 export function TenantStoreSettingsForm({
   initialSettings,
 }: {
   initialSettings: TenantStoreSettings;
 }) {
   const [settings, setSettings] = useState(initialSettings);
+  const [taxRate, setTaxRate] = useState(
+    (initialSettings.tax.rateBasisPoints / 100)
+      .toFixed(2)
+      .replace(/\.?0+$/, ""),
+  );
   const [discountsText, setDiscountsText] = useState(
     JSON.stringify(initialSettings.discounts, null, 2),
   );
@@ -74,6 +88,7 @@ export function TenantStoreSettingsForm({
       form.get("freeShippingThreshold"),
       currency,
     );
+    const rateBasisPoints = parseTaxRate(form.get("taxRate"));
     if (
       flatRate === undefined ||
       Number.isNaN(flatRate) ||
@@ -81,6 +96,11 @@ export function TenantStoreSettingsForm({
         (Number.isNaN(freeShippingThreshold) || freeShippingThreshold <= 0))
     ) {
       setError("Enter valid shipping amounts in the default store currency.");
+      setNotice("");
+      return;
+    }
+    if (rateBasisPoints === undefined) {
+      setError("Enter a tax rate from 0 to 100 with up to 2 decimal places.");
       setNotice("");
       return;
     }
@@ -116,12 +136,13 @@ export function TenantStoreSettingsForm({
           ? { freeShippingThreshold }
           : {}),
       },
+      tax: { rateBasisPoints },
       discounts,
     };
     const validated = TenantStoreSettingsSchema.safeParse(rawSettings);
     if (!validated.success) {
       setError(
-        "Check the brand, locale, shipping amounts, URL, and ISO currency values.",
+        "Check the brand, locale, shipping amounts, tax rate, URL, and ISO currency values.",
       );
       setNotice("");
       return;
@@ -158,6 +179,11 @@ export function TenantStoreSettingsForm({
         return;
       }
       setSettings(responseSettings.data);
+      setTaxRate(
+        (responseSettings.data.tax.rateBasisPoints / 100)
+          .toFixed(2)
+          .replace(/\.?0+$/, ""),
+      );
       setDiscountsText(
         JSON.stringify(responseSettings.data.discounts, null, 2),
       );
@@ -223,6 +249,29 @@ export function TenantStoreSettingsForm({
             />
           </label>
         </div>
+      </fieldset>
+      <fieldset className="space-y-3 rounded-md border border-slate-200 p-4 sm:col-span-2">
+        <legend className="px-1 text-sm font-semibold">Sales tax</legend>
+        <p className="text-xs text-slate-600">
+          Tax is added to prices at checkout and calculated on the merchandise
+          subtotal after discounts, before shipping. Verify the applicable rate
+          and tax obligations for your business.
+        </p>
+        <label className="block max-w-xs space-y-1 text-sm font-medium">
+          Tax rate (%)
+          <input
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            name="taxRate"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            inputMode="decimal"
+            value={taxRate}
+            onChange={(event) => setTaxRate(event.target.value)}
+            required
+          />
+        </label>
       </fieldset>
       <label className="space-y-2 text-sm font-medium sm:col-span-2">
         Discount codes (JSON)

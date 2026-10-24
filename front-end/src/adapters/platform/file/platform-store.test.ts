@@ -669,6 +669,7 @@ describe("FilePlatformStore", () => {
         currencies: ["GBP", "EUR"],
       },
       shipping: { flatRate: 100, freeShippingThreshold: 2000 },
+      tax: { rateBasisPoints: 0 },
       discounts: [
         {
           code: "SAVE10",

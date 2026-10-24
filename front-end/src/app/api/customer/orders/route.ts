@@ -15,6 +15,7 @@ import {
   findTenantDiscount,
   validateTenantDiscount,
 } from "@/core/domain/discounts";
+import { calculateTaxAmount } from "@/core/domain/tax";
 import type { Product } from "@/core/ports/data";
 import type { InventoryReservationItem } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
@@ -577,14 +578,21 @@ export async function POST(request: Request) {
     const discountAmount = discount
       ? calculateDiscountAmount(discount, subtotal)
       : 0;
-    const total = subtotal - discountAmount + shippingAmount;
+    const taxRateBasisPoints = shippingSettings.tax.rateBasisPoints;
+    const taxAmount = calculateTaxAmount(
+      subtotal - discountAmount,
+      taxRateBasisPoints,
+    );
+    const total = subtotal - discountAmount + taxAmount + shippingAmount;
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
     if (
       !Number.isSafeInteger(total) ||
       !Number.isSafeInteger(subtotal) ||
       !Number.isSafeInteger(shippingAmount) ||
+      !Number.isSafeInteger(taxAmount) ||
       total > 2_147_483_647 ||
       subtotal > 2_147_483_647 ||
+      taxAmount > 2_147_483_647 ||
       total < 1 ||
       items.some((item) => item.unitPrice < 1)
     ) {
@@ -610,6 +618,8 @@ export async function POST(request: Request) {
       shippingAmount,
       ...(discountCode ? { discountCode } : {}),
       discountAmount,
+      taxRateBasisPoints,
+      taxAmount,
       total,
       currency,
       itemCount,
@@ -688,7 +698,9 @@ export async function POST(request: Request) {
       order.total === newOrder.total &&
       (order.subtotal ?? order.total - (order.shippingAmount ?? 0)) ===
         newOrder.subtotal &&
-      (order.shippingAmount ?? 0) === newOrder.shippingAmount;
+      (order.shippingAmount ?? 0) === newOrder.shippingAmount &&
+      (order.taxAmount ?? 0) === newOrder.taxAmount &&
+      (order.taxRateBasisPoints ?? 0) === newOrder.taxRateBasisPoints;
     const storedDiscountMatches =
       (order.discountCode ?? "") === (newOrder.discountCode ?? "") &&
       (order.discountAmount ?? 0) === newOrder.discountAmount;

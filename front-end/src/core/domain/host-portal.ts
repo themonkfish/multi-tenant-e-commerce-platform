@@ -151,6 +151,11 @@ export const TenantStoreSettingsSchema = z
           shipping.freeShippingThreshold === undefined || shipping.flatRate > 0,
         "A free-shipping threshold requires a positive flat shipping rate",
       ),
+    tax: z
+      .object({
+        rateBasisPoints: z.number().int().min(0).max(10_000),
+      })
+      .default({ rateBasisPoints: 0 }),
     discounts: TenantDiscountsSchema.default([]),
   })
   .superRefine((settings, context) => {
@@ -189,6 +194,7 @@ export function createDefaultTenantStoreSettings(
       currencies: ["USD"],
     },
     shipping: { flatRate: 0 },
+    tax: { rateBasisPoints: 0 },
     discounts: [],
   };
 }

@@ -192,8 +192,8 @@ payment. The browser redirect itself is never considered payment proof.
 `DEMO_CHECKOUT_ENABLED` defaults to `false`; do not enable it outside the
 generated local demo environment.
 
-Apply `supabase/migrations/0011_customer_order_payments.sql` when using
-Supabase. The configured integration is test-mode only; live Stripe keys are
+When using Supabase, apply every migration in `supabase/migrations/` in order.
+The configured Stripe integration is test-mode only; live Stripe keys are
 rejected. One platform-level Stripe account is used for this initial slice;
 tenant-specific Stripe Connect onboarding and live payment operations remain
 future work.

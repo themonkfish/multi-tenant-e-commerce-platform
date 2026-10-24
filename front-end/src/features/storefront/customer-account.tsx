@@ -151,6 +151,19 @@ export function StorefrontCustomerAccount({
                         order.currency,
                         locale,
                       )}
+                      {customer &&
+                        "taxAmount" in order &&
+                        (order.taxAmount ?? 0) > 0 && (
+                          <p className="mt-2 text-sm text-slate-600">
+                            Includes{" "}
+                            {formatCurrencyAmount(
+                              order.taxAmount ?? 0,
+                              order.currency,
+                              locale,
+                            )}{" "}
+                            tax
+                          </p>
+                        )}
                     </p>
                   )}
                 {"deliveryAddress" in order && order.deliveryAddress && (

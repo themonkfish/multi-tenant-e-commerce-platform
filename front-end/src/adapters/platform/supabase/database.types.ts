@@ -359,6 +359,8 @@ export type PlatformDatabase = {
           shipping_amount: number;
           discount_code: string | null;
           discount_amount: number;
+          tax_rate_basis_points: number;
+          tax_amount: number;
           total: number;
           currency: string;
           item_count: number;
@@ -384,6 +386,8 @@ export type PlatformDatabase = {
           shipping_amount?: number;
           discount_code?: string | null;
           discount_amount?: number;
+          tax_rate_basis_points?: number;
+          tax_amount?: number;
           total: number;
           currency: string;
           item_count: number;
@@ -404,6 +408,8 @@ export type PlatformDatabase = {
           shipping_amount?: number;
           discount_code?: string | null;
           discount_amount?: number;
+          tax_rate_basis_points?: number;
+          tax_amount?: number;
           payment_status?: "pending" | "paid" | "failed" | "cod_due";
           payment_method?: "stripe" | "cash_on_delivery";
           delivery_address?: Json | null;
@@ -446,6 +452,7 @@ export type PlatformDatabase = {
           branding: Json;
           locale: Json;
           shipping: Json;
+          tax: Json;
           discounts: Json;
           updated_at: string;
         };
@@ -455,6 +462,7 @@ export type PlatformDatabase = {
           branding: Json;
           locale: Json;
           shipping?: Json;
+          tax?: Json;
           discounts?: Json;
           updated_at: string;
         };
@@ -462,6 +470,7 @@ export type PlatformDatabase = {
           branding?: Json;
           locale?: Json;
           shipping?: Json;
+          tax?: Json;
           discounts?: Json;
           updated_at?: string;
         };
@@ -746,6 +755,7 @@ export type PlatformDatabase = {
           p_branding: Json;
           p_locale: Json;
           p_shipping: Json;
+          p_tax: Json;
           p_discounts: Json;
           p_updated_at: string;
           p_actor_id: string;

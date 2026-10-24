@@ -167,12 +167,14 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       expiresAt?: string;
       redemptionLimit?: number;
     }[] = [],
+    taxRateBasisPoints = 0,
   ) {
     return {
       ...store,
       getTenantStoreSettings: vi.fn().mockResolvedValue({
         locale: { currency },
         shipping,
+        tax: { rateBasisPoints: taxRateBasisPoints },
         discounts,
       }),
     };
@@ -349,8 +351,10 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       subtotal: 2500,
       discountCode: "SAVE10",
       discountAmount: 250,
+      taxRateBasisPoints: 825,
+      taxAmount: 186,
       shippingAmount: 200,
-      total: 2450,
+      total: 2636,
     });
     const store = {
       consumeRateLimit: vi.fn().mockResolvedValue(true),
@@ -376,9 +380,13 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       permissions: ["customer:orders:read"],
     });
     getPlatformStore.mockReturnValue(
-      withShippingSettings(store, "USD", { flatRate: 200 }, [
-        { code: "SAVE10", type: "percentage", value: 10 },
-      ]),
+      withShippingSettings(
+        store,
+        "USD",
+        { flatRate: 200 },
+        [{ code: "SAVE10", type: "percentage", value: 10 }],
+        825,
+      ),
     );
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(product),
@@ -402,8 +410,10 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         subtotal: 2500,
         discountCode: "SAVE10",
         discountAmount: 250,
+        taxRateBasisPoints: 825,
+        taxAmount: 186,
         shippingAmount: 200,
-        total: 2450,
+        total: 2636,
       }),
     );
     expect(createStripeCheckoutSession).toHaveBeenCalledWith(
@@ -411,8 +421,10 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         order: expect.objectContaining({
           subtotal: 2500,
           discountAmount: 250,
+          taxRateBasisPoints: 825,
+          taxAmount: 186,
           shippingAmount: 200,
-          total: 2450,
+          total: 2636,
         }),
       }),
     );

@@ -9,6 +9,7 @@ import {
   type CustomerDeliveryAddress,
 } from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
+import { calculateTaxAmount } from "@/core/domain/tax";
 import { getCartItemKey, useCartStore } from "@/features/storefront/cart-store";
 
 export function StorefrontCartPage({
@@ -16,12 +17,14 @@ export function StorefrontCartPage({
   signedIn,
   paymentFailed,
   shipping,
+  taxRateBasisPoints,
   currency,
 }: {
   locale: string;
   signedIn: boolean;
   paymentFailed: boolean;
   shipping: { flatRate: number; freeShippingThreshold?: number };
+  taxRateBasisPoints: number;
   currency: string;
 }) {
   const router = useRouter();
@@ -75,6 +78,10 @@ export function StorefrontCartPage({
       ? appliedDiscount
       : null;
   const discountAmount = activeDiscount?.amount ?? 0;
+  const taxAmount = calculateTaxAmount(
+    subtotal - discountAmount,
+    taxRateBasisPoints,
+  );
   const estimatedShipping =
     shipping.freeShippingThreshold !== undefined &&
     subtotal >= shipping.freeShippingThreshold
@@ -425,6 +432,18 @@ export function StorefrontCartPage({
               </span>
             </div>
           )}
+          {taxAmount > 0 && (
+            <div className="flex items-center justify-between">
+              <span>Tax</span>
+              <span>
+                {formatCurrencyAmount(
+                  taxAmount,
+                  items[0]?.currency ?? currency,
+                  locale,
+                )}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span>Shipping</span>
             <span>
@@ -442,7 +461,7 @@ export function StorefrontCartPage({
                 {formatCurrencyAmount(
                   shippingCurrencyMismatch
                     ? 0
-                    : subtotal - discountAmount + estimatedShipping,
+                    : subtotal - discountAmount + taxAmount + estimatedShipping,
                   items[0]?.currency ?? currency,
                   locale,
                 )}

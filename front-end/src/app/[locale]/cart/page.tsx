@@ -95,6 +95,7 @@ export default async function CartPage({
         signedIn={customerSession?.scope.kind === "tenant"}
         paymentFailed={payment === "failed"}
         shipping={settings.shipping}
+        taxRateBasisPoints={settings.tax.rateBasisPoints}
         currency={settings.locale.currency}
       />
     </main>
