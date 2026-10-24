@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ProductOption } from "@/core/ports/data";
-import type { ProductVariant } from "@/core/ports/data";
+import type { ProductVariant, ProductVariantPricing } from "@/core/ports/data";
+import { findProductVariantPricing } from "@/core/domain/product";
+import { formatCurrencyAmount } from "@/core/domain/money";
 import {
   getCartItemKey,
   useCartStore,
@@ -34,10 +36,14 @@ export function StorefrontAddToCartButton({
   item,
   options = [],
   variants = [],
+  variantPricing = [],
+  locale = "en",
 }: {
   item: CartItemInput;
   options?: ProductOption[];
   variants?: ProductVariant[];
+  variantPricing?: ProductVariantPricing[];
+  locale?: string;
 }) {
   const addItem = useCartStore((state) => state.addItem);
   const cartItems = useCartStore((state) => state.items);
@@ -50,14 +56,15 @@ export function StorefrontAddToCartButton({
       ) &&
       Object.keys(variant.selections).length === Object.keys(selections).length,
   );
-  const selectedQuantity = cartItems.find(
-    (candidate) =>
-      getCartItemKey(candidate) ===
-      getCartItemKey({ ...item, variantSelections: selections }),
-  )?.quantity ?? 0;
+  const selectedPricing = findProductVariantPricing(variantPricing, selections);
+  const selectedQuantity =
+    cartItems.find(
+      (candidate) =>
+        getCartItemKey(candidate) ===
+        getCartItemKey({ ...item, variantSelections: selections }),
+    )?.quantity ?? 0;
   const outOfStock =
-    matchingVariant !== undefined &&
-    selectedQuantity >= matchingVariant.stock;
+    matchingVariant !== undefined && selectedQuantity >= matchingVariant.stock;
 
   return (
     <div className="space-y-3">
@@ -92,6 +99,10 @@ export function StorefrontAddToCartButton({
         onClick={() =>
           addItem({
             ...item,
+            price: selectedPricing?.amount ?? item.price,
+            ...((selectedPricing?.sku ?? item.sku)
+              ? { sku: selectedPricing?.sku ?? item.sku }
+              : {}),
             ...(options.length ? { variantSelections: selections } : {}),
             ...(matchingVariant
               ? { availableStock: matchingVariant.stock }
@@ -104,6 +115,20 @@ export function StorefrontAddToCartButton({
         {outOfStock ? "Out of stock" : "Add to cart"}
         <span className="ml-2 text-xs text-slate-200">{item.currency}</span>
       </button>
+      {ready && (
+        <p className="text-sm text-slate-700">
+          {formatCurrencyAmount(
+            selectedPricing?.amount ?? item.price,
+            item.currency,
+            locale,
+          )}
+          {(selectedPricing?.sku ?? item.sku) && (
+            <span className="ml-2 text-slate-500">
+              SKU: {selectedPricing?.sku ?? item.sku}
+            </span>
+          )}
+        </p>
+      )}
     </div>
   );
 }

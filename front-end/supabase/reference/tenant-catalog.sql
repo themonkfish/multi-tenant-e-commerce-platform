@@ -14,6 +14,8 @@ create table if not exists public.tenant_products (
     check (jsonb_typeof(options) = 'array'),
   variants jsonb
     check (variants is null or jsonb_typeof(variants) = 'array'),
+  variant_pricing jsonb
+    check (variant_pricing is null or jsonb_typeof(variant_pricing) = 'array'),
   image_url text check (
     image_url is null or
     (image_url ~ '^https://' and char_length(image_url) <= 2048)
@@ -41,6 +43,12 @@ alter table public.tenant_products
 alter table public.tenant_products
   add column if not exists variants jsonb
   check (variants is null or jsonb_typeof(variants) = 'array');
+
+alter table public.tenant_products
+  add column if not exists variant_pricing jsonb
+  check (
+    variant_pricing is null or jsonb_typeof(variant_pricing) = 'array'
+  );
 
 create table if not exists public.tenant_inventory_reservations (
   tenant_id uuid not null,
@@ -105,18 +113,18 @@ begin
     if existing_tenant_id <> p_tenant_id then
       raise exception 'This Supabase project is initialized for another tenant';
     end if;
-    if existing_version < 5 then
+    if existing_version < 6 then
       update public.tenant_schema_metadata
-        set version = 5, updated_at = now()
+        set version = 6, updated_at = now()
         where id = 'tenant-catalog';
-      return 5;
+      return 6;
     end if;
     return existing_version;
   end if;
 
   insert into public.tenant_schema_metadata (id, tenant_id, version, updated_at)
-    values ('tenant-catalog', p_tenant_id, 5, now());
-  return 5;
+    values ('tenant-catalog', p_tenant_id, 6, now());
+  return 6;
 end;
 $$;
 

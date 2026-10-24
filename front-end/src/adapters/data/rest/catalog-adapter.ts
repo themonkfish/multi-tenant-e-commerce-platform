@@ -12,6 +12,7 @@ import { TenantDataBackendError } from "@/core/ports/data";
 import {
   ProductInputSchema,
   ProductOptionsSchema,
+  ProductVariantPricingListSchema,
   ProductUpdateSchema,
   ProductVariantSelectionsSchema,
   ProductVariantsSchema,
@@ -46,6 +47,7 @@ const ProductSchema = z.object({
   category: z.string().min(1).max(80).nullable().optional(),
   options: ProductOptionsSchema.optional(),
   variants: ProductVariantsSchema.optional(),
+  variantPricing: ProductVariantPricingListSchema.optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -69,11 +71,19 @@ const CategoriesSchema = z.object({
 });
 const InventoryReservationSchema = z
   .object({
-    reservationId: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
+    reservationId: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[A-Za-z0-9_-]+$/),
     items: z
       .array(
         z.object({
-          productId: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
+          productId: z
+            .string()
+            .min(1)
+            .max(128)
+            .regex(/^[A-Za-z0-9_-]+$/),
           selections: ProductVariantSelectionsSchema,
           quantity: z.number().int().positive().max(100),
         }),
@@ -90,7 +100,6 @@ export class RestBackendError extends TenantDataBackendError {
     super(status, message);
     this.name = "RestBackendError";
   }
-
 }
 
 type RestTransport = (

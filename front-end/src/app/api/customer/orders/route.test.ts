@@ -103,6 +103,7 @@ function checkoutRequest(
   items: {
     productId: string;
     quantity: number;
+    expectedUnitPrice?: number;
     variantSelections?: Record<string, string>;
   }[] = [{ productId: product.id, quantity: 2 }],
 ) {
@@ -368,6 +369,9 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     const variantProduct = {
       ...product,
       options: [{ name: "Size", values: ["S", "M"] }],
+      variantPricing: [
+        { selections: { Size: "M" }, amount: 1800, sku: "BAG-M" },
+      ],
       variants: [
         { selections: { Size: "S" }, stock: 5 },
         { selections: { Size: "M" }, stock: 4 },
@@ -381,12 +385,13 @@ describe("POST /api/customer/orders Stripe checkout", () => {
           slug: variantProduct.slug,
           quantity: 1,
           variantSelections: { Size: "M" },
-          unitPrice: variantProduct.price.amount,
+          unitPrice: 1800,
+          sku: "BAG-M",
           currency: variantProduct.price.currency,
         },
       ],
-      total: variantProduct.price.amount,
-      subtotal: variantProduct.price.amount,
+      total: 1800,
+      subtotal: 1800,
       itemCount: 1,
     });
     const store = {
@@ -421,6 +426,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         {
           productId: product.id,
           quantity: 1,
+          expectedUnitPrice: 1800,
           variantSelections: { Size: "M" },
         },
       ]),
@@ -429,12 +435,13 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     expect(response.status).toBe(200);
     expect(store.createCustomerOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        total: product.price.amount,
+        total: 1800,
         items: [
           expect.objectContaining({
             variantSelections: { Size: "M" },
             inventoryTracked: true,
-            unitPrice: product.price.amount,
+            unitPrice: 1800,
+            sku: "BAG-M",
           }),
         ],
       }),
@@ -452,6 +459,22 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         },
       ],
     });
+
+    const stalePriceResponse = await POST(
+      checkoutRequest([
+        {
+          productId: product.id,
+          quantity: 1,
+          expectedUnitPrice: 1700,
+          variantSelections: { Size: "M" },
+        },
+      ]),
+    );
+    expect(stalePriceResponse.status).toBe(409);
+    expect(await stalePriceResponse.json()).toMatchObject({
+      error: "cart_changed",
+    });
+    expect(store.createCustomerOrder).toHaveBeenCalledTimes(1);
   });
 
   it("rejects invalid option selections before creating an order", async () => {

@@ -13,6 +13,12 @@ export type ProductVariant = {
   stock: number;
 };
 
+export type ProductVariantPricing = {
+  selections: Record<string, string>;
+  amount?: number;
+  sku?: string;
+};
+
 export type InventoryReservationItem = {
   productId: string;
   selections: Record<string, string>;
@@ -35,6 +41,7 @@ export type Product = {
   category?: string | null;
   options?: ProductOption[];
   variants?: ProductVariant[];
+  variantPricing?: ProductVariantPricing[];
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;

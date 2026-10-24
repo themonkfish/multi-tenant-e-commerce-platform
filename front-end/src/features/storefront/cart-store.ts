@@ -11,6 +11,7 @@ export type CartItem = {
   currency: string;
   quantity: number;
   variantSelections?: Record<string, string>;
+  sku?: string;
   availableStock?: number;
 };
 
@@ -21,6 +22,7 @@ export type CartItemInput = {
   price: number;
   currency: string;
   variantSelections?: Record<string, string>;
+  sku?: string;
   availableStock?: number;
 };
 
@@ -60,7 +62,7 @@ export const useCartStore = create<CartState>()(
           items: existing
             ? get().items.map((candidate) =>
                 getCartItemKey(candidate) === key
-                  ? { ...candidate, quantity: candidate.quantity + 1 }
+                  ? { ...candidate, ...item, quantity: candidate.quantity + 1 }
                   : candidate,
               )
             : [

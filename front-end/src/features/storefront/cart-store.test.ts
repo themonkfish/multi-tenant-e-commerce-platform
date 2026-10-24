@@ -50,4 +50,22 @@ describe("storefront cart product variants", () => {
       Size: "M",
     });
   });
+
+  it("stores the selected variant price and SKU on its cart line", () => {
+    useCartStore.getState().addItem({
+      id: "product-1",
+      slug: "canvas-bag",
+      title: "Canvas bag",
+      price: 1800,
+      currency: "INR",
+      sku: "BAG-M",
+      variantSelections: { Size: "M" },
+    });
+
+    expect(useCartStore.getState().items[0]).toMatchObject({
+      price: 1800,
+      sku: "BAG-M",
+      variantSelections: { Size: "M" },
+    });
+  });
 });

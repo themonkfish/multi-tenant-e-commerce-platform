@@ -6,7 +6,10 @@ import {
   CustomerDeliveryAddressSchema,
   CustomerOrderSchema,
 } from "@/core/domain/tenant-identities";
-import { ProductVariantSelectionsSchema } from "@/core/domain/product";
+import {
+  findProductVariantPricing,
+  ProductVariantSelectionsSchema,
+} from "@/core/domain/product";
 import type { Product } from "@/core/ports/data";
 import type { InventoryReservationItem } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
@@ -40,6 +43,12 @@ const CreateOrderSchema = z
             .max(128)
             .regex(/^[A-Za-z0-9_-]+$/),
           quantity: z.number().int().min(1).max(100),
+          expectedUnitPrice: z
+            .number()
+            .int()
+            .min(0)
+            .max(2_147_483_647)
+            .optional(),
           variantSelections: ProductVariantSelectionsSchema.optional(),
         }),
       )
@@ -453,18 +462,41 @@ export async function POST(request: Request) {
       );
     }
 
-    const items = products.map((product, index) => ({
-      productId: product.id,
-      title: product.title,
-      slug: product.slug,
-      quantity: parsed.data.items[index].quantity,
-      ...(parsed.data.items[index].variantSelections
-        ? { variantSelections: parsed.data.items[index].variantSelections }
-        : {}),
-      ...(product.variants?.length ? { inventoryTracked: true } : {}),
-      unitPrice: product.price.amount,
-      currency: product.price.currency,
-    }));
+    const items = products.map((product, index) => {
+      const pricing = findProductVariantPricing(
+        product.variantPricing,
+        parsed.data.items[index].variantSelections,
+      );
+      const sku = pricing?.sku ?? product.sku;
+      return {
+        productId: product.id,
+        title: product.title,
+        slug: product.slug,
+        quantity: parsed.data.items[index].quantity,
+        ...(parsed.data.items[index].variantSelections
+          ? { variantSelections: parsed.data.items[index].variantSelections }
+          : {}),
+        ...(sku ? { sku } : {}),
+        ...(product.variants?.length ? { inventoryTracked: true } : {}),
+        unitPrice: pricing?.amount ?? product.price.amount,
+        currency: product.price.currency,
+      };
+    });
+    if (
+      items.some(
+        (item, index) =>
+          parsed.data.items[index].expectedUnitPrice !== undefined &&
+          parsed.data.items[index].expectedUnitPrice !== item.unitPrice,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error: "cart_changed",
+          message: "One or more product prices changed.",
+        },
+        { status: 409 },
+      );
+    }
     const subtotal = items.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
       0,

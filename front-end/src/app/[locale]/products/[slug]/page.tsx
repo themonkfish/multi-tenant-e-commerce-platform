@@ -40,6 +40,11 @@ export default async function TenantProductDetailPage({
     category?: string | null;
     options?: { name: string; values: string[] }[];
     variants?: { selections: Record<string, string>; stock: number }[];
+    variantPricing?: {
+      selections: Record<string, string>;
+      amount?: number;
+      sku?: string;
+    }[];
     imageUrl?: string | null;
   } | null = null;
 
@@ -190,9 +195,12 @@ export default async function TenantProductDetailPage({
                 title: product.title,
                 price: product.price.amount,
                 currency: product.price.currency,
+                sku: product.sku,
               }}
+              locale={locale}
               options={product.options}
               variants={product.variants}
+              variantPricing={product.variantPricing}
             />
             <Link
               className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"

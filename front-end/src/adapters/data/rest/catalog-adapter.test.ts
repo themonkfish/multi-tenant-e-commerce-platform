@@ -22,6 +22,13 @@ const product: Product = {
   sku: "BAG-1",
   category: "Bags",
   options: [{ name: "Color", values: ["Black", "Blue"] }],
+  variantPricing: [
+    {
+      selections: { Color: "Blue" },
+      amount: 2199,
+      sku: "BAG-1-BLUE",
+    },
+  ],
   imageUrl: "https://cdn.example.com/tenant/product.jpg",
   createdAt: now,
   updatedAt: now,
@@ -100,6 +107,7 @@ describe("RestCatalogAdapter", () => {
         sku: product.sku,
         category: product.category,
         options: product.options,
+        variantPricing: product.variantPricing,
         imageUrl: product.imageUrl,
       }),
     ).resolves.toEqual(product);
@@ -113,6 +121,7 @@ describe("RestCatalogAdapter", () => {
           tenantId,
           category: product.category,
           options: product.options,
+          variantPricing: product.variantPricing,
           imageUrl: product.imageUrl,
         }),
       }),

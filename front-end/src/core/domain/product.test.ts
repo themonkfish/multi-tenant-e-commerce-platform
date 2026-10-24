@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ProductInputSchema,
   ProductOptionsSchema,
+  ProductVariantPricingListSchema,
   ProductVariantSelectionsSchema,
   ProductUpdateSchema,
 } from "./product";
@@ -63,6 +64,7 @@ describe("product options", () => {
     expect(
       ProductUpdateSchema.parse({
         options: [{ name: "Color", values: ["Black", "Blue"] }],
+        variantPricing: [],
       }).options,
     ).toEqual([{ name: "Color", values: ["Black", "Blue"] }]);
   });
@@ -125,6 +127,54 @@ describe("product options", () => {
         ...product,
         options: [{ name: "Size", values: ["S", "M"] }],
         variants: [{ selections: { Size: "S" }, stock: 3 }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts variant-specific amount and SKU overrides for valid combinations", () => {
+    const parsed = ProductInputSchema.safeParse({
+      ...product,
+      options: [{ name: "Size", values: ["S", "M"] }],
+      variantPricing: [
+        { selections: { Size: "S" }, amount: 2499, sku: "BAG-S" },
+        { selections: { Size: "M" }, sku: "BAG-M" },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+    expect(
+      ProductUpdateSchema.safeParse({
+        options: [{ name: "Size", values: ["S"] }],
+        variantPricing: [{ selections: { Size: "S" }, amount: 0 }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects duplicate, invalid, and empty variant pricing entries", () => {
+    expect(
+      ProductVariantPricingListSchema.safeParse([
+        { selections: { Size: "S" }, amount: 100 },
+        { selections: { Size: "S" }, sku: "DUPLICATE" },
+      ]).success,
+    ).toBe(false);
+    expect(
+      ProductInputSchema.safeParse({
+        ...product,
+        options: [{ name: "Size", values: ["S", "M"] }],
+        variantPricing: [{ selections: { Size: "XL" }, amount: 100 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      ProductVariantPricingListSchema.safeParse([{ selections: { Size: "S" } }])
+        .success,
+    ).toBe(false);
+    expect(
+      ProductUpdateSchema.safeParse({
+        variantPricing: [{ selections: { Size: "S" }, amount: 100 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      ProductUpdateSchema.safeParse({
+        options: [{ name: "Size", values: ["S"] }],
       }).success,
     ).toBe(false);
   });

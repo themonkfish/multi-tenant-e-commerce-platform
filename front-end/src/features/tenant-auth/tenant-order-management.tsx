@@ -537,6 +537,11 @@ export function TenantOrderManagement({
                         .join(" · ")}
                     </span>
                   )}
+                  {item.sku && (
+                    <span className="block text-xs text-slate-500">
+                      SKU: {item.sku}
+                    </span>
+                  )}
                 </span>
                 <span>
                   {formatCurrencyAmount(

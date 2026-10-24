@@ -40,6 +40,8 @@ Status snapshot as of 2026-10-24:
   categories; the storefront supports active-product search, category filters,
   and paginated browsing. Products may define up to three variant option
   groups, with validated selections retained through cart, checkout, and orders.
+  Variants may override the base price and SKU; server-verified selections and
+  resolved values are recorded in order snapshots.
 - Tenant Owner-managed Staff catalog/order permissions and Tenant-scoped
   Customer sign-in/order reads are now server-enforced; isolated demo
   credentials and sample Customer orders support local testing.
@@ -123,6 +125,7 @@ Status snapshot as of 2026-10-24:
       pending sync can be retried by the owning Customer. The backend order
       contract accepts and persists `subtotal`, `shippingAmount`, and the
       validated `deliveryAddress` provided in `POST /{apiVersion}/orders`.
+      Order line items include the server-resolved variant SKU and unit price.
 - [x] Tenant Owners and explicitly permissioned Staff can list, paginate,
       inspect, and advance Tenant order statuses; Customer order history is
       updated to reflect operational status changes. Shipment tracking numbers,
@@ -324,13 +327,13 @@ Status snapshot as of 2026-10-24:
 - [x] Product option variants across REST, Supabase, and MongoDB catalogs,
       storefront selection, distinct cart lines, and server-validated order
       snapshots. Optional per-variant stock tracking, atomic checkout
-      reservations, and payment-state transitions are implemented; per-variant
-      price and SKU remain future work.
+      reservations, payment-state transitions, and per-variant price and SKU
+      overrides are implemented.
 - [x] Tenant product categories and storefront name search, category filters,
       and pagination across REST, Supabase, and MongoDB catalog providers.
 - [x] Product image management: tenant-scoped uploads, HTTPS image URLs saved
       through all catalog adapters, and storefront rendering. Tenant Supabase
-      catalog schemas must be upgraded to version 5.
+      catalog schemas must be upgraded to version 6.
 - [ ] Orders, customers, discounts, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
@@ -450,12 +453,13 @@ features are implemented.
     in the tenant project before testing and initialization; MongoDB Atlas
     collections and indexes are initialized by the app. Database providers
     take precedence over REST for catalog operations. The supported database
-    schema is version 5; test results report incompatible versions, and the
+    schema is version 6; test results report incompatible versions, and the
     app will not initialize a database with a newer version.
     MongoDB initializes a `tenant_products` collection with a strict product
     document validator, tenant-scoped slug and creation-time indexes, and a
     tenant-bound `tenant_schema_metadata` version record. Products support
-    optional categories, option variants, and variant stock; database-backed
+    optional categories, option variants, variant-specific prices and SKUs,
+    and variant stock; database-backed
     search matches product titles. MongoDB inventory operations require
     transaction-capable deployment support.
     Only dedicated
@@ -467,11 +471,18 @@ features are implemented.
     `GET`/`PATCH`/`DELETE /api/tenant/products/{productId}`. These routes
     proxy product operations to the connected backend. The Tenant catalog UI
     supports product CRUD, categories, image uploads, option groups (up to 3
-    options, 20 values each), and optional per-variant stock entries. Track
-    stock by entering every option combination in the stock editor; leave it
-    blank to disable stock tracking for that product.
+    options, 20 values each), per-combination price/SKU overrides, and optional
+    per-variant stock entries. Track stock by entering every option combination
+    in the stock editor; leave it blank to disable stock tracking for that
+    product.
     REST backends must accept and return the optional `options` array of
-    `{ "name": "Size", "values": ["S", "M"] }` product entries, apply
+    `{ "name": "Size", "values": ["S", "M"] }` product entries and optional
+    `variantPricing` entries such as
+    `{ "selections": { "Size": "M" }, "amount": 2199, "sku": "BAG-M" }`;
+    omitted amount/SKU values inherit the product defaults. Checkout resolves
+    prices and SKUs from the backend rather than trusting cart values. Apply
+    `supabase/reference/tenant-catalog.sql` to add the `variant_pricing` column
+    before initializing an existing tenant Supabase catalog. Backends must apply
     `search`, `category`, and `status` filters to `GET /{apiVersion}/products`,
     and implement
     `GET /{apiVersion}/products/categories?tenantId=...&status=active` with a
@@ -486,12 +497,13 @@ features are implemented.
     cross-tenant requests. Release restores reserved quantities; commit
     consumes them.
 
-Tenant Supabase catalog projects use schema version 5 for product images,
-categories, product option variants, and inventory reservations. Apply the current
+Tenant Supabase catalog projects use schema version 6 for product images,
+categories, product option variants, variant price/SKU overrides, and inventory
+reservations. Apply the current
 `supabase/reference/tenant-catalog.sql` to an
 existing Supabase tenant project, then use the Tenant Owner database setup to
 initialize the schema. MongoDB Atlas catalogs update their product validator
-and advance to version 5 through the same initialize-schema action.
+and advance to version 6 through the same initialize-schema action.
 
 The tenant portal saves branding and locale metadata but does not yet apply it
 to a live storefront. REST catalog requests use the saved connection, but

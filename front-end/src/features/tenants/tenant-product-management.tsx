@@ -12,6 +12,7 @@ import {
 import type { Product } from "@/core/ports/data";
 import {
   ProductOptionsSchema,
+  ProductVariantPricingListSchema,
   ProductVariantsSchema,
 } from "@/core/domain/product";
 
@@ -25,6 +26,7 @@ type DraftProduct = {
   imageUrl: string;
   optionsText: string;
   inventoryText: string;
+  variantPricingText: string;
 };
 
 const EMPTY_DRAFT: DraftProduct = {
@@ -37,6 +39,7 @@ const EMPTY_DRAFT: DraftProduct = {
   imageUrl: "",
   optionsText: "",
   inventoryText: "",
+  variantPricingText: "",
 };
 
 function toDraft(product?: Product | null): DraftProduct {
@@ -63,6 +66,18 @@ function toDraft(product?: Product | null): DraftProduct {
           .map(([name, value]) => `${name}=${value}`)
           .join(", ");
         return `${selection || "Stock"}: ${variant.stock}`;
+      })
+      .join("\n"),
+    variantPricingText: (product.variantPricing ?? [])
+      .map((variant) => {
+        const selection = Object.entries(variant.selections)
+          .map(([name, value]) => `${name}=${value}`)
+          .join(", ");
+        const values = [
+          ...(variant.amount === undefined ? [] : [`price=${variant.amount}`]),
+          ...(variant.sku ? [`sku=${variant.sku}`] : []),
+        ];
+        return `${selection}: ${values.join("; ")}`;
       })
       .join("\n"),
   };
@@ -227,26 +242,62 @@ export function TenantProductManagement({
         .map((line) => line.trim())
         .filter(Boolean)
         .map((line) => {
-                const separator = line.lastIndexOf(":");
-                const selectionsText =
-                  separator < 0 ? "" : line.slice(0, separator).trim();
-                const quantity =
-                  separator < 0 ? Number.NaN : Number(line.slice(separator + 1));
-                const selections =
-                  selectionsText === "" || selectionsText === "Stock"
-                    ? {}
-                    : Object.fromEntries(
-                        selectionsText.split(",").map((part) => {
-                          const equals = part.indexOf("=");
-                          return equals < 1
-                            ? [part.trim(), ""]
-                            : [
-                                part.slice(0, equals).trim(),
-                                part.slice(equals + 1).trim(),
-                              ];
-                        }),
-                      );
+          const separator = line.lastIndexOf(":");
+          const selectionsText =
+            separator < 0 ? "" : line.slice(0, separator).trim();
+          const quantity =
+            separator < 0 ? Number.NaN : Number(line.slice(separator + 1));
+          const selections =
+            selectionsText === "" || selectionsText === "Stock"
+              ? {}
+              : Object.fromEntries(
+                  selectionsText.split(",").map((part) => {
+                    const equals = part.indexOf("=");
+                    return equals < 1
+                      ? [part.trim(), ""]
+                      : [
+                          part.slice(0, equals).trim(),
+                          part.slice(equals + 1).trim(),
+                        ];
+                  }),
+                );
           return { selections, stock: quantity };
+        }),
+      variantPricing: draft.variantPricingText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const separator = line.lastIndexOf(":");
+          const selectionsText =
+            separator < 0 ? "" : line.slice(0, separator).trim();
+          const attributes =
+            separator < 0 ? [] : line.slice(separator + 1).split(";");
+          const selections = Object.fromEntries(
+            selectionsText.split(",").map((part) => {
+              const equals = part.indexOf("=");
+              return equals < 1
+                ? [part.trim(), ""]
+                : [part.slice(0, equals).trim(), part.slice(equals + 1).trim()];
+            }),
+          );
+          const values = Object.fromEntries(
+            attributes.map((attribute) => {
+              const equals = attribute.indexOf("=");
+              return equals < 1
+                ? [attribute.trim().toLowerCase(), ""]
+                : [
+                    attribute.slice(0, equals).trim().toLowerCase(),
+                    attribute.slice(equals + 1).trim(),
+                  ];
+            }),
+          );
+          const amountText = values.price;
+          return {
+            selections,
+            ...(amountText ? { amount: Number(amountText) } : {}),
+            ...(values.sku ? { sku: values.sku } : {}),
+          };
         }),
     };
 
@@ -277,6 +328,13 @@ export function TenantProductManagement({
       !ProductVariantsSchema.safeParse(payload.variants).success
     ) {
       setError("Enter a valid non-negative stock quantity for every variant.");
+      setSaving(false);
+      return;
+    }
+    if (
+      !ProductVariantPricingListSchema.safeParse(payload.variantPricing).success
+    ) {
+      setError("Enter a valid variant price and/or SKU for each combination.");
       setSaving(false);
       return;
     }
@@ -441,9 +499,9 @@ export function TenantProductManagement({
             />
             <span className="block font-normal text-slate-600">
               Optional: enter one combination per line as Option=Value, ...:
-              quantity. Configure every combination to track stock. Leave
-              blank for untracked stock. Maximum 200 variants; stock is capped
-              at 1,000,000 per variant.
+              quantity. Configure every combination to track stock. Leave blank
+              for untracked stock. Maximum 200 variants; stock is capped at
+              1,000,000 per variant.
             </span>
           </label>
 
@@ -565,8 +623,30 @@ export function TenantProductManagement({
               placeholder={"Size: S, M, L\nColor: Black, Blue"}
             />
             <span className="block font-normal text-slate-600">
-              Enter one option per line as Name: value, value. Options share the
-              product price and do not track variant stock.
+              Enter one option per line as Name: value, value.
+            </span>
+          </label>
+
+          <label className="space-y-1 text-sm font-medium sm:col-span-2">
+            Variant prices and SKUs (optional)
+            <textarea
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm font-normal"
+              rows={4}
+              value={draft.variantPricingText}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  variantPricingText: event.target.value,
+                }))
+              }
+              placeholder={
+                "Size=S, Color=Blue: price=1299; sku=BAG-S-BLUE\nSize=M, Color=Blue: sku=BAG-M-BLUE"
+              }
+            />
+            <span className="block font-normal text-slate-600">
+              Add one optional override per combination. Amounts use the product
+              currency&apos;s minor units (for example, 1299 means ₹12.99 when
+              using INR). Omitted price or SKU uses the product default.
             </span>
           </label>
 

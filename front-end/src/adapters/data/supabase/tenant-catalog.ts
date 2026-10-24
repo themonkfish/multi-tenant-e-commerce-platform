@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   ProductInputSchema,
   ProductOptionsSchema,
+  ProductVariantPricingListSchema,
   ProductUpdateSchema,
   ProductVariantsSchema,
 } from "@/core/domain/product";
@@ -35,6 +36,7 @@ const ProductRowSchema = z.object({
   category: z.string().min(1).max(80).nullable(),
   options: ProductOptionsSchema,
   variants: ProductVariantsSchema.nullable(),
+  variant_pricing: ProductVariantPricingListSchema.nullable(),
   image_url: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -64,7 +66,15 @@ type SupabaseTenantDatabase = {
           sku: string | null;
           category: string | null;
           options: { name: string; values: string[] }[];
-          variants: { selections: Record<string, string>; stock: number }[] | null;
+          variants:
+            { selections: Record<string, string>; stock: number }[] | null;
+          variant_pricing:
+            | {
+                selections: Record<string, string>;
+                amount?: number;
+                sku?: string;
+              }[]
+            | null;
           image_url: string | null;
           created_at: string;
           updated_at: string;
@@ -80,7 +90,15 @@ type SupabaseTenantDatabase = {
           sku?: string | null;
           category?: string | null;
           options?: { name: string; values: string[] }[];
-          variants?: { selections: Record<string, string>; stock: number }[] | null;
+          variants?:
+            { selections: Record<string, string>; stock: number }[] | null;
+          variant_pricing?:
+            | {
+                selections: Record<string, string>;
+                amount?: number;
+                sku?: string;
+              }[]
+            | null;
           image_url?: string | null;
           created_at: string;
           updated_at: string;
@@ -94,7 +112,15 @@ type SupabaseTenantDatabase = {
           sku?: string | null;
           category?: string | null;
           options?: { name: string; values: string[] }[];
-          variants?: { selections: Record<string, string>; stock: number }[] | null;
+          variants?:
+            { selections: Record<string, string>; stock: number }[] | null;
+          variant_pricing?:
+            | {
+                selections: Record<string, string>;
+                amount?: number;
+                sku?: string;
+              }[]
+            | null;
           image_url?: string | null;
           updated_at?: string;
         };
@@ -255,6 +281,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
         category: product.category ?? null,
         options: product.options ?? [],
         variants: product.variants ?? null,
+        variant_pricing: product.variantPricing ?? null,
         image_url: product.imageUrl ?? null,
         created_at: now,
         updated_at: now,
@@ -292,6 +319,9 @@ export class SupabaseTenantCatalog implements CatalogPort {
     if (update.category !== undefined) changes.category = update.category;
     if (update.options !== undefined) changes.options = update.options;
     if (update.variants !== undefined) changes.variants = update.variants;
+    if (update.variantPricing !== undefined) {
+      changes.variant_pricing = update.variantPricing;
+    }
     if (update.imageUrl !== undefined) changes.image_url = update.imageUrl;
     const { data, error } = await this.client
       .from(TABLE)
@@ -366,10 +396,10 @@ export class SupabaseTenantCatalog implements CatalogPort {
   }
 
   async commitInventory(reservationId: string): Promise<void> {
-    const { error } = await this.client.rpc(
-      "commit_tenant_product_inventory",
-      { p_tenant_id: this.tenantId, p_reservation_id: reservationId },
-    );
+    const { error } = await this.client.rpc("commit_tenant_product_inventory", {
+      p_tenant_id: this.tenantId,
+      p_reservation_id: reservationId,
+    });
     if (error) this.throwBackend(error.message, error.code);
   }
 
@@ -416,6 +446,9 @@ export class SupabaseTenantCatalog implements CatalogPort {
       ...(value.category === null ? {} : { category: value.category }),
       options: value.options,
       ...(value.variants === null ? {} : { variants: value.variants }),
+      ...(value.variant_pricing === null
+        ? {}
+        : { variantPricing: value.variant_pricing }),
       ...(value.image_url === null ? {} : { imageUrl: value.image_url }),
       createdAt: value.created_at,
       updatedAt: value.updated_at,

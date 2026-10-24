@@ -13,6 +13,7 @@ import {
   ProductInputSchema,
   ProductOptionsSchema,
   ProductVariantSelectionsSchema,
+  ProductVariantPricingListSchema,
   ProductUpdateSchema,
   ProductVariantsSchema,
 } from "@/core/domain/product";
@@ -45,6 +46,7 @@ const ProductDocumentSchema = z.object({
   category: z.string().min(1).max(80).nullable().optional(),
   options: ProductOptionsSchema.optional(),
   variants: ProductVariantsSchema.optional(),
+  variantPricing: ProductVariantPricingListSchema.optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -79,6 +81,11 @@ type TenantProductDocument = {
   category?: string | null;
   options?: { name: string; values: string[] }[];
   variants?: { selections: Record<string, string>; stock: number }[];
+  variantPricing?: {
+    selections: Record<string, string>;
+    amount?: number;
+    sku?: string;
+  }[];
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -600,6 +607,24 @@ export class MongoTenantCatalog implements CatalogPort {
                 },
               },
             },
+            variantPricing: {
+              bsonType: "array",
+              maxItems: 200,
+              items: {
+                bsonType: "object",
+                required: ["selections"],
+                properties: {
+                  selections: { bsonType: "object" },
+                  amount: {
+                    bsonType: ["int", "long", "double"],
+                    minimum: 0,
+                    maximum: 2147483647,
+                    multipleOf: 1,
+                  },
+                  sku: { bsonType: "string", minLength: 1, maxLength: 100 },
+                },
+              },
+            },
             imageUrl: {
               bsonType: ["string", "null"],
               maxLength: 2048,
@@ -741,6 +766,9 @@ export class MongoTenantCatalog implements CatalogPort {
       ...(product.category === undefined ? {} : { category: product.category }),
       ...(product.options === undefined ? {} : { options: product.options }),
       ...(product.variants === undefined ? {} : { variants: product.variants }),
+      ...(product.variantPricing === undefined
+        ? {}
+        : { variantPricing: product.variantPricing }),
       ...(product.imageUrl === undefined ? {} : { imageUrl: product.imageUrl }),
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

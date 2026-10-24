@@ -173,6 +173,9 @@ export function StorefrontCheckoutSuccess({
                       .join(" · ")}
                   </p>
                 )}
+                {item.sku && (
+                  <p className="text-sm text-slate-500">SKU: {item.sku}</p>
+                )}
                 <p className="text-xs text-slate-500">
                   Qty {item.quantity} · {item.slug}
                 </p>

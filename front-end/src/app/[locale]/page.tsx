@@ -42,6 +42,11 @@ export default async function HomePage({ params }: HomePageProps) {
       category?: string | null;
       options?: { name: string; values: string[] }[];
       variants?: { selections: Record<string, string>; stock: number }[];
+      variantPricing?: {
+        selections: Record<string, string>;
+        amount?: number;
+        sku?: string;
+      }[];
       imageUrl?: string | null;
     }> = [];
 
@@ -268,9 +273,12 @@ export default async function HomePage({ params }: HomePageProps) {
                           title: product.title,
                           price: product.price.amount,
                           currency: product.price.currency,
+                          sku: product.sku,
                         }}
+                        locale={locale}
                         options={product.options}
                         variants={product.variants}
+                        variantPricing={product.variantPricing}
                       />
                       <Link
                         className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-white"

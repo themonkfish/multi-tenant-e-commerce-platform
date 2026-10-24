@@ -89,6 +89,7 @@ export async function createStripeCheckoutSession(input: {
               metadata: {
                 productId: item.productId,
                 slug: item.slug,
+                ...(item.sku ? { sku: item.sku } : {}),
               },
             },
           },

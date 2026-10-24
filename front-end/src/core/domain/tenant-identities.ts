@@ -52,6 +52,7 @@ export const CustomerOrderItemSchema = z.object({
   slug: z.string().min(1),
   quantity: z.number().int().positive(),
   variantSelections: ProductVariantSelectionsSchema.optional(),
+  sku: z.string().trim().min(1).max(100).optional(),
   inventoryTracked: z.boolean().optional(),
   unitPrice: z.number().int().nonnegative(),
   currency: z.string().regex(/^[A-Z]{3}$/),

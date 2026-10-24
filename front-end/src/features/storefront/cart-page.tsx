@@ -88,6 +88,7 @@ export function StorefrontCartPage({
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
+            expectedUnitPrice: item.price,
             ...(item.variantSelections
               ? { variantSelections: item.variantSelections }
               : {}),
@@ -112,7 +113,7 @@ export function StorefrontCartPage({
         }
         setError(
           code === "cart_changed"
-            ? "A product changed or is no longer available. Review your cart and try again."
+            ? "A product changed, its price was updated, or it is no longer available. Review your cart and try again."
             : code === "insufficient_stock"
               ? "One or more variants no longer have enough stock. Review your cart and try again."
               : code === "connection_not_configured"
@@ -217,6 +218,9 @@ export function StorefrontCartPage({
                     .map(([name, value]) => `${name}: ${value}`)
                     .join(" · ")}
                 </p>
+              )}
+              {item.sku && (
+                <p className="text-sm text-slate-500">SKU: {item.sku}</p>
               )}
             </div>
             <div className="flex items-center gap-3">
