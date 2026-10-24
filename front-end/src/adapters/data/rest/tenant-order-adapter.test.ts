@@ -223,4 +223,39 @@ describe("RestTenantOrderAdapter", () => {
     );
     await expect(adapter.listOrders(0, 10)).rejects.toThrow("pagination");
   });
+
+  it("sends optional shipment tracking details when marking an order shipped", async () => {
+    const tenantOrder = {
+      id: order.id,
+      tenantId,
+      customerId: order.customerId,
+      status: "Shipped",
+      createdAt: order.createdAt,
+      items: order.items,
+      total: order.total,
+      currency: order.currency,
+      itemCount: order.itemCount,
+    };
+    const fulfillment = {
+      carrier: "Parcel service",
+      trackingNumber: "TRACK-123",
+      trackingUrl: "https://tracking.example.com/TRACK-123",
+    };
+    const transport = mockTransport({ order: tenantOrder }, 200);
+    const adapter = new RestTenantOrderAdapter(
+      config,
+      "api-secret",
+      tenantId,
+      transport,
+    );
+
+    await expect(
+      adapter.updateOrderStatus(order.id, "Shipped", fulfillment),
+    ).resolves.toMatchObject({ ...tenantOrder, fulfillment });
+    expect(transport).toHaveBeenCalledWith(config, "api-secret", {
+      method: "PATCH",
+      path: `/orders/${order.id}`,
+      body: { status: "Shipped", fulfillment },
+    });
+  });
 });

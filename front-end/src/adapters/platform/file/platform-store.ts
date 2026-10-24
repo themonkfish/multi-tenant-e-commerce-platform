@@ -1063,6 +1063,7 @@ export class FilePlatformStore implements PlatformStore {
     tenantId: string;
     orderId: string;
     status: CustomerOrder["status"];
+    fulfillment?: CustomerOrder["fulfillment"];
   }): Promise<CustomerOrder | null> {
     return this.withLock(async () => {
       const state = await this.readState();
@@ -1073,6 +1074,7 @@ export class FilePlatformStore implements PlatformStore {
       );
       if (!order) return null;
       order.status = input.status;
+      if (input.fulfillment) order.fulfillment = input.fulfillment;
       const updated = CustomerOrderSchema.parse(order);
       await this.writeState(state);
       return updated;

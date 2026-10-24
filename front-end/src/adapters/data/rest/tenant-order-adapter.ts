@@ -143,6 +143,7 @@ export class RestTenantOrderAdapter {
   async updateOrderStatus(
     id: string,
     status: TenantOrder["status"],
+    fulfillment?: TenantOrder["fulfillment"],
   ): Promise<TenantOrder> {
     if (!/^ORD-[A-Fa-f0-9-]{36}$/.test(id)) {
       throw new Error("Order ID is invalid");
@@ -150,7 +151,7 @@ export class RestTenantOrderAdapter {
     const response = await this.request({
       method: "PATCH",
       path: `/orders/${id}`,
-      body: { status },
+      body: { status, ...(fulfillment ? { fulfillment } : {}) },
     });
     const order = TenantOrderSchema.parse(
       typeof response.body === "object" &&
@@ -160,7 +161,7 @@ export class RestTenantOrderAdapter {
         : null,
     );
     this.assertTenant(order.tenantId);
-    return order;
+    return fulfillment ? { ...order, fulfillment } : order;
   }
 
   private async request(request: RestHttpRequest): Promise<RestHttpResponse> {

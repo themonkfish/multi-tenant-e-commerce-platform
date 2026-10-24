@@ -1176,10 +1176,14 @@ export class SupabasePlatformStore implements PlatformStore {
     tenantId: string;
     orderId: string;
     status: CustomerOrder["status"];
+    fulfillment?: CustomerOrder["fulfillment"];
   }): Promise<CustomerOrder | null> {
     const { data, error } = await this.client
       .from("platform_customer_orders")
-      .update({ status: input.status })
+      .update({
+        status: input.status,
+        ...(input.fulfillment ? { fulfillment: input.fulfillment } : {}),
+      })
       .eq("tenant_id", input.tenantId)
       .eq("id", input.orderId)
       .select("*")
@@ -1890,6 +1894,7 @@ function customerOrderFromRow(row: {
   payment_session_id: string | null;
   payment_intent_id: string | null;
   delivery_address: unknown;
+  fulfillment: unknown;
   backend_sync_status: string;
   backend_sync_error: string | null;
 }): CustomerOrder {
@@ -1913,6 +1918,7 @@ function customerOrderFromRow(row: {
       ? { paymentIntentId: row.payment_intent_id }
       : {}),
     ...(row.delivery_address ? { deliveryAddress: row.delivery_address } : {}),
+    ...(row.fulfillment ? { fulfillment: row.fulfillment } : {}),
     backendSyncStatus: row.backend_sync_status,
     ...(row.backend_sync_error
       ? { backendSyncError: row.backend_sync_error }

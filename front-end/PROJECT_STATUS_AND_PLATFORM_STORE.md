@@ -51,9 +51,10 @@ Status snapshot as of 2026-10-24:
   Tenant operator with an audit event. Payment retries are idempotent. Variant
   inventory is opt-in and reserved atomically at checkout; failed/expired card
   payments release reservations, while successful card and COD orders consume
-  them. Live card payments and fulfillment remain unimplemented; Stripe
-  Connect onboarding is blocked pending confirmation that India is eligible
-  for the platform country.
+  them. Basic fulfillment tracking is supported when Tenant operators ship an
+  order; live carrier integrations and live card payments remain future work.
+  Stripe Connect onboarding is blocked pending confirmation that India is
+  eligible for the platform country.
 - Tenant Owners can configure AWS S3 or an S3-compatible service with encrypted
   credentials. Catalog writers can upload signature-validated JPEG, PNG, and
   WebP images up to 10 MB; the server generates tenant-scoped object keys and
@@ -115,7 +116,12 @@ Status snapshot as of 2026-10-24:
       pending sync can be retried by the owning Customer.
 - [x] Tenant Owners and explicitly permissioned Staff can list, paginate,
       inspect, and advance Tenant order statuses; Customer order history is
-      updated to reflect operational status changes.
+      updated to reflect operational status changes. Shipment tracking numbers,
+      optional carrier names, and HTTPS tracking links are stored in platform
+      order snapshots and shown in Tenant management and Customer history.
+      Connected REST backends should persist and return the optional
+      `fulfillment` object when
+      `PATCH /{apiVersion}/orders/{orderId}` changes status to `Shipped`.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
@@ -161,7 +167,8 @@ Status snapshot as of 2026-10-24:
       authenticated order creation, confirmation, and history are server-backed.
       Order snapshots sync to the connected Tenant backend with a visible and
       retryable delivery status; Tenant order management supports basic status
-      transitions. Payments and fulfillment are still pending.
+      transitions and optional shipment tracking details. Live payments and
+      carrier integrations are still pending.
 - [x] **Setup wizard:** validates platform-domain and reserved-subdomain input,
       verifies required server security configuration and platform-store
       connectivity before setup, saves platform name/theme/legal links, enrolls
@@ -534,7 +541,8 @@ Before deploying the app:
    all later migrations, including `0012_tenant_domain_verification.sql`,
    `0013_platform_setup_settings.sql`, and
    `0014_tenant_database_providers.sql`, `0015_cash_on_delivery.sql`, and
-   `0016_tenant_storage_providers.sql`.
+   `0016_tenant_storage_providers.sql`, and
+   `0017_order_fulfillment_tracking.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

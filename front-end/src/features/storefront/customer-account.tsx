@@ -130,6 +130,29 @@ export function StorefrontCustomerAccount({
                     {order.deliveryAddress.line1}, {order.deliveryAddress.city}
                   </p>
                 )}
+                {"fulfillment" in order && order.fulfillment && (
+                  <div className="mt-3 rounded-md border border-indigo-100 bg-indigo-50 p-3 text-sm">
+                    <p className="font-medium text-slate-900">
+                      Shipment tracking
+                    </p>
+                    <p className="mt-1 text-slate-700">
+                      {order.fulfillment.carrier
+                        ? `${order.fulfillment.carrier} · `
+                        : ""}
+                      {order.fulfillment.trackingNumber}
+                    </p>
+                    {order.fulfillment.trackingUrl && (
+                      <a
+                        className="mt-1 inline-block font-medium text-indigo-700 underline"
+                        href={order.fulfillment.trackingUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Track shipment
+                      </a>
+                    )}
+                  </div>
+                )}
                 {customer &&
                   "backendSyncStatus" in order &&
                   order.backendSyncStatus !== "synced" && (

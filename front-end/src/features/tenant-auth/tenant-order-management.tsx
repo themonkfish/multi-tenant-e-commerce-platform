@@ -24,6 +24,8 @@ function errorMessage(body: unknown): string {
     return "Could not load tenant orders.";
   }
   switch (body.error) {
+    case "invalid_input":
+      return "Enter a tracking number and a valid HTTPS tracking URL.";
     case "connection_not_configured":
       return "Connect the Tenant REST backend in store setup to manage orders.";
     case "tenant_backend_error":
@@ -56,6 +58,9 @@ export function TenantOrderManagement({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [cashError, setCashError] = useState("");
+  const [carrier, setCarrier] = useState("");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [trackingUrl, setTrackingUrl] = useState("");
 
   const loadOrders = useCallback(
     async (pageNumber: number) => {
@@ -141,7 +146,10 @@ export function TenantOrderManagement({
     };
   }, [cashPage, loadCashOrders, loadOrders, page]);
 
-  async function updateStatus(order: TenantOrder) {
+  async function updateStatus(
+    order: TenantOrder,
+    fulfillment?: NonNullable<TenantOrder["fulfillment"]>,
+  ) {
     const nextStatus = order.status === "Confirmed" ? "Processing" : "Shipped";
     setBusy(true);
     setError("");
@@ -150,7 +158,11 @@ export function TenantOrderManagement({
       const response = await fetch("/api/tenant/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, status: nextStatus }),
+        body: JSON.stringify({
+          orderId: order.id,
+          status: nextStatus,
+          ...(fulfillment ? { fulfillment } : {}),
+        }),
       });
       const body: unknown = await response.json();
       if (!response.ok) {
@@ -166,7 +178,17 @@ export function TenantOrderManagement({
         return;
       }
       setSelected(parsed.data);
-      setNotice(`Order status updated to ${parsed.data.status}.`);
+      setCarrier(parsed.data.fulfillment?.carrier ?? "");
+      setTrackingNumber(parsed.data.fulfillment?.trackingNumber ?? "");
+      setTrackingUrl(parsed.data.fulfillment?.trackingUrl ?? "");
+      setCarrier(parsed.data.fulfillment?.carrier ?? "");
+      setTrackingNumber(parsed.data.fulfillment?.trackingNumber ?? "");
+      setTrackingUrl(parsed.data.fulfillment?.trackingUrl ?? "");
+      setNotice(
+        parsed.data.fulfillment
+          ? "Order shipped and tracking details saved."
+          : `Order status updated to ${parsed.data.status}.`,
+      );
       await loadOrders(page);
     } catch {
       setError("Could not reach the Tenant backend.");
@@ -477,6 +499,29 @@ export function TenantOrderManagement({
               <dd className="font-medium">{selected.status}</dd>
             </div>
           </dl>
+          {selected.fulfillment && (
+            <div className="rounded-md border border-indigo-100 bg-indigo-50 p-4 text-sm">
+              <h3 className="font-semibold text-slate-900">
+                Shipment tracking
+              </h3>
+              <p className="mt-1 text-slate-700">
+                {selected.fulfillment.carrier
+                  ? `${selected.fulfillment.carrier} · `
+                  : ""}
+                {selected.fulfillment.trackingNumber}
+              </p>
+              {selected.fulfillment.trackingUrl && (
+                <a
+                  className="mt-2 inline-block font-medium text-indigo-700 underline"
+                  href={selected.fulfillment.trackingUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Track shipment
+                </a>
+              )}
+            </div>
+          )}
           <ul className="divide-y divide-slate-100 rounded border">
             {selected.items.map((item) => (
               <li
@@ -513,19 +558,92 @@ export function TenantOrderManagement({
               </span>
             </li>
           </ul>
-          {canManage && selected.status !== "Shipped" && (
+          {canManage && selected.status === "Confirmed" && (
             <button
               className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               disabled={busy}
               onClick={() => void updateStatus(selected)}
               type="button"
             >
-              {busy
-                ? "Updating…"
-                : selected.status === "Confirmed"
-                  ? "Mark as processing"
-                  : "Mark as shipped"}
+              {busy ? "Updating…" : "Mark as processing"}
             </button>
+          )}
+          {canManage && selected.status !== "Confirmed" && (
+            <div className="space-y-3 rounded-md border border-slate-200 p-4">
+              <h3 className="font-medium text-slate-900">
+                Shipment details (optional)
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="space-y-1 text-sm">
+                  <span className="block font-medium">Carrier</span>
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    maxLength={80}
+                    onChange={(event) => setCarrier(event.target.value)}
+                    value={carrier}
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="block font-medium">Tracking number</span>
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    maxLength={120}
+                    onChange={(event) => setTrackingNumber(event.target.value)}
+                    value={trackingNumber}
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="block font-medium">
+                    Tracking URL (HTTPS)
+                  </span>
+                  <input
+                    className="w-full rounded border px-3 py-2"
+                    maxLength={2048}
+                    onChange={(event) => setTrackingUrl(event.target.value)}
+                    placeholder="https://…"
+                    type="url"
+                    value={trackingUrl}
+                  />
+                </label>
+              </div>
+              <button
+                className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                disabled={busy}
+                onClick={() => {
+                  const hasTrackingDetails =
+                    carrier.trim() ||
+                    trackingNumber.trim() ||
+                    trackingUrl.trim();
+                  if (hasTrackingDetails && !trackingNumber.trim()) {
+                    setError(
+                      "Enter a tracking number to save shipment details.",
+                    );
+                    return;
+                  }
+                  void updateStatus(
+                    selected,
+                    trackingNumber.trim()
+                      ? {
+                          trackingNumber: trackingNumber.trim(),
+                          ...(carrier.trim()
+                            ? { carrier: carrier.trim() }
+                            : {}),
+                          ...(trackingUrl.trim()
+                            ? { trackingUrl: trackingUrl.trim() }
+                            : {}),
+                        }
+                      : undefined,
+                  );
+                }}
+                type="button"
+              >
+                {busy
+                  ? "Updating…"
+                  : selected.status === "Shipped"
+                    ? "Save tracking details"
+                    : "Mark as shipped"}
+              </button>
+            </div>
           )}
           <p className="text-xs text-slate-500">
             Status updates are operational labels only; no payment or shipping

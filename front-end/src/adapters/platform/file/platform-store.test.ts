@@ -1357,6 +1357,28 @@ describe("FilePlatformStore", () => {
         limit: 20,
       }),
     ).resolves.toMatchObject({ data: [], meta: { total: 0 } });
+    const fulfillment = {
+      carrier: "Parcel service",
+      trackingNumber: "TRACK-123",
+      trackingUrl: "https://tracking.example.com/TRACK-123",
+    };
+    await expect(
+      store.updateCustomerOrderStatus({
+        tenantId,
+        orderId: order.id,
+        status: "Shipped",
+        fulfillment,
+      }),
+    ).resolves.toMatchObject({
+      id: order.id,
+      status: "Shipped",
+      fulfillment,
+    });
+    await expect(
+      store.listCustomerOrders(tenantId, customerId),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: order.id, fulfillment }),
+    ]);
 
     const state = JSON.parse(await readFile(filePath, "utf8"));
     expect(state.auditEvents).toContainEqual(auditEvent);

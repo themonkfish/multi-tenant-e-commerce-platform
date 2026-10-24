@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
 import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
 import { canAccessPermission } from "@/core/tenancy/scope";
+import { OrderFulfillmentSchema } from "@/core/domain/tenant-identities";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantPortalSession } from "@/lib/server/session";
@@ -10,7 +11,10 @@ import { z } from "zod";
 
 const OrderIdSchema = z.string().regex(/^ORD-[A-Fa-f0-9-]{36}$/);
 const UpdateOrderSchema = z
-  .object({ status: z.enum(["Processing", "Shipped"]) })
+  .object({
+    status: z.enum(["Processing", "Shipped"]),
+    fulfillment: OrderFulfillmentSchema.optional(),
+  })
   .strict();
 
 function backendError(error: unknown) {
@@ -114,6 +118,10 @@ export async function PATCH(request: Request) {
       ...UpdateOrderSchema.shape,
     })
     .strict()
+    .refine(
+      (update) => !update.fulfillment || update.status === "Shipped",
+      "Shipment tracking details can only be saved when shipping an order",
+    )
     .safeParse(rawBody);
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
@@ -122,7 +130,7 @@ export async function PATCH(request: Request) {
   const allowed = await store.consumeRateLimit({
     key: createRateLimitKey(
       request,
-      "tenant-order-status-update",
+      "tenant-order-fulfillment-update",
       session.userId,
     ),
     limit: 30,
@@ -140,18 +148,24 @@ export async function PATCH(request: Request) {
     const order = await adapter.updateOrderStatus(
       parsed.data.orderId,
       parsed.data.status,
+      parsed.data.fulfillment,
     );
     const platformOrder = await store.updateCustomerOrderStatus({
       tenantId: session.scope.id,
       orderId: order.id,
       status: order.status,
+      ...(parsed.data.fulfillment
+        ? { fulfillment: parsed.data.fulfillment }
+        : {}),
     });
     if (platformOrder) {
       await store.appendAuditEvent({
         id: randomUUID(),
         actorId: session.userId,
         scope: session.scope,
-        action: "tenant.order.status_updated",
+        action: parsed.data.fulfillment
+          ? "tenant.order.fulfillment_updated"
+          : "tenant.order.status_updated",
         resourceType: "customer_order",
         resourceId: order.id,
         createdAt: new Date().toISOString(),

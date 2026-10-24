@@ -211,6 +211,7 @@ export interface PlatformStore
     tenantId: string;
     orderId: string;
     status: CustomerOrder["status"];
+    fulfillment?: CustomerOrder["fulfillment"];
   }): Promise<CustomerOrder | null>;
   listCustomerOrders(
     tenantId: string,

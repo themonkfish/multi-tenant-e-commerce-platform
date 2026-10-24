@@ -71,6 +71,21 @@ export type CustomerDeliveryAddress = z.infer<
   typeof CustomerDeliveryAddressSchema
 >;
 
+export const OrderFulfillmentSchema = z
+  .object({
+    carrier: z.string().trim().min(1).max(80).optional(),
+    trackingNumber: z.string().trim().min(1).max(120),
+    trackingUrl: z
+      .url()
+      .max(2048)
+      .refine((value) => new URL(value).protocol === "https:", {
+        message: "Tracking URLs must use HTTPS",
+      })
+      .optional(),
+  })
+  .strict();
+export type OrderFulfillment = z.infer<typeof OrderFulfillmentSchema>;
+
 const CustomerOrderBaseSchema = z.object({
   id: z.string().min(1).max(100),
   tenantId: z.uuid(),
@@ -89,6 +104,7 @@ const CustomerOrderBaseSchema = z.object({
   paymentSessionId: z.string().min(1).optional(),
   paymentIntentId: z.string().min(1).optional(),
   deliveryAddress: CustomerDeliveryAddressSchema.optional(),
+  fulfillment: OrderFulfillmentSchema.optional(),
   backendSyncStatus: z
     .enum(["not_configured", "pending", "synced", "failed"])
     .default("not_configured"),

@@ -364,6 +364,7 @@ export type PlatformDatabase = {
           payment_attempt: number;
           payment_session_id: string | null;
           payment_intent_id: string | null;
+          fulfillment: Json | null;
           backend_sync_status:
             "not_configured" | "pending" | "synced" | "failed";
           backend_sync_error: string | null;
@@ -384,6 +385,7 @@ export type PlatformDatabase = {
           payment_attempt?: number;
           payment_session_id?: string | null;
           payment_intent_id?: string | null;
+          fulfillment?: Json | null;
           backend_sync_status?:
             "not_configured" | "pending" | "synced" | "failed";
           backend_sync_error?: string | null;
@@ -396,6 +398,7 @@ export type PlatformDatabase = {
           payment_attempt?: number;
           payment_session_id?: string | null;
           payment_intent_id?: string | null;
+          fulfillment?: Json | null;
           backend_sync_status?:
             "not_configured" | "pending" | "synced" | "failed";
           backend_sync_error?: string | null;
