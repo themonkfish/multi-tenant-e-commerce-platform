@@ -17,7 +17,7 @@ const PreflightResponseSchema = z.object({
   platformStore: z.enum(["file", "supabase"]),
   connection: z.literal("ready"),
   securityConfiguration: z.literal("ready"),
-  invitations: z.literal("manual"),
+  invitations: z.enum(["email", "manual", "misconfigured"]),
 });
 
 type WizardState =
@@ -213,8 +213,8 @@ export function SetupWizard() {
               invite its owner.
             </li>
             <li>
-              Share the one-time invitation link manually; email delivery is not
-              configured.
+              Invitations are emailed when configured; otherwise, share the
+              one-time link manually.
             </li>
           </ol>
         </div>
@@ -409,8 +409,9 @@ export function SetupWizard() {
       <div className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
         <h3 className="font-semibold">Invitation delivery</h3>
         <p className="text-slate-600">
-          Email delivery is not configured. Host and Tenant invitations are
-          created as one-time links to share manually.
+          Configure RESEND_API_KEY and INVITATION_EMAIL_FROM in the server
+          environment to email Host and Tenant invitations. One-time links
+          remain available as a fallback.
         </p>
       </div>
       <button
@@ -427,7 +428,12 @@ export function SetupWizard() {
       {preflight && (
         <p className="text-sm text-green-800" role="status">
           {preflight.platformStore} platform store is reachable; required
-          security configuration is present. Invitations will be manual.
+          security configuration is present.{" "}
+          {preflight.invitations === "email"
+            ? "Invitation email delivery is configured."
+            : preflight.invitations === "misconfigured"
+              ? "Invitation email settings are incomplete; invitations can still be shared manually."
+              : "Invitation emails are not configured; invitations can be shared manually."}
         </p>
       )}
       {error && (

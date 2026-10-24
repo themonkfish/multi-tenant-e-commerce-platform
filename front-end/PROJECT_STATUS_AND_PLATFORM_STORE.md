@@ -16,7 +16,8 @@ Status snapshot as of 2026-10-24:
   reserved-subdomain checks, and the setup wizard accepts a custom reserved
   subdomain list to avoid deployment misconfiguration. The wizard also checks
   platform-store/security readiness, saves platform branding/legal links, and
-  provides first-Host guidance. Invitation email delivery remains manual.
+  provides first-Host guidance. Host and Tenant owner invitations can be sent
+  through Resend, with one-time links retained as manual fallbacks.
 - The file-store developer path is fully usable locally; the Supabase platform
   store is the supported production path once the required migration set is
   applied.
@@ -204,9 +205,9 @@ Status snapshot as of 2026-10-24:
 2. **P1 — Tenant provisioning and platform configuration**
    - Finish tenant storefront provisioning and the managed tenant
      settings flow.
-   - Add an email provider when automated invitation delivery is required;
-     setup verification, theme/legal settings, and first-host guidance are
-     implemented. Reserved-domain validation is centralized.
+   - Setup verification, theme/legal settings, first-host guidance, and
+     Resend-backed Host/Tenant invitation emails are implemented.
+     Reserved-domain validation is centralized.
    - Extend the Tenant Owner portal with storage, payment, catalog, and staff
      configuration controls.
 
@@ -263,10 +264,11 @@ Status snapshot as of 2026-10-24:
 - [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
       portal with backend, storage, payment, catalog, and staff settings.
 - [x] Complete the setup wizard's connection check, platform theme/legal
-      settings, manual invitation-delivery notice, and first-host guidance.
+      settings, invitation-email readiness status, and first-host guidance.
       Reserved-domain configuration is implemented and centralized.
-- [ ] Configure an email provider for automated Host/Tenant invitation
-      delivery; manual one-time invitation links remain available.
+- [x] Configure Resend-backed Host/Tenant invitation delivery. Manual
+      one-time invitation links remain available when email is unconfigured or
+      delivery fails.
 - [ ] Add automated Supabase migration and deployment checks.
 
 #### Tenant data and integrations
@@ -359,6 +361,8 @@ implemented by selecting a platform-store option.
 | `SESSION_SECRET`                | Required in production; needed for sessions          | At least 32 characters. Signs Super Admin session tokens; changing it invalidates existing sessions.                                                        |
 | `SETUP_TOKEN`                   | Before initial setup                                 | Random, single-use bootstrap proof, at least 32 characters. Remove it from the deployment environment after setup completes.                                |
 | `NEXT_PUBLIC_PLATFORM_DOMAIN`   | Optional                                             | Public platform hostname setting. It is not a tenant-domain resolver; the current setup flow persists the platform domain that is entered during bootstrap. |
+| `RESEND_API_KEY`                | Optional for invitation email                        | Server-only API key used to deliver Host/Tenant invitations through Resend.                                                                                 |
+| `INVITATION_EMAIL_FROM`         | With `RESEND_API_KEY`                                | Verified sender address/name, such as `Platform <noreply@example.com>`. Leave both values blank for manual invitation links.                                |
 | `NODE_ENV`                      | Set by Next.js                                       | Use the standard `development`, `test`, or `production` values.                                                                                             |
 
 Do not put tenant-specific backend, storage, or payment secrets in this file;
@@ -398,17 +402,21 @@ features are implemented.
 5. Open `http://localhost:3000/en/setup`, enter the value of `SETUP_TOKEN`,
    create the first Super Admin, and enroll an authenticator. Save the
    recovery codes. After setup, remove `SETUP_TOKEN` from `.env.local`.
-6. Sign in at `http://localhost:3000/en/super-admin`, create a host, and
+6. Optional: configure `RESEND_API_KEY` and `INVITATION_EMAIL_FROM` to deliver
+   invitations through Resend. Without both values, the app provides a
+   one-time link for manual sharing.
+7. Sign in at `http://localhost:3000/en/super-admin`, create a host, and
    activate it.
-7. Invite its owner and securely share the generated URL; email delivery is
-   not configured. Open the link, set a password of at least 14 characters,
+8. Invite its owner; the invitation is emailed when configured, and the
+   one-time URL remains available as a fallback. Open the link, set a password
+   of at least 14 characters,
    then use `http://localhost:3000/en/host` to manage tenants.
-8. Activate a tenant, invite its owner from that tenant's row, and securely
-   share the generated link. The owner sets a password of at least 14
+9. Activate a tenant and invite its owner from that tenant's row. The owner
+   sets a password of at least 14
    characters and signs in at `http://localhost:3000/en/tenant`.
-9. Tenant Owners can save the store display name, description, HTTPS logo URL,
-   brand colors, locales, and currencies from Brand and localization.
-10. In Store setup, configure the REST backend's HTTPS base URL, API version
+10. Tenant Owners can save the store display name, description, HTTPS logo URL,
+    brand colors, locales, and currencies from Brand and localization.
+11. In Store setup, configure the REST backend's HTTPS base URL, API version
     (for example `v1`), and API key. Save, then use **Test saved connection**.
     The tenant backend must expose `GET /{apiVersion}/health` and return JSON
     with a non-empty `status` plus `db` and `storage` set to `up` or `down`.
@@ -431,7 +439,7 @@ features are implemented.
     Only dedicated
     Supabase projects and dedicated MongoDB databases are currently supported;
     shared-database tenancy modes are not enabled for these direct credentials.
-11. A Tenant Owner session can also exercise the catalog API:
+12. A Tenant Owner session can also exercise the catalog API:
     `GET /api/tenant/products?page=1&limit=20`,
     `POST /api/tenant/products`, and
     `GET`/`PATCH`/`DELETE /api/tenant/products/{productId}`. These routes
@@ -502,6 +510,9 @@ PLATFORM_SECRET_KEY=<64-hex-characters-or-32-byte-base64>
 SESSION_SECRET=<at-least-32-random-characters>
 SETUP_TOKEN=<at-least-32-random-characters-before-first-setup>
 NEXT_PUBLIC_PLATFORM_DOMAIN=<your-platform-hostname>
+# Optional; both are required for automated invitations via Resend.
+RESEND_API_KEY=<server-only-resend-api-key>
+INVITATION_EMAIL_FROM=Platform <noreply@example.com>
 ```
 
 Generate secrets on a trusted machine; for example, PowerShell commands in the
@@ -534,10 +545,10 @@ Before deploying the app:
    the runtime configuration. The app does not currently rotate or remove the
    hosting provider's environment variable automatically.
 6. Sign in at `/en/super-admin`, create and activate hosts, then invite Host
-   Owners. Share invitation URLs manually until an email provider is configured.
+   Owners. Invitations are emailed if Resend is configured; otherwise, share
+   the one-time invitation links manually.
 7. Host Owners can create and activate tenants, invite one Tenant Owner per
-   tenant, and share the generated invitation URL manually. Tenant Owners sign
-   in at `/en/tenant`.
+   tenant. Tenant Owners sign in at `/en/tenant`.
 
 If production setup fails, check server logs for missing environment
 configuration and confirm migrations completed. Do not solve setup errors by

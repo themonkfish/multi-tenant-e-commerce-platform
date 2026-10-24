@@ -11,6 +11,10 @@ import {
 } from "@/core/domain/host-portal";
 
 const TenantResponseSchema = z.object({ tenant: TenantRecordSchema });
+const InviteResponseSchema = z.object({
+  inviteUrl: z.url(),
+  deliveryStatus: z.enum(["sent", "not_configured", "failed"]),
+});
 const DomainClaimResponseSchema = z.object({
   claim: TenantDomainClaimSchema,
   dns: z.object({
@@ -93,6 +97,9 @@ function describeTenantError(code: unknown): string {
 
 function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
   const [inviteUrl, setInviteUrl] = useState("");
+  const [deliveryStatus, setDeliveryStatus] = useState<
+    "sent" | "not_configured" | "failed" | ""
+  >("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -104,6 +111,7 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
     setBusy(true);
     setError("");
     setInviteUrl("");
+    setDeliveryStatus("");
     setCopied(false);
     try {
       const response = await fetch(`/api/host/tenants/${tenant.id}/invite`, {
@@ -121,16 +129,13 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
         );
         return;
       }
-      if (
-        typeof body !== "object" ||
-        body === null ||
-        !("inviteUrl" in body) ||
-        typeof body.inviteUrl !== "string"
-      ) {
+      const parsed = InviteResponseSchema.safeParse(body);
+      if (!parsed.success) {
         setError("The server returned an invalid invitation.");
         return;
       }
-      setInviteUrl(body.inviteUrl);
+      setInviteUrl(parsed.data.inviteUrl);
+      setDeliveryStatus(parsed.data.deliveryStatus);
       formElement.reset();
     } catch {
       setError("The request could not reach the server. Please try again.");
@@ -180,8 +185,11 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
       {inviteUrl && (
         <div className="space-y-2 rounded-md bg-indigo-50 p-3">
           <p className="text-sm text-indigo-950">
-            Securely share this single-use invite link. It expires in 24 hours.
-            Email delivery is not configured.
+            {deliveryStatus === "sent"
+              ? "Invitation email sent. This one-time fallback link expires in 24 hours."
+              : deliveryStatus === "failed"
+                ? "Email delivery failed. Share this one-time link securely; it expires in 24 hours."
+                : "Email is not configured. Share this one-time link securely; it expires in 24 hours."}
           </p>
           <input
             aria-label="One-time tenant owner invitation link"

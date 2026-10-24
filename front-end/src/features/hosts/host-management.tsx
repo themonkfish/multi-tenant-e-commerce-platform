@@ -9,6 +9,10 @@ import {
 import { z } from "zod";
 
 const HostResponseSchema = z.object({ host: HostConfigSchema });
+const InviteResponseSchema = z.object({
+  inviteUrl: z.url(),
+  deliveryStatus: z.enum(["sent", "not_configured", "failed"]),
+});
 
 function describeHostError(error: unknown): string {
   if (error === "reserved_host_slug") {
@@ -40,6 +44,9 @@ function getErrorCode(body: unknown): unknown {
 
 function HostOwnerInviteForm({ host }: { host: HostConfig }) {
   const [inviteUrl, setInviteUrl] = useState("");
+  const [deliveryStatus, setDeliveryStatus] = useState<
+    "sent" | "not_configured" | "failed" | ""
+  >("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,6 +58,7 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
     setBusy(true);
     setError("");
     setInviteUrl("");
+    setDeliveryStatus("");
     setCopied(false);
     try {
       const response = await fetch(`/api/platform/hosts/${host.id}/invite`, {
@@ -70,16 +78,13 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
         );
         return;
       }
-      if (
-        typeof body !== "object" ||
-        body === null ||
-        !("inviteUrl" in body) ||
-        typeof body.inviteUrl !== "string"
-      ) {
+      const parsed = InviteResponseSchema.safeParse(body);
+      if (!parsed.success) {
         setError("The server returned an invalid invitation.");
         return;
       }
-      setInviteUrl(body.inviteUrl);
+      setInviteUrl(parsed.data.inviteUrl);
+      setDeliveryStatus(parsed.data.deliveryStatus);
       formElement.reset();
     } catch {
       setError("The request could not reach the server. Please try again.");
@@ -129,8 +134,11 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
       {inviteUrl && (
         <div className="space-y-1 rounded-md bg-indigo-50 p-3">
           <p className="text-sm font-medium text-indigo-950">
-            Invitation link — send it securely. Expires in 24 hours and can be
-            used once.
+            {deliveryStatus === "sent"
+              ? "Invitation email sent. This one-time fallback link expires in 24 hours."
+              : deliveryStatus === "failed"
+                ? "Email delivery failed. Share this one-time link securely; it expires in 24 hours."
+                : "Email is not configured. Share this one-time link securely; it expires in 24 hours."}
           </p>
           <input
             aria-label="One-time host owner invitation link"

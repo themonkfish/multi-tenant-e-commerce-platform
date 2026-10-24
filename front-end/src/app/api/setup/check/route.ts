@@ -63,6 +63,11 @@ export async function POST(request: Request) {
     platformStore: env.PLATFORM_STORE,
     connection: "ready",
     securityConfiguration: "ready",
-    invitations: "manual",
+    invitations:
+      env.RESEND_API_KEY && env.INVITATION_EMAIL_FROM
+        ? "email"
+        : env.RESEND_API_KEY || env.INVITATION_EMAIL_FROM
+          ? "misconfigured"
+          : "manual",
   });
 }

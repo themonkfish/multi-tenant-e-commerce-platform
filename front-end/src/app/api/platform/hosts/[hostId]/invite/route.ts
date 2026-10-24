@@ -6,6 +6,8 @@ import { hashToken } from "@/lib/server/crypto";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getSuperAdminSession } from "@/lib/server/session";
 import { canAccessPermission } from "@/core/tenancy/scope";
+import { sendInvitationEmail } from "@/lib/server/invitation-email";
+import { createInvitationUrl } from "@/lib/server/invitation-links";
 
 const InviteSchema = z.object({
   email: z.email().transform((email) => email.trim().toLowerCase()),
@@ -104,12 +106,22 @@ export async function POST(request: Request, { params }: InviteRouteProps) {
     throw error;
   }
 
-  const inviteUrl = new URL(
-    `/en/host/accept-invite?token=${encodeURIComponent(token)}`,
-    request.url,
-  ).toString();
+  const setupState = await store.getSetupState();
+  const inviteUrl = createInvitationUrl(
+    request,
+    setupState.platformDomain,
+    "/en/host/accept-invite",
+    token,
+  );
+  const deliveryStatus = await sendInvitationEmail({
+    role: "host_owner",
+    to: invite.email,
+    inviteUrl,
+    expiresAt: invite.expiresAt,
+  });
   return NextResponse.json({
     inviteUrl,
     expiresAt: invite.expiresAt,
+    deliveryStatus,
   });
 }

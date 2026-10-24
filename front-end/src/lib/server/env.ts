@@ -13,6 +13,14 @@ const ServerEnvSchema = z.object({
   SESSION_SECRET: z.string().min(32).optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  RESEND_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  INVITATION_EMAIL_FROM: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
   DEMO_CHECKOUT_ENABLED: z
     .enum(["true", "false"])
     .default("false")
