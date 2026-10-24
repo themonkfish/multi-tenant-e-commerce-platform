@@ -64,7 +64,16 @@ export async function createStripeCheckoutSession(input: {
           currency: item.currency.toLowerCase(),
           unit_amount: item.unitPrice,
           product_data: {
-            name: item.title,
+            name: [
+              item.title,
+              item.variantSelections
+                ? Object.entries(item.variantSelections)
+                    .map(([name, value]) => `${name}: ${value}`)
+                    .join(", ")
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" — "),
             metadata: {
               productId: item.productId,
               slug: item.slug,

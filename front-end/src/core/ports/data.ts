@@ -3,6 +3,11 @@ export type Money = {
   currency: string;
 };
 
+export type ProductOption = {
+  name: string;
+  values: string[];
+};
+
 export type Paginated<T> = {
   data: T[];
   meta: { page: number; limit: number; total: number };
@@ -17,6 +22,7 @@ export type Product = {
   price: Money;
   sku?: string;
   category?: string | null;
+  options?: ProductOption[];
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;

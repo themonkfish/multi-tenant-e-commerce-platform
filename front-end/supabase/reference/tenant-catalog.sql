@@ -10,6 +10,8 @@ create table if not exists public.tenant_products (
   category text check (
     category is null or char_length(category) between 1 and 80
   ),
+  options jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(options) = 'array'),
   image_url text check (
     image_url is null or
     (image_url ~ '^https://' and char_length(image_url) <= 2048)
@@ -29,6 +31,10 @@ alter table public.tenant_products
 alter table public.tenant_products
   add column if not exists category text
   check (category is null or char_length(category) between 1 and 80);
+
+alter table public.tenant_products
+  add column if not exists options jsonb not null default '[]'::jsonb
+  check (jsonb_typeof(options) = 'array');
 
 create index if not exists tenant_products_tenant_created_idx
   on public.tenant_products (tenant_id, created_at desc);
@@ -80,18 +86,18 @@ begin
     if existing_tenant_id <> p_tenant_id then
       raise exception 'This Supabase project is initialized for another tenant';
     end if;
-    if existing_version < 3 then
+    if existing_version < 4 then
       update public.tenant_schema_metadata
-        set version = 3, updated_at = now()
+        set version = 4, updated_at = now()
         where id = 'tenant-catalog';
-      return 3;
+      return 4;
     end if;
     return existing_version;
   end if;
 
   insert into public.tenant_schema_metadata (id, tenant_id, version, updated_at)
-    values ('tenant-catalog', p_tenant_id, 3, now());
-  return 3;
+    values ('tenant-catalog', p_tenant_id, 4, now());
+  return 4;
 end;
 $$;
 

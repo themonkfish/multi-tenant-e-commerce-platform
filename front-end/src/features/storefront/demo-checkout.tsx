@@ -65,10 +65,17 @@ export function StorefrontDemoCheckout({
         {order.items.map((item) => (
           <li
             className="flex justify-between gap-4 py-3 text-sm"
-            key={item.productId}
+            key={`${item.productId}:${JSON.stringify(item.variantSelections ?? {})}`}
           >
             <span className="text-slate-700">
               {item.title} × {item.quantity}
+              {item.variantSelections && (
+                <span className="block text-xs text-slate-500">
+                  {Object.entries(item.variantSelections)
+                    .map(([name, value]) => `${name}: ${value}`)
+                    .join(" · ")}
+                </span>
+              )}
             </span>
             <span className="font-medium text-slate-900">
               {formatCurrencyAmount(

@@ -40,6 +40,7 @@ export default async function HomePage({ params }: HomePageProps) {
       price: { amount: number; currency: string };
       sku?: string;
       category?: string | null;
+      options?: { name: string; values: string[] }[];
       imageUrl?: string | null;
     }> = [];
 
@@ -267,7 +268,7 @@ export default async function HomePage({ params }: HomePageProps) {
                           price: product.price.amount,
                           currency: product.price.currency,
                         }}
-                        locale={locale}
+                        options={product.options}
                       />
                       <Link
                         className="inline-flex rounded-md px-3 py-2 text-sm font-medium text-white"

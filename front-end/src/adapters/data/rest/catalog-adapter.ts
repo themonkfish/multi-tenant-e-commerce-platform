@@ -8,7 +8,11 @@ import type {
   CatalogPort,
 } from "@/core/ports/data";
 import { TenantDataBackendError } from "@/core/ports/data";
-import { ProductInputSchema, ProductUpdateSchema } from "@/core/domain/product";
+import {
+  ProductInputSchema,
+  ProductOptionsSchema,
+  ProductUpdateSchema,
+} from "@/core/domain/product";
 import type { TenantRestDataProviderConfig } from "@/core/domain/tenant-config";
 import {
   requestSafeRestBackend,
@@ -37,6 +41,7 @@ const ProductSchema = z.object({
   price: MoneySchema,
   sku: z.string().optional(),
   category: z.string().min(1).max(80).nullable().optional(),
+  options: ProductOptionsSchema.optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)

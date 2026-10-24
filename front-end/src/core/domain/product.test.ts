@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ProductInputSchema, ProductUpdateSchema } from "./product";
+import {
+  ProductInputSchema,
+  ProductOptionsSchema,
+  ProductVariantSelectionsSchema,
+  ProductUpdateSchema,
+} from "./product";
 
 const product = {
   title: "Canvas bag",
@@ -42,6 +47,60 @@ describe("product image URL", () => {
       ProductInputSchema.safeParse({
         ...product,
         category: "x".repeat(81),
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("product options", () => {
+  it("accepts bounded option groups and normalizes their text", () => {
+    expect(
+      ProductInputSchema.parse({
+        ...product,
+        options: [{ name: " Size ", values: [" S ", "M"] }],
+      }).options,
+    ).toEqual([{ name: "Size", values: ["S", "M"] }]);
+    expect(
+      ProductUpdateSchema.parse({
+        options: [{ name: "Color", values: ["Black", "Blue"] }],
+      }).options,
+    ).toEqual([{ name: "Color", values: ["Black", "Blue"] }]);
+  });
+
+  it("rejects duplicate names or values and excessive options", () => {
+    expect(
+      ProductOptionsSchema.safeParse([
+        { name: "Size", values: ["S"] },
+        { name: "size", values: ["M"] },
+      ]).success,
+    ).toBe(false);
+    expect(
+      ProductOptionsSchema.safeParse([
+        { name: "Color", values: ["Black", "black"] },
+      ]).success,
+    ).toBe(false);
+    expect(
+      ProductOptionsSchema.safeParse(
+        Array.from({ length: 4 }, (_, index) => ({
+          name: `Option ${index}`,
+          values: ["Value"],
+        })),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("bounds the number and length of variant selections", () => {
+    expect(
+      ProductVariantSelectionsSchema.safeParse({
+        One: "1",
+        Two: "2",
+        Three: "3",
+        Four: "4",
+      }).success,
+    ).toBe(false);
+    expect(
+      ProductVariantSelectionsSchema.safeParse({
+        ["x".repeat(41)]: "value",
       }).success,
     ).toBe(false);
   });

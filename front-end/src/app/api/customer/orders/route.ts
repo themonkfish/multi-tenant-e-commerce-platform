@@ -6,6 +6,7 @@ import {
   CustomerDeliveryAddressSchema,
   CustomerOrderSchema,
 } from "@/core/domain/tenant-identities";
+import { ProductVariantSelectionsSchema } from "@/core/domain/product";
 import type { Product } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
@@ -38,17 +39,24 @@ const CreateOrderSchema = z
             .max(128)
             .regex(/^[A-Za-z0-9_-]+$/),
           quantity: z.number().int().min(1).max(100),
+          variantSelections: ProductVariantSelectionsSchema.optional(),
         }),
       )
       .min(1)
       .max(20),
   })
   .strict()
-  .refine(
-    ({ items }) =>
-      new Set(items.map((item) => item.productId)).size === items.length,
-    "Cart items must contain unique product IDs",
-  )
+  .refine(({ items }) => {
+    const keys = items.map((item) =>
+      JSON.stringify([
+        item.productId,
+        Object.entries(item.variantSelections ?? {}).sort(([a], [b]) =>
+          a.localeCompare(b),
+        ),
+      ]),
+    );
+    return new Set(keys).size === keys.length;
+  }, "Cart items must contain unique product variants")
   .refine(
     ({ items }) =>
       items.reduce((total, item) => total + item.quantity, 0) <= 100,
@@ -85,6 +93,29 @@ function sameDeliveryAddress(
     left.postalCode === right.postalCode &&
     left.country === right.country &&
     left.phone === right.phone
+  );
+}
+
+function sameVariantSelections(
+  left: Record<string, string> | undefined,
+  right: Record<string, string> | undefined,
+): boolean {
+  const sorted = (value: Record<string, string> | undefined) =>
+    Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify(sorted(left)) === JSON.stringify(sorted(right));
+}
+
+function selectionsMatchProduct(
+  product: Product,
+  selections: Record<string, string> | undefined,
+): boolean {
+  const options = product.options ?? [];
+  const entries = Object.entries(selections ?? {});
+  if (entries.length !== options.length) return false;
+  return options.every(
+    (option) =>
+      option.values.includes(selections?.[option.name] ?? "") &&
+      Object.hasOwn(selections ?? {}, option.name),
   );
 }
 
@@ -160,7 +191,11 @@ export async function POST(request: Request) {
       order.items.every(
         (item, index) =>
           item.productId === parsed.data.items[index].productId &&
-          item.quantity === parsed.data.items[index].quantity,
+          item.quantity === parsed.data.items[index].quantity &&
+          sameVariantSelections(
+            item.variantSelections,
+            parsed.data.items[index].variantSelections,
+          ),
       );
     const sameAddress = sameDeliveryAddress(
       order.deliveryAddress,
@@ -323,6 +358,24 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      products.some(
+        (product, index) =>
+          !selectionsMatchProduct(
+            product,
+            parsed.data.items[index].variantSelections,
+          ),
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error: "cart_changed",
+          message: "One or more product options are invalid or unavailable.",
+        },
+        { status: 409 },
+      );
+    }
+
     const currency = products[0]?.price.currency;
     if (
       !currency ||
@@ -351,6 +404,9 @@ export async function POST(request: Request) {
       title: product.title,
       slug: product.slug,
       quantity: parsed.data.items[index].quantity,
+      ...(parsed.data.items[index].variantSelections
+        ? { variantSelections: parsed.data.items[index].variantSelections }
+        : {}),
       unitPrice: product.price.amount,
       currency: product.price.currency,
     }));
@@ -409,7 +465,11 @@ export async function POST(request: Request) {
       order.items.every(
         (item, index) =>
           item.productId === parsed.data.items[index].productId &&
-          item.quantity === parsed.data.items[index].quantity,
+          item.quantity === parsed.data.items[index].quantity &&
+          sameVariantSelections(
+            item.variantSelections,
+            parsed.data.items[index].variantSelections,
+          ),
       );
     const storedAddressMatches = sameDeliveryAddress(
       order.deliveryAddress,

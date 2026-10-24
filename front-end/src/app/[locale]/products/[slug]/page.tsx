@@ -38,6 +38,7 @@ export default async function TenantProductDetailPage({
     price: { amount: number; currency: string };
     sku?: string;
     category?: string | null;
+    options?: { name: string; values: string[] }[];
     imageUrl?: string | null;
   } | null = null;
 
@@ -189,7 +190,7 @@ export default async function TenantProductDetailPage({
                 price: product.price.amount,
                 currency: product.price.currency,
               }}
-              locale={locale}
+              options={product.options}
             />
             <Link
               className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"

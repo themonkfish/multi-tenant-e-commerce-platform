@@ -87,7 +87,13 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function checkoutRequest() {
+function checkoutRequest(
+  items: {
+    productId: string;
+    quantity: number;
+    variantSelections?: Record<string, string>;
+  }[] = [{ productId: product.id, quantity: 2 }],
+) {
   return new Request("http://store.localhost:3000/api/customer/orders", {
     method: "POST",
     headers: {
@@ -97,7 +103,7 @@ function checkoutRequest() {
     },
     body: JSON.stringify({
       idempotencyKey: "550e8400-e29b-41d4-a716-446655440001",
-      items: [{ productId: product.id, quantity: 2 }],
+      items,
     }),
   });
 }
@@ -214,6 +220,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       paymentAttempt: 1,
       paymentSessionId: "cs_test_example",
     });
+
     const store = {
       consumeRateLimit: vi.fn().mockResolvedValue(true),
       getCustomerOrder: vi.fn().mockResolvedValue(order),
@@ -239,6 +246,112 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       checkoutUrl,
     });
     expect(createStripeCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("validates and snapshots selected options while pricing from the catalog", async () => {
+    const variantProduct = {
+      ...product,
+      options: [{ name: "Size", values: ["S", "M"] }],
+    };
+    const order = makeOrder({
+      items: [
+        {
+          productId: variantProduct.id,
+          title: variantProduct.title,
+          slug: variantProduct.slug,
+          quantity: 1,
+          variantSelections: { Size: "M" },
+          unitPrice: variantProduct.price.amount,
+          currency: variantProduct.price.currency,
+        },
+      ],
+      total: variantProduct.price.amount,
+      itemCount: 1,
+    });
+    const store = {
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getCustomerOrder: vi.fn().mockResolvedValue(null),
+      createCustomerOrder: vi.fn().mockResolvedValue({ order, created: true }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+      prepareCustomerOrderPayment: vi.fn().mockResolvedValue({
+        order: { ...order, paymentAttempt: 1 },
+        attempt: 1,
+      }),
+      saveCustomerOrderPaymentSession: vi.fn().mockResolvedValue(order),
+    };
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue(variantProduct),
+    });
+    createStripeCheckoutSession.mockResolvedValue({
+      id: "cs_test_example",
+      url: checkoutUrl,
+    });
+
+    const response = await POST(
+      checkoutRequest([
+        {
+          productId: product.id,
+          quantity: 1,
+          variantSelections: { Size: "M" },
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(store.createCustomerOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        total: product.price.amount,
+        items: [
+          expect.objectContaining({
+            variantSelections: { Size: "M" },
+            unitPrice: product.price.amount,
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("rejects invalid option selections before creating an order", async () => {
+    const variantProduct = {
+      ...product,
+      options: [{ name: "Size", values: ["S", "M"] }],
+    };
+    const store = {
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getCustomerOrder: vi.fn().mockResolvedValue(null),
+      createCustomerOrder: vi.fn(),
+    };
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue(variantProduct),
+    });
+
+    const response = await POST(
+      checkoutRequest([
+        {
+          productId: product.id,
+          quantity: 1,
+          variantSelections: { Size: "XL" },
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: "cart_changed" });
+    expect(store.createCustomerOrder).not.toHaveBeenCalled();
   });
 
   it("returns a local demo checkout link when demo mode is enabled", async () => {

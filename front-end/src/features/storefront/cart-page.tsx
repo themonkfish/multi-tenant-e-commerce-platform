@@ -9,7 +9,7 @@ import {
   type CustomerDeliveryAddress,
 } from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
-import { useCartStore } from "@/features/storefront/cart-store";
+import { getCartItemKey, useCartStore } from "@/features/storefront/cart-store";
 
 export function StorefrontCartPage({
   locale,
@@ -81,6 +81,9 @@ export function StorefrontCartPage({
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
+            ...(item.variantSelections
+              ? { variantSelections: item.variantSelections }
+              : {}),
           })),
         }),
       });
@@ -190,13 +193,20 @@ export function StorefrontCartPage({
         {items.map((item) => (
           <article
             className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-            key={item.id}
+            key={getCartItemKey(item)}
           >
             <div>
               <h3 className="text-lg font-semibold text-slate-900">
                 {item.title}
               </h3>
               <p className="text-sm text-slate-500">{item.slug}</p>
+              {item.variantSelections && (
+                <p className="text-sm text-slate-600">
+                  {Object.entries(item.variantSelections)
+                    .map(([name, value]) => `${name}: ${value}`)
+                    .join(" · ")}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -208,7 +218,10 @@ export function StorefrontCartPage({
                   value={item.quantity}
                   disabled={checkingOut}
                   onChange={(event) =>
-                    updateQuantity(item.id, Number(event.target.value) || 0)
+                    updateQuantity(
+                      getCartItemKey(item),
+                      Number(event.target.value) || 0,
+                    )
                   }
                 />
               </label>
@@ -221,7 +234,7 @@ export function StorefrontCartPage({
               </p>
               <button
                 className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700"
-                onClick={() => removeItem(item.id)}
+                onClick={() => removeItem(getCartItemKey(item))}
                 disabled={checkingOut}
                 type="button"
               >

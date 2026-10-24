@@ -10,6 +10,7 @@ import {
   type FormEvent,
 } from "react";
 import type { Product } from "@/core/ports/data";
+import { ProductOptionsSchema } from "@/core/domain/product";
 
 type DraftProduct = {
   title: string;
@@ -19,6 +20,7 @@ type DraftProduct = {
   sku: string;
   category: string;
   imageUrl: string;
+  optionsText: string;
 };
 
 const EMPTY_DRAFT: DraftProduct = {
@@ -29,6 +31,7 @@ const EMPTY_DRAFT: DraftProduct = {
   sku: "",
   category: "",
   imageUrl: "",
+  optionsText: "",
 };
 
 function toDraft(product?: Product | null): DraftProduct {
@@ -46,6 +49,9 @@ function toDraft(product?: Product | null): DraftProduct {
     sku: product.sku ?? "",
     category: product.category ?? "",
     imageUrl: product.imageUrl ?? "",
+    optionsText: (product.options ?? [])
+      .map((option) => `${option.name}: ${option.values.join(", ")}`)
+      .join("\n"),
   };
 }
 
@@ -187,6 +193,22 @@ export function TenantProductManagement({
         : existingCategory
           ? { category: null }
           : {}),
+      options: draft.optionsText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const separator = line.indexOf(":");
+          if (separator < 1) return { name: line, values: [] };
+          return {
+            name: line.slice(0, separator).trim(),
+            values: line
+              .slice(separator + 1)
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean),
+          };
+        }),
     };
 
     if (!payload.title || !payload.slug || !payload.price.currency) {
@@ -203,6 +225,11 @@ export function TenantProductManagement({
 
     if (!/^[A-Z]{3}$/.test(payload.price.currency)) {
       setError("Currency must be a valid three-letter code such as USD.");
+      setSaving(false);
+      return;
+    }
+    if (!ProductOptionsSchema.safeParse(payload.options).success) {
+      setError("Use up to 3 unique options, each with 1–20 unique values.");
       setSaving(false);
       return;
     }
@@ -452,6 +479,26 @@ export function TenantProductManagement({
               }
               placeholder="Accessories"
             />
+          </label>
+
+          <label className="space-y-1 text-sm font-medium sm:col-span-2">
+            Options (optional)
+            <textarea
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              rows={3}
+              value={draft.optionsText}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  optionsText: event.target.value,
+                }))
+              }
+              placeholder={"Size: S, M, L\nColor: Black, Blue"}
+            />
+            <span className="block font-normal text-slate-600">
+              Enter one option per line as Name: value, value. Options share the
+              product price and do not track variant stock.
+            </span>
           </label>
 
           <div className="space-y-2 text-sm font-medium sm:col-span-2">

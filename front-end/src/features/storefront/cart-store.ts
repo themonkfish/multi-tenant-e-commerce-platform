@@ -10,6 +10,7 @@ export type CartItem = {
   price: number;
   currency: string;
   quantity: number;
+  variantSelections?: Record<string, string>;
 };
 
 export type CartItemInput = {
@@ -18,7 +19,17 @@ export type CartItemInput = {
   title: string;
   price: number;
   currency: string;
+  variantSelections?: Record<string, string>;
 };
+
+export function getCartItemKey(item: CartItemInput | CartItem): string {
+  const selections = item.variantSelections
+    ? Object.entries(item.variantSelections).sort(([left], [right]) =>
+        left.localeCompare(right),
+      )
+    : [];
+  return `${item.id}:${JSON.stringify(selections)}`;
+}
 
 type CartState = {
   items: CartItem[];
@@ -33,11 +44,14 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       addItem: (item) => {
-        const existing = get().items.find((candidate) => candidate.id === item.id);
+        const key = getCartItemKey(item);
+        const existing = get().items.find(
+          (candidate) => getCartItemKey(candidate) === key,
+        );
         set({
           items: existing
             ? get().items.map((candidate) =>
-                candidate.id === item.id
+                getCartItemKey(candidate) === key
                   ? { ...candidate, quantity: candidate.quantity + 1 }
                   : candidate,
               )
@@ -50,23 +64,29 @@ export const useCartStore = create<CartState>()(
               ],
         });
       },
-      updateQuantity: (id, quantity) => {
+      updateQuantity: (key, quantity) => {
         if (quantity <= 0) {
           set({
-            items: get().items.filter((candidate) => candidate.id !== id),
+            items: get().items.filter(
+              (candidate) => getCartItemKey(candidate) !== key,
+            ),
           });
           return;
         }
 
         set({
           items: get().items.map((candidate) =>
-            candidate.id === id ? { ...candidate, quantity } : candidate,
+            getCartItemKey(candidate) === key
+              ? { ...candidate, quantity }
+              : candidate,
           ),
         });
       },
-      removeItem: (id) => {
+      removeItem: (key) => {
         set({
-          items: get().items.filter((candidate) => candidate.id !== id),
+          items: get().items.filter(
+            (candidate) => getCartItemKey(candidate) !== key,
+          ),
         });
       },
       clear: () => set({ items: [] }),

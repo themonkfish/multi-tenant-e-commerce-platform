@@ -1,6 +1,6 @@
 import type { CatalogPort } from "@/core/ports/data";
 
-export const TENANT_CATALOG_SCHEMA_VERSION = 3;
+export const TENANT_CATALOG_SCHEMA_VERSION = 4;
 
 export interface TenantDatabaseAdapter {
   catalog: CatalogPort;

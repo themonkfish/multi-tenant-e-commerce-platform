@@ -2,7 +2,11 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { ProductInputSchema, ProductUpdateSchema } from "@/core/domain/product";
+import {
+  ProductInputSchema,
+  ProductOptionsSchema,
+  ProductUpdateSchema,
+} from "@/core/domain/product";
 import type { TenantDatabaseProviderConfig } from "@/core/domain/tenant-config";
 import type {
   CatalogPort,
@@ -27,6 +31,7 @@ const ProductRowSchema = z.object({
   price_currency: z.string().length(3),
   sku: z.string().nullable(),
   category: z.string().min(1).max(80).nullable(),
+  options: ProductOptionsSchema,
   image_url: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -55,6 +60,7 @@ type SupabaseTenantDatabase = {
           price_currency: string;
           sku: string | null;
           category: string | null;
+          options: { name: string; values: string[] }[];
           image_url: string | null;
           created_at: string;
           updated_at: string;
@@ -69,6 +75,7 @@ type SupabaseTenantDatabase = {
           price_currency: string;
           sku?: string | null;
           category?: string | null;
+          options?: { name: string; values: string[] }[];
           image_url?: string | null;
           created_at: string;
           updated_at: string;
@@ -81,6 +88,7 @@ type SupabaseTenantDatabase = {
           price_currency?: string;
           sku?: string | null;
           category?: string | null;
+          options?: { name: string; values: string[] }[];
           image_url?: string | null;
           updated_at?: string;
         };
@@ -223,6 +231,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
         price_currency: product.price.currency,
         sku: product.sku ?? null,
         category: product.category ?? null,
+        options: product.options ?? [],
         image_url: product.imageUrl ?? null,
         created_at: now,
         updated_at: now,
@@ -258,6 +267,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
     }
     if (update.sku !== undefined) changes.sku = update.sku;
     if (update.category !== undefined) changes.category = update.category;
+    if (update.options !== undefined) changes.options = update.options;
     if (update.imageUrl !== undefined) changes.image_url = update.imageUrl;
     const { data, error } = await this.client
       .from(TABLE)
@@ -345,6 +355,7 @@ export class SupabaseTenantCatalog implements CatalogPort {
       price: { amount: value.price_amount, currency: value.price_currency },
       ...(value.sku === null ? {} : { sku: value.sku }),
       ...(value.category === null ? {} : { category: value.category }),
+      options: value.options,
       ...(value.image_url === null ? {} : { imageUrl: value.image_url }),
       createdAt: value.created_at,
       updatedAt: value.updated_at,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProductVariantSelectionsSchema } from "./product";
 
 export const TenantStaffPermissionSchema = z.enum([
   "catalog:read",
@@ -50,6 +51,7 @@ export const CustomerOrderItemSchema = z.object({
   title: z.string().min(1),
   slug: z.string().min(1),
   quantity: z.number().int().positive(),
+  variantSelections: ProductVariantSelectionsSchema.optional(),
   unitPrice: z.number().int().nonnegative(),
   currency: z.string().regex(/^[A-Z]{3}$/),
 });

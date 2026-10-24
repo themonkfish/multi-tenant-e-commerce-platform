@@ -8,7 +8,11 @@ import {
   type Document,
 } from "mongodb";
 import { z } from "zod";
-import { ProductInputSchema, ProductUpdateSchema } from "@/core/domain/product";
+import {
+  ProductInputSchema,
+  ProductOptionsSchema,
+  ProductUpdateSchema,
+} from "@/core/domain/product";
 import type { TenantDatabaseProviderConfig } from "@/core/domain/tenant-config";
 import type {
   CatalogPort,
@@ -35,6 +39,7 @@ const ProductDocumentSchema = z.object({
   }),
   sku: z.string().optional(),
   category: z.string().min(1).max(80).nullable().optional(),
+  options: ProductOptionsSchema.optional(),
   imageUrl: z
     .url({ protocol: /^https$/ })
     .max(2048)
@@ -66,6 +71,7 @@ type TenantProductDocument = {
   price: { amount: number; currency: string };
   sku?: string;
   category?: string | null;
+  options?: { name: string; values: string[] }[];
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -344,6 +350,23 @@ export class MongoTenantCatalog implements CatalogPort {
               minLength: 1,
               maxLength: 80,
             },
+            options: {
+              bsonType: "array",
+              maxItems: 3,
+              items: {
+                bsonType: "object",
+                required: ["name", "values"],
+                properties: {
+                  name: { bsonType: "string", minLength: 1, maxLength: 40 },
+                  values: {
+                    bsonType: "array",
+                    minItems: 1,
+                    maxItems: 20,
+                    items: { bsonType: "string", minLength: 1, maxLength: 40 },
+                  },
+                },
+              },
+            },
             imageUrl: {
               bsonType: ["string", "null"],
               maxLength: 2048,
@@ -465,6 +488,8 @@ export class MongoTenantCatalog implements CatalogPort {
       price: product.price,
       ...(product.sku ? { sku: product.sku } : {}),
       ...(product.category === undefined ? {} : { category: product.category }),
+      ...(product.options === undefined ? {} : { options: product.options }),
+      ...(product.options === undefined ? {} : { options: product.options }),
       ...(product.imageUrl === undefined ? {} : { imageUrl: product.imageUrl }),
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

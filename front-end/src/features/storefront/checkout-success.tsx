@@ -162,10 +162,17 @@ export function StorefrontCheckoutSuccess({
           {currentOrder.items.map((item) => (
             <div
               className="flex items-center justify-between gap-4"
-              key={item.productId}
+              key={`${item.productId}:${JSON.stringify(item.variantSelections ?? {})}`}
             >
               <div>
                 <p className="font-medium text-slate-900">{item.title}</p>
+                {item.variantSelections && (
+                  <p className="text-xs text-slate-600">
+                    {Object.entries(item.variantSelections)
+                      .map(([name, value]) => `${name}: ${value}`)
+                      .join(" · ")}
+                  </p>
+                )}
                 <p className="text-xs text-slate-500">
                   Qty {item.quantity} · {item.slug}
                 </p>

@@ -21,6 +21,7 @@ const product: Product = {
   price: { amount: 1999, currency: "USD" },
   sku: "BAG-1",
   category: "Bags",
+  options: [{ name: "Color", values: ["Black", "Blue"] }],
   imageUrl: "https://cdn.example.com/tenant/product.jpg",
   createdAt: now,
   updatedAt: now,
@@ -98,6 +99,7 @@ describe("RestCatalogAdapter", () => {
         price: product.price,
         sku: product.sku,
         category: product.category,
+        options: product.options,
         imageUrl: product.imageUrl,
       }),
     ).resolves.toEqual(product);
@@ -110,6 +112,7 @@ describe("RestCatalogAdapter", () => {
         body: expect.objectContaining({
           tenantId,
           category: product.category,
+          options: product.options,
           imageUrl: product.imageUrl,
         }),
       }),
