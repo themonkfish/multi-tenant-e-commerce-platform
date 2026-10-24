@@ -66,8 +66,17 @@ export const CreateTenantInputSchema = z.object({
   slug: TenantRecordSchema.shape.slug,
   name: TenantRecordSchema.shape.name,
   plan: TenantRecordSchema.shape.plan.default("starter"),
-  domains: TenantRecordSchema.shape.domains,
 });
+
+export const TenantDomainClaimSchema = z.object({
+  tenantId: z.uuid(),
+  hostId: z.uuid(),
+  domain: z.string().min(1).max(253),
+  verificationToken: z.string().length(64),
+  createdAt: z.iso.datetime(),
+});
+
+export type TenantDomainClaim = z.infer<typeof TenantDomainClaimSchema>;
 
 export const TenantStatusSchema = TenantRecordSchema.shape.status;
 export type TenantStatus = z.infer<typeof TenantStatusSchema>;

@@ -241,6 +241,24 @@ export type PlatformDatabase = {
         Update: never;
         Relationships: [];
       };
+      platform_tenant_domain_claims: {
+        Row: {
+          domain: string;
+          tenant_id: string;
+          host_id: string;
+          verification_token: string;
+          created_at: string;
+        };
+        Insert: {
+          domain: string;
+          tenant_id: string;
+          host_id: string;
+          verification_token: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       platform_tenant_owners: {
         Row: {
           id: string;
@@ -551,6 +569,32 @@ export type PlatformDatabase = {
           p_audit_created_at: string;
         };
         Returns: string;
+      };
+      create_platform_tenant_domain_claim: {
+        Args: {
+          p_host_id: string;
+          p_tenant_id: string;
+          p_domain: string;
+          p_verification_token: string;
+          p_created_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_created_at: string;
+        };
+        Returns: string;
+      };
+      complete_platform_tenant_domain_claim: {
+        Args: {
+          p_host_id: string;
+          p_tenant_id: string;
+          p_domain: string;
+          p_verification_token: string;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
       };
       update_platform_tenant_status: {
         Args: {

@@ -10,6 +10,7 @@ import {
   HostOwnerSchema,
   TenantOwnerInviteSchema,
   TenantOwnerSchema,
+  TenantDomainClaimSchema,
   TenantRecordSchema,
   TenantStoreSettingsSchema,
   createDefaultTenantStoreSettings,
@@ -17,6 +18,7 @@ import {
   type HostOwnerInvite,
   type TenantOwner,
   type TenantOwnerInvite,
+  type TenantDomainClaim,
   type TenantRecord,
   type TenantStoreSettings,
   type TenantStatus,
@@ -1353,6 +1355,104 @@ export class SupabasePlatformStore implements PlatformStore {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
+  }
+
+  async listTenantDomainClaims(hostId: string): Promise<TenantDomainClaim[]> {
+    const { data, error } = await this.client
+      .from("platform_tenant_domain_claims")
+      .select("*")
+      .eq("host_id", hostId)
+      .order("created_at");
+    if (error) {
+      throw new Error(`Could not load tenant domain claims: ${error.message}`);
+    }
+    return data.map((row) =>
+      TenantDomainClaimSchema.parse({
+        tenantId: row.tenant_id,
+        hostId: row.host_id,
+        domain: row.domain,
+        verificationToken: row.verification_token,
+        createdAt: row.created_at,
+      }),
+    );
+  }
+
+  async createTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    verificationToken: string;
+    createdAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantDomainClaim | null> {
+    const { data, error } = await this.client.rpc(
+      "create_platform_tenant_domain_claim",
+      {
+        p_host_id: input.hostId,
+        p_tenant_id: input.tenantId,
+        p_domain: input.domain,
+        p_verification_token: input.verificationToken,
+        p_created_at: input.createdAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(`Could not create tenant domain claim: ${error.message}`);
+    }
+    if (data !== "created") {
+      const messages: Record<string, string> = {
+        tenant_unavailable: "Tenant is unavailable",
+        tenant_slug_or_domain_in_use:
+          "A tenant with this domain already exists",
+        custom_domain_limit_reached: "Host custom-domain limit reached",
+      };
+      throw new Error(messages[data] ?? `Domain claim failed: ${data}`);
+    }
+    return {
+      tenantId: input.tenantId,
+      hostId: input.hostId,
+      domain: input.domain,
+      verificationToken: input.verificationToken,
+      createdAt: input.createdAt,
+    };
+  }
+
+  async completeTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    verificationToken: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null> {
+    const { data, error } = await this.client.rpc(
+      "complete_platform_tenant_domain_claim",
+      {
+        p_host_id: input.hostId,
+        p_tenant_id: input.tenantId,
+        p_domain: input.domain,
+        p_verification_token: input.verificationToken,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(
+        `Could not complete tenant domain claim: ${error.message}`,
+      );
+    }
+    if (!data) {
+      return null;
+    }
+    return (
+      (await this.listTenantsForHost(input.hostId)).find(
+        (tenant) => tenant.id === input.tenantId,
+      ) ?? null
+    );
   }
 
   async createTenantForHost(

@@ -13,6 +13,7 @@ import {
   HostOwnerSchema,
   TenantOwnerInviteSchema,
   TenantOwnerSchema,
+  TenantDomainClaimSchema,
   TenantRecordSchema,
   TenantStoreSettingsSchema,
   createDefaultTenantStoreSettings,
@@ -20,6 +21,7 @@ import {
   type HostOwnerInvite,
   type TenantOwner,
   type TenantOwnerInvite,
+  type TenantDomainClaim,
   type TenantRecord,
   type TenantStoreSettings,
   type TenantStatus,
@@ -96,6 +98,7 @@ const FileStateSchema = z.object({
   customerAccounts: z.array(CustomerAccountSchema).default([]),
   customerOrders: z.array(CustomerOrderSchema).default([]),
   tenants: z.array(TenantRecordSchema).default([]),
+  tenantDomainClaims: z.array(TenantDomainClaimSchema).default([]),
   tenantStoreSettings: z
     .array(
       z.object({
@@ -141,6 +144,7 @@ const EMPTY_STATE: FileState = {
   customerAccounts: [],
   customerOrders: [],
   tenants: [],
+  tenantDomainClaims: [],
   tenantStoreSettings: [],
   tenantRestConnections: [],
   auditEvents: [],
@@ -300,9 +304,11 @@ export class FilePlatformStore implements PlatformStore {
       if (state.hosts.some((candidate) => candidate.slug === host.slug)) {
         throw new Error("A host with this slug already exists");
       }
-      const existingDomains = new Set(
-        state.hosts.flatMap((candidate) => candidate.domains),
-      );
+      const existingDomains = new Set([
+        ...state.hosts.flatMap((candidate) => candidate.domains),
+        ...state.tenants.flatMap((candidate) => candidate.domains),
+        ...state.tenantDomainClaims.map((claim) => claim.domain),
+      ]);
       if (host.domains.some((domain) => existingDomains.has(domain))) {
         throw new Error("A host with one of these domains already exists");
       }
@@ -1099,6 +1105,113 @@ export class FilePlatformStore implements PlatformStore {
       .sort((left, right) => left.name.localeCompare(right.name));
   }
 
+  async listTenantDomainClaims(hostId: string): Promise<TenantDomainClaim[]> {
+    return (await this.readState()).tenantDomainClaims.filter(
+      (claim) => claim.hostId === hostId,
+    );
+  }
+
+  async createTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    verificationToken: string;
+    createdAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantDomainClaim | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId && candidate.hostId === input.hostId,
+      );
+      const host = state.hosts.find(
+        (candidate) =>
+          candidate.id === input.hostId && candidate.status === "active",
+      );
+      if (!tenant || !host) {
+        return null;
+      }
+      if (
+        state.hosts.some((candidate) =>
+          candidate.domains.includes(input.domain),
+        ) ||
+        state.tenants.some((candidate) =>
+          candidate.domains.includes(input.domain),
+        ) ||
+        state.tenantDomainClaims.some((claim) => claim.domain === input.domain)
+      ) {
+        throw new Error("A tenant with this domain already exists");
+      }
+      const assignedDomains =
+        host.domains.length +
+        state.tenants
+          .filter((candidate) => candidate.hostId === host.id)
+          .reduce((count, candidate) => count + candidate.domains.length, 0) +
+        state.tenantDomainClaims.filter((claim) => claim.hostId === host.id)
+          .length;
+      if (assignedDomains >= host.limits.maxCustomDomains) {
+        throw new Error("Host custom-domain limit reached");
+      }
+      const claim = TenantDomainClaimSchema.parse({
+        tenantId: input.tenantId,
+        hostId: input.hostId,
+        domain: input.domain,
+        verificationToken: input.verificationToken,
+        createdAt: input.createdAt,
+      });
+      state.tenantDomainClaims.push(claim);
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return claim;
+    });
+  }
+
+  async completeTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    verificationToken: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId && candidate.hostId === input.hostId,
+      );
+      const claimIndex = state.tenantDomainClaims.findIndex(
+        (claim) =>
+          claim.hostId === input.hostId &&
+          claim.tenantId === input.tenantId &&
+          claim.domain === input.domain &&
+          claim.verificationToken === input.verificationToken,
+      );
+      if (!tenant || claimIndex === -1) {
+        return null;
+      }
+      if (
+        state.hosts.some((candidate) =>
+          candidate.domains.includes(input.domain),
+        ) ||
+        state.tenants.some(
+          (candidate) =>
+            candidate.id !== tenant.id &&
+            candidate.domains.includes(input.domain),
+        )
+      ) {
+        throw new Error("A tenant with this domain already exists");
+      }
+      tenant.domains = [...new Set([...tenant.domains, input.domain])];
+      tenant.updatedAt = input.updatedAt;
+      state.tenantDomainClaims.splice(claimIndex, 1);
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return tenant;
+    });
+  }
+
   async getTenantByDomain(domain: string): Promise<TenantRecord | null> {
     const state = await this.readState();
     return (
@@ -1134,6 +1247,9 @@ export class FilePlatformStore implements PlatformStore {
             validatedTenant.domains.includes(domain),
           ),
         ) ||
+        state.tenantDomainClaims.some((claim) =>
+          validatedTenant.domains.includes(claim.domain),
+        ) ||
         state.hosts.some((candidate) =>
           candidate.domains.some((domain) =>
             validatedTenant.domains.includes(domain),
@@ -1152,7 +1268,9 @@ export class FilePlatformStore implements PlatformStore {
         host.domains.length +
         state.tenants
           .filter((candidate) => candidate.hostId === host.id)
-          .reduce((count, candidate) => count + candidate.domains.length, 0);
+          .reduce((count, candidate) => count + candidate.domains.length, 0) +
+        state.tenantDomainClaims.filter((claim) => claim.hostId === host.id)
+          .length;
       if (
         assignedDomains + validatedTenant.domains.length >
         host.limits.maxCustomDomains

@@ -7,7 +7,7 @@ automatically implemented just because they are listed there.
 
 ## Current status
 
-Status snapshot as of 2026-10-23:
+Status snapshot as of 2026-10-24:
 
 - The frontend platform bootstrap, Super Admin onboarding, host/tenant
   lifecycle management, scoped portal auth flows, and tenant-scoped cache
@@ -23,8 +23,10 @@ Status snapshot as of 2026-10-23:
   checks.
 - Tenant branding/locale metadata is persisted and applied to the tenant
   storefront landing preview. A browser-persisted cart now submits
-  authenticated, server-validated orders; custom-domain provisioning and the
-  full commerce runtime remain future work.
+  authenticated, server-validated orders. Tenant custom domains can be claimed
+  with TXT ownership and platform CNAME records, then routed after verification;
+  registrar automation, TLS provisioning, and the full commerce runtime remain
+  future work.
 - Tenant product and order APIs are available through the standalone backend;
   tenant database providers, live tenant-specific payments, and storage remain
   future work.
@@ -74,6 +76,9 @@ Status snapshot as of 2026-10-23:
       public catalog cards with linked product detail pages when active products
       are available from the tenant backend while the full commerce experience
       remains intentionally unavailable.
+- [x] Host Owners can add tenant custom domains, receive DNS verification
+      instructions, and activate exact-domain routing only after TXT ownership
+      and platform CNAME records resolve.
 - [x] Tenant storefront cart: persisted cart state, add-to-cart actions, and a
       focused cart page are wired to the storefront.
 - [x] Authenticated server-side order creation revalidates active catalog
@@ -140,12 +145,12 @@ Status snapshot as of 2026-10-23:
       analytics, domains, billing, and audit-log views remain.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
-      implemented. Tenant-specific configuration stores, tenant storefront
-      routing and provisioning, tenant backends, Staff lifecycle controls, and
+      implemented. Tenant-specific configuration stores, automated domain/TLS
+      provisioning, tenant backends, Staff lifecycle controls, and
       expanded RBAC remain. Branding/locale settings now flow into the tenant
       domain landing preview, the catalog listing, and product detail pages when
-      a backend is configured; the full customer storefront, custom domain
-      routing, and commerce runtime remain future work. Resolved domain scopes
+      a backend is configured; the full customer storefront and commerce
+      runtime remain future work. Resolved domain scopes
       apply to all localized pages and authenticated portal requests, and
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
@@ -171,7 +176,7 @@ Status snapshot as of 2026-10-23:
      routes as new features are introduced.
 
 2. **P1 — Tenant provisioning and platform configuration**
-   - Finish tenant storefront/domain provisioning and the managed tenant
+   - Finish tenant storefront provisioning and the managed tenant
      settings flow.
    - Complete setup-wizard verification, email provider, theme/legal
      settings, and first-host guidance; reserved-domain validation is now
@@ -368,8 +373,11 @@ features are implemented.
 
 The tenant portal saves branding and locale metadata but does not yet apply it
 to a live storefront. REST catalog requests use the saved connection, but
-tenant creation does not provision storefronts, databases, or working
-custom-domain routes. Health tests and catalog requests reject private/internal DNS
+tenant creation does not provision databases or TLS certificates. Tenant custom
+domains can be added in the Host portal; add the displayed CNAME pointing to the
+platform domain and the TXT ownership record, then select **Verify DNS**. Only
+verified domains route to that tenant. DNS propagation and the hosting provider's
+custom-domain/TLS configuration are managed outside this app. Health tests and catalog requests reject private/internal DNS
 answers (including mixed public/private answers), use a pinned public address,
 do not follow redirects, and are limited to five attempts per account per
 15-minute window.
@@ -412,7 +420,8 @@ Before deploying the app:
 2. Apply every migration in `supabase/migrations/` **in order**, including
    `0001_platform_store.sql`, `0002_platform_hosts.sql`, and
    `0003_host_portal.sql`, `0004_tenant_owner_portal.sql`,
-   `0005_tenant_store_settings.sql`, and `0006_tenant_rest_connections.sql`.
+   `0005_tenant_store_settings.sql`, `0006_tenant_rest_connections.sql`, and
+   all later migrations, including `0012_tenant_domain_verification.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

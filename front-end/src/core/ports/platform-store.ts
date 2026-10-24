@@ -5,6 +5,7 @@ import type {
   HostOwnerInvite,
   TenantOwner,
   TenantOwnerInvite,
+  TenantDomainClaim,
   TenantRecord,
   TenantStoreSettings,
   TenantStatus,
@@ -230,6 +231,23 @@ export interface PlatformStore
     auditEvent: AuditEvent;
   }): Promise<TenantRestDataProviderConfig | null>;
   listTenantsForHost(hostId: string): Promise<TenantRecord[]>;
+  listTenantDomainClaims(hostId: string): Promise<TenantDomainClaim[]>;
+  createTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    verificationToken: string;
+    createdAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantDomainClaim | null>;
+  completeTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    verificationToken: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null>;
   createTenantForHost(
     tenant: TenantRecord,
     auditEvent: AuditEvent,

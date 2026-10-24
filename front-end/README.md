@@ -66,7 +66,9 @@ Tenant settings are applied to the storefront preview. REST connection setup,
 health testing, tenant-scoped catalog CRUD, and Stripe-hosted checkout in
 test mode are implemented. Storefront/domain provisioning, live payments,
 tenant-specific Stripe Connect accounts, storage, tax, and shipping are not
-yet implemented. Invitation links must be shared manually until email
+yet fully implemented. Host Owners can register tenant domains after DNS TXT
+ownership and CNAME verification; registrar automation and TLS provisioning
+remain external. Invitation links must be shared manually until email
 delivery is configured.
 
 The tenant product API supports `GET`/`POST /api/tenant/products` and

@@ -3,12 +3,21 @@
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
 import {
+  TenantDomainClaimSchema,
   TenantRecordSchema,
+  type TenantDomainClaim,
   type TenantRecord,
   type TenantStatus,
 } from "@/core/domain/host-portal";
 
 const TenantResponseSchema = z.object({ tenant: TenantRecordSchema });
+const DomainClaimResponseSchema = z.object({
+  claim: TenantDomainClaimSchema,
+  dns: z.object({
+    cname: z.object({ name: z.string(), value: z.string() }),
+    txt: z.object({ name: z.string(), value: z.string() }),
+  }),
+});
 
 function errorCode(body: unknown): unknown {
   return typeof body === "object" && body !== null && "error" in body
@@ -32,8 +41,23 @@ function describeTenantError(code: unknown): string {
   if (code === "tenant_slug_or_domain_in_use") {
     return "That tenant slug or domain is already in use.";
   }
+  if (code === "tenant_unavailable" || code === "not_found") {
+    return "That tenant is unavailable. Refresh the page and try again.";
+  }
   if (code === "invalid_tenant_domain") {
     return "Enter domains as hostnames only, such as store.example.com.";
+  }
+  if (code === "platform_domain_unavailable") {
+    return "The platform domain is not configured, so custom domains cannot be provisioned yet.";
+  }
+  if (code === "domain_dns_not_ready") {
+    return "The required DNS records were not found yet. DNS changes may take time to propagate.";
+  }
+  if (code === "dns_lookup_failed") {
+    return "DNS could not be checked right now. Please try again shortly.";
+  }
+  if (code === "domain_claim_not_found") {
+    return "That domain verification is no longer pending. Refresh the page and try again.";
   }
   if (code === "rate_limited") {
     return "Too many changes. Wait a few minutes and try again.";
@@ -155,21 +179,101 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
 
 export function HostTenantManagement({
   initialTenants,
+  initialDomainClaims,
+  platformDomain,
   maxTenants,
   maxCustomDomains,
   hostDomainsUsed,
 }: {
   initialTenants: TenantRecord[];
+  initialDomainClaims: TenantDomainClaim[];
+  platformDomain: string;
   maxTenants: number;
   maxCustomDomains: number;
   hostDomainsUsed: number;
 }) {
   const [tenants, setTenants] = useState(initialTenants);
+  const [domainClaims, setDomainClaims] = useState(initialDomainClaims);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const domainsUsed =
     hostDomainsUsed +
-    tenants.reduce((total, tenant) => total + tenant.domains.length, 0);
+    tenants.reduce((total, tenant) => total + tenant.domains.length, 0) +
+    domainClaims.length;
+
+  async function addDomain(
+    tenantId: string,
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/host/tenants/${tenantId}/domains`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: form.get("domain") }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(describeTenantError(errorCode(body)));
+        return;
+      }
+      const parsed = DomainClaimResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError("The server returned invalid domain verification details.");
+        return;
+      }
+      setDomainClaims((current) => [
+        ...current.filter((claim) => claim.domain !== parsed.data.claim.domain),
+        parsed.data.claim,
+      ]);
+      formElement.reset();
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyDomain(claim: TenantDomainClaim) {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/host/tenants/${claim.tenantId}/domains/verify`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain: claim.domain }),
+        },
+      );
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(describeTenantError(errorCode(body)));
+        return;
+      }
+      const parsed = TenantResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError("The server returned an invalid tenant record.");
+        return;
+      }
+      setTenants((current) =>
+        current.map((tenant) =>
+          tenant.id === parsed.data.tenant.id ? parsed.data.tenant : tenant,
+        ),
+      );
+      setDomainClaims((current) =>
+        current.filter((item) => item.domain !== claim.domain),
+      );
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function createTenant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -185,10 +289,6 @@ export function HostTenantManagement({
           name: form.get("name"),
           slug: form.get("slug"),
           plan: form.get("plan"),
-          domains: String(form.get("domains") ?? "")
-            .split(",")
-            .map((domain) => domain.trim())
-            .filter(Boolean),
         }),
       });
       const body: unknown = await response.json();
@@ -280,9 +380,42 @@ export function HostTenantManagement({
                   </p>
                   {tenant.domains.length > 0 && (
                     <p className="mt-1 break-all text-sm text-slate-500">
-                      {tenant.domains.join(", ")}
+                      Verified domains: {tenant.domains.join(", ")}
                     </p>
                   )}
+                  <form
+                    className="mt-3 flex flex-wrap gap-2"
+                    onSubmit={(event) => void addDomain(tenant.id, event)}
+                  >
+                    <label className="sr-only" htmlFor={`domain-${tenant.id}`}>
+                      Custom domain
+                    </label>
+                    <input
+                      className="min-w-48 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                      id={`domain-${tenant.id}`}
+                      name="domain"
+                      placeholder="store.example.com"
+                      required
+                    />
+                    <button
+                      className="rounded-md border border-indigo-300 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"
+                      disabled={busy}
+                      type="submit"
+                    >
+                      Add custom domain
+                    </button>
+                  </form>
+                  {domainClaims
+                    .filter((claim) => claim.tenantId === tenant.id)
+                    .map((claim) => (
+                      <DomainVerificationControl
+                        claim={claim}
+                        key={claim.domain}
+                        busy={busy}
+                        platformDomain={platformDomain}
+                        onVerify={() => void verifyDomain(claim)}
+                      />
+                    ))}
                   {tenant.status === "active" && (
                     <TenantOwnerInviteControl tenant={tenant} />
                   )}
@@ -345,14 +478,10 @@ export function HostTenantManagement({
               required
             />
           </label>
-          <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            Custom domains (optional, comma-separated)
-            <input
-              className="w-full rounded-md border border-slate-300 px-3 py-2"
-              name="domains"
-              placeholder="store.example.com"
-            />
-          </label>
+          <p className="text-sm text-slate-600 sm:col-span-2">
+            Add custom domains after creating the tenant. They become active
+            storefront routes only after DNS verification.
+          </p>
           {error && (
             <p className="text-sm text-red-700 sm:col-span-2" role="alert">
               {error}
@@ -369,6 +498,54 @@ export function HostTenantManagement({
           </div>
         </form>
       </section>
+    </div>
+  );
+}
+
+function DomainVerificationControl({
+  claim,
+  busy,
+  platformDomain,
+  onVerify,
+}: {
+  claim: TenantDomainClaim;
+  busy: boolean;
+  platformDomain: string;
+  onVerify: () => void;
+}) {
+  return (
+    <div className="mt-3 space-y-2 rounded-md bg-amber-50 p-3 text-sm">
+      <p className="font-medium text-amber-950">
+        Verify {claim.domain} by adding these DNS records:
+      </p>
+      <dl className="grid gap-2 text-amber-950 sm:grid-cols-2">
+        <div>
+          <dt className="font-medium">CNAME</dt>
+          <dd className="break-all font-mono text-xs">
+            {claim.domain} -&gt; {platformDomain}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium">TXT</dt>
+          <dd className="break-all font-mono text-xs">
+            _platform-verification.{claim.domain}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="font-medium">TXT value</dt>
+          <dd className="break-all font-mono text-xs">
+            platform-verification={claim.verificationToken}
+          </dd>
+        </div>
+      </dl>
+      <button
+        className="rounded border border-amber-400 px-3 py-1.5 font-medium text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+        disabled={busy}
+        onClick={onVerify}
+        type="button"
+      >
+        Verify DNS
+      </button>
     </div>
   );
 }

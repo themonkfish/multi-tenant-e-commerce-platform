@@ -26,6 +26,10 @@ export default async function HostPortalPage({ params }: HostPortalPageProps) {
     redirect(`/${locale}/host/login`);
   }
   const tenants = await store.listTenantsForHost(host.id);
+  const [domainClaims, setupState] = await Promise.all([
+    store.listTenantDomainClaims(host.id),
+    store.getSetupState(),
+  ]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -49,6 +53,8 @@ export default async function HostPortalPage({ params }: HostPortalPageProps) {
       <section className="py-10">
         <HostTenantManagement
           initialTenants={tenants}
+          initialDomainClaims={domainClaims}
+          platformDomain={setupState.platformDomain ?? ""}
           maxTenants={host.limits.maxTenants}
           maxCustomDomains={host.limits.maxCustomDomains}
           hostDomainsUsed={host.domains.length}

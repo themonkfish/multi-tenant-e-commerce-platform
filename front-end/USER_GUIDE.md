@@ -156,16 +156,24 @@ In **Create a tenant**, enter:
 - **Store name**
 - Lowercase **Tenant slug** (letters, numbers, and hyphens)
 - **Plan** label
-- Optional comma-separated domains, entered as hostnames only, for example
-  `store.example.com`
 
 Select **Create tenant**. The Tenant starts in `pending` status. Select
 **Activate tenant** on its row when ready. Select **Suspend tenant** to
 temporarily disable its access.
 
-Tenant creation records the domain and metadata but does not purchase a domain,
-configure DNS, issue TLS certificates, or provision a storefront/backend. Those
-steps must be arranged separately; see [Current limitations](#current-limitations).
+### Connect a custom domain
+
+After creating a tenant, enter its custom hostname in that tenant's row and
+select **Add custom domain**. Add both DNS records shown in the portal:
+
+- A CNAME from the requested hostname to the platform domain.
+- A TXT record at `_platform-verification.<hostname>` with the displayed
+  `platform-verification=...` value.
+
+Select **Verify DNS** after the records resolve. The domain becomes a tenant
+storefront route only after both records match. DNS propagation can take time.
+Domain registration, hosting-provider custom-domain configuration, and TLS
+certificates are managed outside the app.
 
 ### Invite the Tenant Owner
 

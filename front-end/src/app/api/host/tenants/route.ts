@@ -4,10 +4,6 @@ import {
   CreateTenantInputSchema,
   TenantRecordSchema,
 } from "@/core/domain/host-portal";
-import {
-  getReservedPlatformDomains,
-  normalizeHostDomain,
-} from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -50,67 +46,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const normalizedDomains = [
-    ...new Set(parsed.data.domains.map(normalizeHostDomain)),
-  ];
-  if (normalizedDomains.some((domain) => domain === null)) {
-    return NextResponse.json(
-      { error: "invalid_tenant_domain" },
-      { status: 400 },
-    );
-  }
-  const domains = normalizedDomains.filter(
-    (domain): domain is string => domain !== null,
-  );
   const hosts = await store.listHosts();
   const host = hosts.find((candidate) => candidate.id === session.scope.id);
   if (!host || host.status !== "active") {
     return NextResponse.json({ error: "host_unavailable" }, { status: 403 });
   }
 
-  const state = await store.getSetupState();
-  const reservedDomains = getReservedPlatformDomains(
-    state.platformDomain,
-    state.reservedSubdomains,
-  );
   const currentTenants = await store.listTenantsForHost(host.id);
-  const allTenants = (
-    await Promise.all(hosts.map((entry) => store.listTenantsForHost(entry.id)))
-  ).flat();
-  const existingDomains = new Set([
-    ...hosts.flatMap((entry) => entry.domains),
-    ...allTenants.flatMap((tenant) => tenant.domains),
-  ]);
-  if (
-    domains.some(
-      (domain) =>
-        existingDomains.has(domain) ||
-        domain === state.platformDomain ||
-        reservedDomains.has(domain),
-    )
-  ) {
-    return NextResponse.json(
-      { error: "tenant_slug_or_domain_in_use" },
-      { status: 409 },
-    );
-  }
-
-  const currentDomainCount =
-    host.domains.length +
-    currentTenants.reduce((total, tenant) => total + tenant.domains.length, 0);
   if (currentTenants.length >= host.limits.maxTenants) {
     return NextResponse.json(
       { error: "tenant_limit_reached" },
       { status: 409 },
     );
   }
-  if (currentDomainCount + domains.length > host.limits.maxCustomDomains) {
-    return NextResponse.json(
-      { error: "custom_domain_limit_reached" },
-      { status: 409 },
-    );
-  }
-
   const now = new Date().toISOString();
   const tenant = TenantRecordSchema.parse({
     id: randomUUID(),
@@ -119,7 +67,7 @@ export async function POST(request: Request) {
     name: parsed.data.name,
     status: "pending",
     plan: parsed.data.plan,
-    domains,
+    domains: [],
     createdAt: now,
     updatedAt: now,
   });

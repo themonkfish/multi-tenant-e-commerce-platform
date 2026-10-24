@@ -12,6 +12,7 @@ import {
   type TenantStoreSettings,
 } from "@/core/domain/host-portal";
 import type { AuditEvent, BootstrapInput } from "@/core/ports/platform-store";
+import { resolveRequestScope } from "@/core/tenancy/request-scope";
 import { hashToken } from "@/lib/server/crypto";
 import { FilePlatformStore } from "./platform-store";
 
@@ -403,6 +404,94 @@ describe("FilePlatformStore", () => {
     await expect(
       store.getTenantByDomain("unknown.example.com"),
     ).resolves.toBeNull();
+  });
+
+  it("routes tenant domains only after a matching domain claim is completed", async () => {
+    const store = await createStore();
+    const host = hostConfig({
+      status: "active",
+      limits: { maxTenants: 10, maxCustomDomains: 4, features: {} },
+    });
+    await store.createHost(host, hostAudit());
+    const tenant = tenantRecord({ status: "active" });
+    await store.createTenantForHost(
+      tenant,
+      hostScopedAudit("tenant.created", "tenant", tenant.id),
+    );
+    const domain = "store.example.net";
+    const token = "a".repeat(64);
+    const createdAt = new Date().toISOString();
+    const claim = await store.createTenantDomainClaim({
+      hostId: host.id,
+      tenantId: tenant.id,
+      domain,
+      verificationToken: token,
+      createdAt,
+      auditEvent: hostScopedAudit(
+        "tenant.domain_verification_started",
+        "tenant_domain",
+        domain,
+      ),
+    });
+
+    expect(claim).toEqual({
+      hostId: host.id,
+      tenantId: tenant.id,
+      domain,
+      verificationToken: token,
+      createdAt,
+    });
+    await expect(store.getTenantByDomain(domain)).resolves.toBeNull();
+    await expect(store.listTenantDomainClaims(host.id)).resolves.toEqual([
+      claim,
+    ]);
+    await expect(
+      store.completeTenantDomainClaim({
+        hostId: host.id,
+        tenantId: tenant.id,
+        domain,
+        verificationToken: "wrong-token",
+        updatedAt: new Date().toISOString(),
+        auditEvent: hostScopedAudit(
+          "tenant.domain_verified",
+          "tenant_domain",
+          domain,
+        ),
+      }),
+    ).resolves.toBeNull();
+    const completed = await store.completeTenantDomainClaim({
+      hostId: host.id,
+      tenantId: tenant.id,
+      domain,
+      verificationToken: token,
+      updatedAt: new Date().toISOString(),
+      auditEvent: hostScopedAudit(
+        "tenant.domain_verified",
+        "tenant_domain",
+        domain,
+      ),
+    });
+
+    expect(completed?.domains).toContain(domain);
+    await expect(store.getTenantByDomain(domain)).resolves.toEqual(completed);
+    await expect(store.listTenantDomainClaims(host.id)).resolves.toEqual([]);
+    await expect(
+      resolveRequestScope(domain, {
+        getSetupState: async () => ({
+          initialized: true,
+          platformDomain: "platform.example.com",
+          reservedSubdomains: [],
+        }),
+        getTenantByDomain: store.getTenantByDomain.bind(store),
+        getHostById: store.getHostById.bind(store),
+        getHostByDomain: store.getHostByDomain.bind(store),
+      }),
+    ).resolves.toMatchObject({
+      kind: "tenant",
+      domain,
+      tenant: { id: tenant.id },
+      scope: { kind: "tenant", id: tenant.id, hostId: host.id },
+    });
   });
 
   it("accepts a tenant-owner invitation once and enforces tenant scope", async () => {
