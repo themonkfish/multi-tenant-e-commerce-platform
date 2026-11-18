@@ -1020,6 +1020,12 @@ export class FilePlatformStore implements PlatformStore {
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
+  async listTenantOrders(tenantId: string): Promise<CustomerOrder[]> {
+    return (await this.readState()).customerOrders
+      .filter((order) => order.tenantId === tenantId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
   async listTenantCashOnDeliveryOrders(input: {
     tenantId: string;
     page: number;

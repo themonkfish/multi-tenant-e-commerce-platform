@@ -77,6 +77,9 @@ Status snapshot as of 2026-11-18:
 - The file platform store has checksummed timestamped backup and guarded restore
   scripts. Restore requires `--force`, leaves a pre-restore copy, and rejects
   checksum or format mismatches.
+- Tenant Owners can export tenant metadata, settings, staff, connection
+  metadata, orders, and scoped audit events as secret-free JSON. Export requests
+  are origin-checked, rate-limited, and audited.
 - Application CI now validates linting, TypeScript, frontend tests, tenant
   backend tests, Playwright flows, Supabase migrations, dependencies, and
   application SBOM generation. A public health route reports platform-store
@@ -233,7 +236,7 @@ Status snapshot as of 2026-11-18:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [ ] **i18n:** English, French, and Hindi routing is now configured with a locale
-      switcher and 212 frontend tests. The tenant storefront preview uses the
+      switcher and 219 frontend tests. The tenant storefront preview uses the
       saved default locale metadata but the full public storefront remains to be
       comprehensively translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
@@ -400,6 +403,8 @@ Status snapshot as of 2026-11-18:
       orders consume stock when placed.
 - [ ] Add observability, CI/CD, dependency/license scanning, SBOM and third-
       party notices, backups, tenant export/deletion, and compliance workflows.
+      Tenant JSON export is implemented; destructive tenant deletion and purge
+      workflows remain pending.
 - [ ] Decide whether tenants may move between hosts or data providers, how
       migrations work, and which compliance regions/data residency are required.
 

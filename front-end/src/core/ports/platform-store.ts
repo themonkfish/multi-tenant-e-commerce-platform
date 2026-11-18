@@ -221,6 +221,7 @@ export interface PlatformStore
     tenantId: string,
     customerId: string,
   ): Promise<CustomerOrder[]>;
+  listTenantOrders(tenantId: string): Promise<CustomerOrder[]>;
   listTenantCashOnDeliveryOrders(input: {
     tenantId: string;
     page: number;

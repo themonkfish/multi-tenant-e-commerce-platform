@@ -1259,6 +1259,18 @@ export class SupabasePlatformStore implements PlatformStore {
     return data.map(customerOrderFromRow);
   }
 
+  async listTenantOrders(tenantId: string): Promise<CustomerOrder[]> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      throw new Error(`Could not load tenant orders: ${error.message}`);
+    }
+    return (data ?? []).map(customerOrderFromRow);
+  }
+
   async listTenantCashOnDeliveryOrders(input: {
     tenantId: string;
     page: number;

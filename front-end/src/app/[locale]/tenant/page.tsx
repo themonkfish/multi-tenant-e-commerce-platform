@@ -96,14 +96,24 @@ export default async function TenantDashboardPage({
             Signed in as {session.userId}
           </p>
         </div>
-        <form action="/api/tenant/auth/logout" method="post">
-          <button
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
-            type="submit"
-          >
-            Sign out
-          </button>
-        </form>
+        <div className="flex flex-wrap gap-2">
+          <form action="/api/tenant/export" method="post">
+            <button
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+              type="submit"
+            >
+              Export tenant data
+            </button>
+          </form>
+          <form action="/api/tenant/auth/logout" method="post">
+            <button
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+              type="submit"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       <section className="grid gap-4 py-8 sm:grid-cols-3">
