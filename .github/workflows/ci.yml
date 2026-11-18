@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - development
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    name: Application validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: test
+      SESSION_SECRET: 0123456789abcdef0123456789abcdef
+      PLATFORM_SECRET_KEY: 0123456789abcdef0123456789abcdef
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            front-end/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix front-end
+
+      - name: Install tenant backend dependencies
+        run: npm ci --prefix tenant-back-end
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: Tenant backend tests
+        run: npm run test:tenant-backend
+
+      - name: Dependency security audit
+        run: npm audit --prefix front-end --audit-level=high --json > front-end/dependency-audit.json || true
+
+      - name: Generate application SBOM
+        run: npm --prefix front-end run security:sbom > front-end/application-sbom.cdx.json
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-artifacts
+          path: |
+            front-end/dependency-audit.json
+            front-end/application-sbom.cdx.json
+          if-no-files-found: error
+
+      - name: Install Playwright browsers
+        run: npx --prefix front-end playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
