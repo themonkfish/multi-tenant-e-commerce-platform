@@ -86,6 +86,10 @@ export interface PlatformStore
     auditEvent: AuditEvent;
   }): Promise<void>;
   appendAuditEvent(event: AuditEvent): Promise<void>;
+  listAuditEvents(input?: {
+    scope?: AccessScope;
+    limit?: number;
+  }): Promise<AuditEvent[]>;
   listHosts(): Promise<HostConfig[]>;
   createHost(host: HostConfig, auditEvent: AuditEvent): Promise<void>;
   updateHostStatus(

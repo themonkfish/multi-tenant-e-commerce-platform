@@ -54,6 +54,7 @@ import type {
   SecretRecord,
   SuperAdminRecord,
 } from "@/core/ports/platform-store";
+import type { AccessScope } from "@/core/tenancy/scope";
 import { createPlatformSupabaseClient } from "./client";
 
 export class SupabasePlatformStore implements PlatformStore {
@@ -215,6 +216,46 @@ export class SupabasePlatformStore implements PlatformStore {
     if (error) {
       throw new Error(`Could not append audit event: ${error.message}`);
     }
+  }
+
+  async listAuditEvents(
+    input: {
+      scope?: AccessScope;
+      limit?: number;
+    } = {},
+  ): Promise<AuditEvent[]> {
+    const limit =
+      input.limit === undefined
+        ? 100
+        : Math.max(1, Math.min(1000, input.limit));
+    let query = this.client
+      .from("platform_audit_log")
+      .select(
+        "id, actor_id, scope, action, resource_type, resource_id, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (input.scope) {
+      query = query
+        .eq("scope->>kind", input.scope.kind)
+        .eq("scope->>id", input.scope.id);
+      if (input.scope.kind === "tenant") {
+        query = query.eq("scope->>hostId", input.scope.hostId);
+      }
+    }
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`Could not list audit events: ${error.message}`);
+    }
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      actorId: row.actor_id,
+      scope: row.scope as AccessScope,
+      action: row.action,
+      resourceType: row.resource_type,
+      resourceId: row.resource_id ?? undefined,
+      createdAt: row.created_at,
+    }));
   }
 
   async listHosts(): Promise<HostConfig[]> {

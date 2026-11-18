@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
+import type { AccessScope } from "@/core/tenancy/scope";
 import {
   HostConfigSchema,
   type HostConfig,
@@ -325,6 +326,35 @@ export class FilePlatformStore implements PlatformStore {
       state.auditEvents.push(event);
       await this.writeState(state);
     });
+  }
+
+  async listAuditEvents(
+    input: {
+      scope?: AccessScope;
+      limit?: number;
+    } = {},
+  ): Promise<AuditEvent[]> {
+    const state = await this.readState();
+    const limit =
+      input.limit === undefined
+        ? 100
+        : Math.max(1, Math.min(1000, input.limit));
+    return state.auditEvents
+      .filter((event) =>
+        !input.scope
+          ? true
+          : event.scope.kind === input.scope.kind &&
+            event.scope.id === input.scope.id &&
+            (event.scope.kind !== "tenant" ||
+              (input.scope.kind === "tenant" &&
+                event.scope.hostId === input.scope.hostId)),
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, limit)
+      .map((event) => ({
+        ...event,
+        scope: event.scope as AccessScope,
+      }));
   }
 
   async listHosts(): Promise<HostConfig[]> {
