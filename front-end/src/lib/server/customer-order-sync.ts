@@ -3,6 +3,7 @@ import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
 import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
 import type { PlatformStore } from "@/core/ports/platform-store";
+import { createStructuredLogger } from "./observability";
 
 export async function syncCustomerOrderToTenant(input: {
   store: PlatformStore;
@@ -30,10 +31,12 @@ export async function syncCustomerOrderToTenant(input: {
   } catch (error) {
     status = "failed";
     errorMessage = getSyncFailureMessage(error);
-    console.error("Customer order sync failed", {
+    createStructuredLogger({
+      hostId: input.hostId,
       tenantId: input.tenantId,
+      userId: input.order.customerId,
+    }).error("customer.order_sync_failed", error, {
       orderId: input.order.id,
-      error: error instanceof Error ? error.message : String(error),
     });
   }
 

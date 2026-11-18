@@ -7,7 +7,7 @@ automatically implemented just because they are listed there.
 
 ## Current status
 
-Status snapshot as of 2026-10-24:
+Status snapshot as of 2026-11-18:
 
 - The frontend platform bootstrap, Super Admin onboarding, host/tenant
   lifecycle management, scoped portal auth flows, and tenant-scoped cache
@@ -32,8 +32,9 @@ Status snapshot as of 2026-10-24:
   at the hosting provider, registrar automation, and the full commerce runtime
   remain future work.
 - Tenant catalog APIs route through configured REST, Supabase, or MongoDB Atlas
-  providers; order APIs continue through the REST backend. Tenant-specific
-  live card payments remain future work. Tenant Owner-managed S3-compatible
+  providers; order APIs continue through the REST backend. Platform-level live
+  Stripe keys are supported in production, while tenant-specific Stripe Connect
+  remains future work. Tenant Owner-managed S3-compatible
   storage configuration and tenant-scoped JPEG/PNG/WebP uploads are
   implemented; catalog writers can attach uploaded images to products and
   render them across the tenant storefront. Products now have tenant-scoped
@@ -73,6 +74,13 @@ Status snapshot as of 2026-10-24:
   proxies uploads to storage.
 - Baseline security response headers are configured globally for pages and API
   routes. HSTS is enabled only in production.
+- Application CI now validates linting, TypeScript, frontend tests, tenant
+  backend tests, Playwright flows, Supabase migrations, dependencies, and
+  application SBOM generation. A public health route reports platform-store
+  availability and setup state.
+- English, French, and Hindi locale routing is available, with a locale
+  switcher and regression coverage. Tenant storefront copy and broader customer
+  experiences may still be expanded through tenant locale settings.
 
 ### Completed
 
@@ -221,9 +229,10 @@ Status snapshot as of 2026-10-24:
       apply to all localized pages and authenticated portal requests, and
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
-- [ ] **i18n:** routing infrastructure exists, but only English is configured.
-      The tenant storefront preview uses the saved default locale metadata but
-      does not yet expand the public storefront to localized customer pages.
+- [ ] **i18n:** English, French, and Hindi routing is now configured with a locale
+      switcher and 212 frontend tests. The tenant storefront preview uses the
+      saved default locale metadata but the full public storefront remains to be
+      comprehensively translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
       mutation limits are per-account; production monitoring, a shared
@@ -243,8 +252,8 @@ Status snapshot as of 2026-10-24:
      routes as new features are introduced.
 
 2. **P1 — Tenant provisioning and platform configuration**
-   - Finish tenant storefront provisioning and the managed tenant
-     settings flow.
+   - Tenant storefront branding, settings, catalog, storage, staff, payment,
+     and domain workflows are implemented.
    - Setup verification, theme/legal settings, first-host guidance, and
      Resend-backed Host/Tenant invitation emails are implemented.
      Reserved-domain validation is centralized.
@@ -252,16 +261,16 @@ Status snapshot as of 2026-10-24:
      configuration controls.
 
 3. **P1 — Provider data layer**
-   - Implement the tenant Supabase and MongoDB adapters, reference schemas, and
+   - Completed: tenant Supabase and MongoDB adapters, reference schemas, and
      provider testing/initialization flows.
    - Add schema-version checks and upgrade prompts for tenant data providers.
    - Continue credential rotation and connection-validation workflows.
 
 4. **P2 — Commerce backend and fulfillment**
-   - Add production payment operations and Stripe Connect tenant onboarding.
-     Stripe test-mode checkout and webhook verification, plus India-only
-     Cash on Delivery, are implemented. Stripe Connect is blocked pending
-     platform-country eligibility; regional gateways are deferred.
+   - Added Stripe test/live key support and mode-matched signed webhook
+     verification, plus India-only Cash on Delivery. Stripe Connect tenant
+     onboarding is blocked pending platform-country eligibility; regional
+     gateways are deferred.
    - Wire uploaded assets into product image management.
    - Basic address capture, configurable flat shipping, and order tracking are
      implemented. Discount codes and variant inventory reservation are
@@ -269,8 +278,7 @@ Status snapshot as of 2026-10-24:
      backend order snapshots.
 
 5. **P2 — Storefront runtime upgrade**
-   - Add production checkout settings and payment operations; the current Stripe
-     integration is restricted to test mode.
+   - Added production Stripe key support and mode-matched webhook checks.
    - Completed: storefront name search, category browsing, pagination, and
      product option selection with server-validated order snapshots.
    - Per-variant pricing and SKU overrides are implemented; inventory tracking
@@ -278,7 +286,9 @@ Status snapshot as of 2026-10-24:
    - Extend basic fulfillment tracking with carrier integrations.
 
 6. **P3 — Platform operations and scale**
-   - Add observability, CI/CD, automated migration deployment, audit tooling,
+   - CI, migration validation, dependency audit, SBOM generation, health
+     reporting, and application test automation are implemented. Add
+     observability, automated production migration deployment, audit tooling,
      backups, and restore workflows.
    - Choose background jobs, email delivery, domain/SSL strategy, and tenant
      identity model.
@@ -288,7 +298,7 @@ Status snapshot as of 2026-10-24:
    - Add CMS, reviews, reporting, expanded staff roles, webhooks, PWA support,
      and theming tools.
    - Expand i18n and localized storefront customer experiences beyond the
-     current English-only foundation.
+     configured English, French, and Hindi foundation.
 
 #### Foundation and tenancy
 
@@ -320,8 +330,9 @@ Status snapshot as of 2026-10-24:
 - [x] Add local product-management screen for catalog CRUD. REST connection,
       health testing, catalog adapter, and authenticated product API routes are
       implemented; end-to-end mock coverage remains as a follow-up enhancement.
-- [ ] Implement tenant Supabase and MongoDB data adapters, reference schemas,
-      provider setup, test-connection, and schema initialization.
+- [x] Implement tenant Supabase and MongoDB data adapters, reference schemas,
+      provider setup, test-connection, and schema initialization. Older and newer
+      schema versions are classified for upgrade or compatibility handling.
 - [ ] Add connection testing for other providers and full credential rotation
       workflows. REST API-key replacement is supported; OAuth/JWT are not.
 - [x] Add Stripe test-mode Checkout, signature verification, idempotent payment
