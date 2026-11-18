@@ -1,0 +1,19 @@
+{
+  "Home": {
+    "platformName": "Espace commerce",
+    "phase": "Phase 1 - Fondations",
+    "eyebrow": "Commerce multi-tenant",
+    "headline": "Une plateforme. Des boutiques independantes.",
+    "description": "Un espace independant des backends pour gerer des boutiques, des hôtes et des locations.",
+    "storefrontTitle": "Boutiques des tenants",
+    "storefrontDescription": "Des expériences de vente marquees et resolues pour chaque tenant.",
+    "tenantTitle": "Espace tenant",
+    "tenantDescription": "Un espace dedie pour gerer les produits, les commandes et les integrations.",
+    "hostTitle": "Espace hôte",
+    "hostDescription": "Gerez les tenants dans le perimetre de chaque hôte.",
+    "footer": "Fondations du frontend · Le backend et les connexions tenant ne sont pas encore raccordés.",
+    "storefrontUnavailable": "La boutique de ce tenant n'est pas encore disponible.",
+    "hostPortal": "Gerez les espaces de travail des tenants de cet hôte.",
+    "hostPortalLink": "Ouvrir le portail hôte"
+  }
+}

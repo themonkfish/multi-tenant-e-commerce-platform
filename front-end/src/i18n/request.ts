@@ -4,6 +4,8 @@ import { routing } from "./routing";
 
 const messageLoaders = {
   en: () => import("../../messages/en.json"),
+  fr: () => import("../../messages/fr.json"),
+  hi: () => import("../../messages/hi.json"),
 };
 
 export default getRequestConfig(async ({ requestLocale }) => {

@@ -6,6 +6,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { routing } from "@/i18n/routing";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -63,7 +64,11 @@ export default async function LocaleLayout({
             style={{ borderColor: settings.accentColor }}
           >
             <span>{settings.name}</span>
-            <nav aria-label="Legal information" className="flex gap-4">
+            <nav
+              aria-label="Footer information"
+              className="flex flex-wrap items-center gap-4"
+            >
+              <LocaleSwitcher locales={routing.locales} />
               {settings.termsUrl && (
                 <a
                   href={settings.termsUrl}
