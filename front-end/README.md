@@ -130,6 +130,23 @@ through demo checkout to verify the discount, tax-on-discounted-merchandise
 calculation, order snapshot, and confirmation summary. These values are
 local-only fixtures and can be changed in Tenant Store settings.
 
+## File-store backup and restore
+
+Create a timestamped, checksummed backup of the configured file platform store:
+
+```powershell
+npm run platform-store:backup -- .local/backups
+```
+
+Restore requires an explicit safety flag and creates a pre-restore copy:
+
+```powershell
+npm run platform-store:restore -- <backup-file> --force
+```
+
+Stop application servers before restoring. Backup and restore are intended for
+the file platform store only; Supabase backups must be managed in Supabase.
+
 The `dev-demo` launcher enables a simulated checkout for this isolated demo
 store. Place an order as the demo Customer, then choose **Simulate successful
 payment** or **Simulate failed payment** on the local checkout screen. A

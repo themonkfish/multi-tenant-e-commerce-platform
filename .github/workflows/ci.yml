@@ -54,6 +54,9 @@ jobs:
       - name: Tenant backend tests
         run: npm run test:tenant-backend
 
+      - name: Platform backup tests
+        run: npm run test:platform-backup
+
       - name: Dependency security audit
         run: npm audit --prefix front-end --audit-level=high --json > front-end/dependency-audit.json || true
 

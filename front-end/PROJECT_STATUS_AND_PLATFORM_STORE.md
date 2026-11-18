@@ -74,6 +74,9 @@ Status snapshot as of 2026-11-18:
   proxies uploads to storage.
 - Baseline security response headers are configured globally for pages and API
   routes. HSTS is enabled only in production.
+- The file platform store has checksummed timestamped backup and guarded restore
+  scripts. Restore requires `--force`, leaves a pre-restore copy, and rejects
+  checksum or format mismatches.
 - Application CI now validates linting, TypeScript, frontend tests, tenant
   backend tests, Playwright flows, Supabase migrations, dependencies, and
   application SBOM generation. A public health route reports platform-store
@@ -235,9 +238,11 @@ Status snapshot as of 2026-11-18:
       comprehensively translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
-      mutation limits are per-account; production monitoring, a shared
-      distributed rate-limit service, automated migration deployment,
-      and backup/restore still need work.
+      mutation limits are per-account. Structured logging and request
+      correlation, audit export, file-store backup/restore, dependency audit,
+      SBOM generation, and health reporting are implemented. Production
+      monitoring, a shared distributed rate-limit service, automated migration
+      deployment, restore automation, and full compliance tooling remain.
 
 ### Pending roadmap
 
@@ -287,9 +292,10 @@ Status snapshot as of 2026-11-18:
 
 6. **P3 — Platform operations and scale**
    - CI, migration validation, dependency audit, SBOM generation, health
-     reporting, and application test automation are implemented. Add
-     observability, automated production migration deployment, audit tooling,
-     backups, and restore workflows.
+     reporting, structured logging, audit export, file-store backup/restore,
+     and application test automation are implemented. Add production
+     observability, automated production migration deployment, backup rotation,
+     and restore automation.
    - Choose background jobs, email delivery, domain/SSL strategy, and tenant
      identity model.
    - Add compliance and export/deletion workflows for tenant data.
