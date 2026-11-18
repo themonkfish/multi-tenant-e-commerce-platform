@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createTenantDatabaseAdapter } from "@/adapters/data/database/tenant-provider-factory";
-import { TENANT_CATALOG_SCHEMA_VERSION } from "@/adapters/data/database/tenant-database-adapter";
+import {
+  classifyTenantDatabaseSchema,
+  TENANT_CATALOG_SCHEMA_VERSION,
+} from "@/adapters/data/database/tenant-database-adapter";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { canAccessPermission } from "@/core/tenancy/scope";
@@ -42,14 +45,7 @@ export async function POST(request: Request) {
         status: "healthy",
         schemaVersion,
         currentSchemaVersion: TENANT_CATALOG_SCHEMA_VERSION,
-        schemaStatus:
-          schemaVersion === null
-            ? "not_initialized"
-            : schemaVersion === TENANT_CATALOG_SCHEMA_VERSION
-              ? "current"
-              : schemaVersion < TENANT_CATALOG_SCHEMA_VERSION
-                ? "upgrade_available"
-                : "upgrade_required",
+        schemaStatus: classifyTenantDatabaseSchema(schemaVersion),
       },
     });
   } catch {

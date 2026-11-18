@@ -12,7 +12,13 @@ const platformStoreMock = vi.hoisted(() => ({
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: (name: string) => {
-      if (name === "super-admin" || name === "host-owner" || name === "tenant-owner" || name === "tenant-staff" || name === "store-customer") {
+      if (
+        name === "super-admin" ||
+        name === "host-owner" ||
+        name === "tenant-owner" ||
+        name === "tenant-staff" ||
+        name === "store-customer"
+      ) {
         return { value: "token" };
       }
       return undefined;

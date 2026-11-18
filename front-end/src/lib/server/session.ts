@@ -432,9 +432,7 @@ export async function getCustomerSession(): Promise<Principal | null> {
     .safeParse(payload);
   if (!claims.success) return null;
   const requestScope = await getRequestDomainScope();
-  if (
-    !isScopeAllowedOnRequestDomain(requestScope, claims.data.scope)
-  ) {
+  if (!isScopeAllowedOnRequestDomain(requestScope, claims.data.scope)) {
     return null;
   }
 

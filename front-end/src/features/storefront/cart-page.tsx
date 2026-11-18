@@ -230,20 +230,20 @@ export function StorefrontCartPage({
                                 ? "Secure checkout is temporarily unavailable. Try again later."
                                 : code === "payment_method_disabled"
                                   ? "This payment method is disabled for this store."
-                                : code ===
-                                    "cash_on_delivery_currency_unsupported"
-                                  ? "Cash on delivery is available only for INR orders."
-                                  : code === "invalid_cart"
-                                    ? "Enter a valid Indian delivery address and mobile number."
-                                    : code === "shipping_currency_unsupported"
-                                      ? `Shipping rates are configured in ${currency}. Update the store's default currency or shipping settings.`
-                                      : code === "free_checkout_not_supported"
-                                        ? "Free orders cannot be checked out using card payment."
-                                        : code === "idempotency_key_conflict"
-                                          ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
-                                          : code === "rate_limited"
-                                            ? "Too many checkout attempts. Wait a few minutes and try again."
-                                            : "The order could not be placed. Please try again.",
+                                  : code ===
+                                      "cash_on_delivery_currency_unsupported"
+                                    ? "Cash on delivery is available only for INR orders."
+                                    : code === "invalid_cart"
+                                      ? "Enter a valid Indian delivery address and mobile number."
+                                      : code === "shipping_currency_unsupported"
+                                        ? `Shipping rates are configured in ${currency}. Update the store's default currency or shipping settings.`
+                                        : code === "free_checkout_not_supported"
+                                          ? "Free orders cannot be checked out using card payment."
+                                          : code === "idempotency_key_conflict"
+                                            ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
+                                            : code === "rate_limited"
+                                              ? "Too many checkout attempts. Wait a few minutes and try again."
+                                              : "The order could not be placed. Please try again.",
         );
         return;
       }

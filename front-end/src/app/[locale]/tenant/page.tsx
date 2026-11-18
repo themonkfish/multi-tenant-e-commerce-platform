@@ -194,10 +194,10 @@ export default async function TenantDashboardPage({
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <p className="text-sm leading-6 text-amber-900">
-            Storefront payment processing and custom-domain routing remain future
-            work. The tenant portal already includes product image uploads,
-            catalog management, staff permissions, storage configuration, and
-            tenant settings management.
+            Storefront payment processing and custom-domain routing remain
+            future work. The tenant portal already includes product image
+            uploads, catalog management, staff permissions, storage
+            configuration, and tenant settings management.
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
