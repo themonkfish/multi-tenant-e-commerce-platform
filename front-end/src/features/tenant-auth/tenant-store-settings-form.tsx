@@ -137,6 +137,10 @@ export function TenantStoreSettingsForm({
           : {}),
       },
       tax: { rateBasisPoints },
+      payments: {
+        stripe: form.get("paymentStripe") === "on",
+        cashOnDelivery: form.get("paymentCashOnDelivery") === "on",
+      },
       discounts,
     };
     const validated = TenantStoreSettingsSchema.safeParse(rawSettings);
@@ -271,6 +275,42 @@ export function TenantStoreSettingsForm({
             onChange={(event) => setTaxRate(event.target.value)}
             required
           />
+        </label>
+      </fieldset>
+      <fieldset className="space-y-3 rounded-md border border-slate-200 p-4 sm:col-span-2">
+        <legend className="px-1 text-sm font-semibold">Payment methods</legend>
+        <p className="text-xs text-slate-600">
+          Stripe Checkout uses the platform&apos;s test-mode configuration.
+          Tenant-specific Stripe Connect and production provider onboarding are
+          not available yet.
+        </p>
+        <label className="flex items-start gap-2 text-sm font-medium">
+          <input
+            className="mt-0.5"
+            name="paymentStripe"
+            type="checkbox"
+            defaultChecked={settings.payments.stripe}
+          />
+          <span>
+            Stripe Checkout
+            <span className="block font-normal text-slate-600">
+              Show card checkout when Stripe test-mode keys are configured.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm font-medium">
+          <input
+            className="mt-0.5"
+            name="paymentCashOnDelivery"
+            type="checkbox"
+            defaultChecked={settings.payments.cashOnDelivery}
+          />
+          <span>
+            Cash on delivery
+            <span className="block font-normal text-slate-600">
+              Available only for INR orders and Indian delivery addresses.
+            </span>
+          </span>
         </label>
       </fieldset>
       <label className="space-y-2 text-sm font-medium sm:col-span-2">

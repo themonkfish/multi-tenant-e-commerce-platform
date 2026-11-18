@@ -670,6 +670,7 @@ describe("FilePlatformStore", () => {
       },
       shipping: { flatRate: 100, freeShippingThreshold: 2000 },
       tax: { rateBasisPoints: 0 },
+      payments: { stripe: true, cashOnDelivery: true },
       discounts: [
         {
           code: "SAVE10",

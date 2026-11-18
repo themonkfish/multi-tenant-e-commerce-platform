@@ -156,6 +156,12 @@ export const TenantStoreSettingsSchema = z
         rateBasisPoints: z.number().int().min(0).max(10_000),
       })
       .default({ rateBasisPoints: 0 }),
+    payments: z
+      .object({
+        stripe: z.boolean().default(true),
+        cashOnDelivery: z.boolean().default(false),
+      })
+      .default({ stripe: true, cashOnDelivery: false }),
     discounts: TenantDiscountsSchema.default([]),
   })
   .superRefine((settings, context) => {
@@ -195,6 +201,7 @@ export function createDefaultTenantStoreSettings(
     },
     shipping: { flatRate: 0 },
     tax: { rateBasisPoints: 0 },
+    payments: { stripe: true, cashOnDelivery: false },
     discounts: [],
   };
 }

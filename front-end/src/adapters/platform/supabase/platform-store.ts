@@ -1301,7 +1301,7 @@ export class SupabasePlatformStore implements PlatformStore {
   ): Promise<TenantStoreSettings> {
     const { data, error } = await this.client
       .from("platform_tenant_settings")
-      .select("branding, locale, shipping, tax, discounts")
+      .select("*")
       .eq("tenant_id", tenantId)
       .eq("host_id", hostId)
       .maybeSingle();
@@ -1311,12 +1311,16 @@ export class SupabasePlatformStore implements PlatformStore {
     if (!data) {
       return createDefaultTenantStoreSettings(tenantName);
     }
+    const row = data as typeof data & {
+      payments?: { stripe: boolean; cashOnDelivery: boolean };
+    };
     return TenantStoreSettingsSchema.parse({
-      branding: data.branding,
-      locale: data.locale,
-      shipping: data.shipping,
-      tax: data.tax,
-      discounts: data.discounts,
+      branding: row.branding,
+      locale: row.locale,
+      shipping: row.shipping,
+      tax: row.tax,
+      payments: row.payments,
+      discounts: row.discounts,
     });
   }
 
@@ -1384,6 +1388,7 @@ export class SupabasePlatformStore implements PlatformStore {
         p_locale: settings.locale,
         p_shipping: settings.shipping,
         p_tax: settings.tax,
+        p_payments: settings.payments,
         p_discounts: settings.discounts,
         p_updated_at: input.updatedAt,
         p_actor_id: input.auditEvent.actorId,

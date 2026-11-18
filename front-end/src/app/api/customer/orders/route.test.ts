@@ -175,6 +175,7 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         locale: { currency },
         shipping,
         tax: { rateBasisPoints: taxRateBasisPoints },
+        payments: { stripe: true, cashOnDelivery: true },
         discounts,
       }),
     };
@@ -713,6 +714,9 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     });
     getPlatformStore.mockReturnValue({
       consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getTenantStoreSettings: vi.fn().mockResolvedValue({
+        payments: { stripe: true, cashOnDelivery: true },
+      }),
       getCustomerOrder: vi
         .fn()
         .mockResolvedValue(

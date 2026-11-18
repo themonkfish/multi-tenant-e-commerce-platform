@@ -228,6 +228,8 @@ export function StorefrontCartPage({
                               ? "Secure checkout is not configured for this store."
                               : code === "payment_provider_unavailable"
                                 ? "Secure checkout is temporarily unavailable. Try again later."
+                                : code === "payment_method_disabled"
+                                  ? "This payment method is disabled for this store."
                                 : code ===
                                     "cash_on_delivery_currency_unsupported"
                                   ? "Cash on delivery is available only for INR orders."

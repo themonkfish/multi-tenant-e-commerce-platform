@@ -220,6 +220,29 @@ export async function POST(request: Request) {
   }
 
   const store = getPlatformStore();
+  const tenantSettings = await store.getTenantStoreSettings(
+    session.scope.id,
+    session.scope.hostId,
+    "",
+  );
+  if (
+    parsed.data.paymentMethod === "cash_on_delivery" &&
+    !tenantSettings.payments.cashOnDelivery
+  ) {
+    return NextResponse.json(
+      { error: "payment_method_disabled" },
+      { status: 409 },
+    );
+  }
+  if (
+    parsed.data.paymentMethod === "stripe" &&
+    !tenantSettings.payments.stripe
+  ) {
+    return NextResponse.json(
+      { error: "payment_method_disabled" },
+      { status: 409 },
+    );
+  }
   const orderId = `ORD-${parsed.data.idempotencyKey}`;
   const allowed = await store.consumeRateLimit({
     key: createRateLimitKey(request, "customer-order-create", session.userId),
