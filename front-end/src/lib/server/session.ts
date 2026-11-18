@@ -346,11 +346,11 @@ export async function getTenantStaffSession(): Promise<Principal | null> {
     })
     .safeParse(payload);
   if (!claims.success) return null;
-  const requestScope = await getRequestDomainScope();
   if (
-    requestScope?.kind !== "tenant" ||
-    requestScope.tenant.id !== claims.data.scope.id ||
-    requestScope.host.id !== claims.data.scope.hostId
+    !isScopeAllowedOnRequestDomain(
+      await getRequestDomainScope(),
+      claims.data.scope,
+    )
   ) {
     return null;
   }
@@ -433,9 +433,7 @@ export async function getCustomerSession(): Promise<Principal | null> {
   if (!claims.success) return null;
   const requestScope = await getRequestDomainScope();
   if (
-    requestScope?.kind !== "tenant" ||
-    requestScope.tenant.id !== claims.data.scope.id ||
-    requestScope.host.id !== claims.data.scope.hostId
+    !isScopeAllowedOnRequestDomain(requestScope, claims.data.scope)
   ) {
     return null;
   }
@@ -444,7 +442,8 @@ export async function getCustomerSession(): Promise<Principal | null> {
     claims.data.scope.id,
     claims.data.sub,
   );
-  if (!account) return null;
+  if (!account || account.tenantId !== claims.data.scope.id) return null;
+  if (!requestScope || requestScope.kind !== "tenant") return null;
   return {
     userId: claims.data.sub,
     role: "customer",

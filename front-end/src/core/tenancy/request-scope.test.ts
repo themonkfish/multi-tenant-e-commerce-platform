@@ -177,7 +177,7 @@ describe("resolveRequestScope", () => {
   });
 
   describe("isScopeAllowedOnRequestDomain", () => {
-    it("allows unresolved and platform domains to serve existing portals", async () => {
+    it("rejects unresolved domains and blocks cross-scope access on the platform domain", async () => {
       const platformScope = await resolveRequestScope(
         "platform.example.com",
         createStore(),
@@ -185,6 +185,18 @@ describe("resolveRequestScope", () => {
 
       expect(
         isScopeAllowedOnRequestDomain(null, { kind: "host", id: host.id }),
+      ).toBe(false);
+      expect(
+        isScopeAllowedOnRequestDomain(null, {
+          kind: "platform",
+          id: "platform",
+        }),
+      ).toBe(false);
+      expect(
+        isScopeAllowedOnRequestDomain(platformScope, {
+          kind: "platform",
+          id: "platform",
+        }),
       ).toBe(true);
       expect(
         isScopeAllowedOnRequestDomain(platformScope, {
@@ -192,7 +204,13 @@ describe("resolveRequestScope", () => {
           id: tenant.id,
           hostId: host.id,
         }),
-      ).toBe(true);
+      ).toBe(false);
+      expect(
+        isScopeAllowedOnRequestDomain(platformScope, {
+          kind: "host",
+          id: host.id,
+        }),
+      ).toBe(false);
     });
 
     it("restricts host and tenant domains to their matching access scopes", async () => {

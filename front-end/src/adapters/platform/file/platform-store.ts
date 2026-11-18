@@ -1823,23 +1823,37 @@ export class FilePlatformStore implements PlatformStore {
 
   private async withLock<T>(operation: () => Promise<T>): Promise<T> {
     await mkdir(dirname(this.lockPath), { recursive: true, mode: 0o700 });
-    let lock;
-    try {
-      lock = await open(this.lockPath, "wx", 0o600);
-    } catch (error) {
-      if (hasErrorCode(error, "EEXIST")) {
-        throw new Error(
-          "Platform store is locked by another setup operation; retry after it completes",
-        );
+
+    let lock: Awaited<ReturnType<typeof open>> | undefined;
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      try {
+        lock = await open(this.lockPath, "wx", 0o600);
+        break;
+      } catch (error) {
+        if (!hasErrorCode(error, "EEXIST")) {
+          throw error;
+        }
+        if (attempt === 24) {
+          throw new Error(
+            "Platform store is locked by another operation; retry after it completes",
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
       }
-      throw error;
+    }
+    if (!lock) {
+      throw new Error("Platform store lock could not be acquired");
     }
 
     try {
       return await operation();
     } finally {
       await lock.close();
-      await unlink(this.lockPath);
+      await unlink(this.lockPath).catch((cleanupError: unknown) => {
+        if (!hasErrorCode(cleanupError, "ENOENT")) {
+          throw cleanupError;
+        }
+      });
     }
   }
 }

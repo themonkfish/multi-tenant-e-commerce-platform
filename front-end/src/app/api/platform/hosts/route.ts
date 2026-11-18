@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     existingHosts.flatMap((host) => host.domains),
   );
   const reservedDomains = getReservedPlatformDomains(
-    state.platformDomain,
+    state.platformDomain ?? null,
     state.reservedSubdomains,
   );
   if (

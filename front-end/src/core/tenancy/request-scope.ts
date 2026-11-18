@@ -37,8 +37,12 @@ export function isScopeAllowedOnRequestDomain(
   requestScope: ResolvedRequestScope | null,
   accessScope: AccessScope,
 ): boolean {
-  if (!requestScope || requestScope.kind === "platform") {
-    return true;
+  if (!requestScope) {
+    return false;
+  }
+
+  if (requestScope.kind === "platform") {
+    return accessScope.kind === "platform";
   }
 
   if (requestScope.kind === "unavailable") {
