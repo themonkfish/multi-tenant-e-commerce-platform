@@ -11,6 +11,13 @@ export class StripePaymentConfigurationError extends Error {
   }
 }
 
+export class StripePaymentModeMismatchError extends Error {
+  constructor() {
+    super("Stripe event mode does not match the configured payment mode");
+    this.name = "StripePaymentModeMismatchError";
+  }
+}
+
 export type StripePaymentMode = "test" | "live";
 
 export function getStripeConfiguration(): {
@@ -89,6 +96,7 @@ export async function createStripeCheckoutSession(input: {
     tenantId: input.order.tenantId,
     customerId: input.order.customerId,
     orderId: input.order.id,
+    paymentMode: getStripeConfiguration().mode,
     ...(input.order.discountCode
       ? { discountCode: input.order.discountCode }
       : {}),
@@ -188,10 +196,14 @@ export function verifyStripeWebhookEvent(
   payload: string,
   signature: string,
 ): Stripe.Event {
-  const { secretKey, webhookSecret } = getStripeConfiguration();
-  return createStripeClient(secretKey).webhooks.constructEvent(
+  const { secretKey, webhookSecret, mode } = getStripeConfiguration();
+  const event = createStripeClient(secretKey).webhooks.constructEvent(
     payload,
     signature,
     webhookSecret,
   );
+  if (event.livemode !== (mode === "live")) {
+    throw new StripePaymentModeMismatchError();
+  }
+  return event;
 }

@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getStripeConfiguration,
+  StripePaymentModeMismatchError,
   verifyStripeWebhookEvent,
 } from "./stripe-payments";
 
@@ -59,5 +60,29 @@ describe("Stripe webhook verification", () => {
       secretKey: "sk_live_not_allowed",
       mode: "live",
     });
+  });
+
+  it("rejects a webhook event from a different Stripe mode", () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_checkout_secret");
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", webhookSecret);
+    const payload = JSON.stringify({
+      id: "evt_live_mismatch",
+      object: "event",
+      api_version: Stripe.API_VERSION,
+      created: 1_782_102_400,
+      data: { object: { id: "cs_live_mismatch", object: "checkout.session" } },
+      livemode: true,
+      pending_webhooks: 1,
+      request: { id: null, idempotency_key: null },
+      type: "checkout.session.completed",
+    });
+    const signature = Stripe.webhooks.generateTestHeaderString({
+      payload,
+      secret: webhookSecret,
+    });
+    expect(() => verifyStripeWebhookEvent(payload, signature)).toThrow(
+      StripePaymentModeMismatchError,
+    );
   });
 });
