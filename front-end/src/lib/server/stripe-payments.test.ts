@@ -1,6 +1,9 @@
 import Stripe from "stripe";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { verifyStripeWebhookEvent } from "./stripe-payments";
+import {
+  getStripeConfiguration,
+  verifyStripeWebhookEvent,
+} from "./stripe-payments";
 
 const webhookSecret = "whsec_test_webhook_secret";
 
@@ -39,11 +42,22 @@ describe("Stripe webhook verification", () => {
     expect(() => verifyStripeWebhookEvent(`${payload} `, signature)).toThrow();
   });
 
-  it("refuses live-mode API keys", () => {
+  it("accepts live-mode API keys only in production", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_not_allowed");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", webhookSecret);
+    vi.stubEnv("NODE_ENV", "test");
     expect(() => verifyStripeWebhookEvent("{}", "t=1,v1=invalid")).toThrow(
-      "Stripe test-mode keys are not configured",
+      "Stripe payment keys are not configured",
     );
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SESSION_SECRET", "0123456789abcdef0123456789abcdef");
+    vi.stubEnv("PLATFORM_SECRET_KEY", "0123456789abcdef0123456789abcdef");
+    vi.stubEnv("PLATFORM_STORE", "supabase");
+    vi.stubEnv("PLATFORM_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("PLATFORM_SUPABASE_SERVICE_KEY", "service-key");
+    expect(getStripeConfiguration()).toMatchObject({
+      secretKey: "sk_live_not_allowed",
+      mode: "live",
+    });
   });
 });

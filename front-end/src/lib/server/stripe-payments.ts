@@ -6,20 +6,37 @@ import { getServerEnv } from "@/lib/server/env";
 
 export class StripePaymentConfigurationError extends Error {
   constructor() {
-    super("Stripe test-mode keys are not configured");
+    super("Stripe payment keys are not configured");
     this.name = "StripePaymentConfigurationError";
   }
 }
 
-function getStripeConfiguration() {
-  const { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } = getServerEnv();
-  if (
-    !STRIPE_SECRET_KEY?.startsWith("sk_test_") ||
-    !STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")
-  ) {
+export type StripePaymentMode = "test" | "live";
+
+export function getStripeConfiguration(): {
+  secretKey: string;
+  webhookSecret: string;
+  mode: StripePaymentMode;
+} {
+  const { NODE_ENV, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } = getServerEnv();
+  if (!STRIPE_WEBHOOK_SECRET?.startsWith("whsec_")) {
     throw new StripePaymentConfigurationError();
   }
-  return { secretKey: STRIPE_SECRET_KEY, webhookSecret: STRIPE_WEBHOOK_SECRET };
+  if (STRIPE_SECRET_KEY?.startsWith("sk_test_")) {
+    return {
+      secretKey: STRIPE_SECRET_KEY,
+      webhookSecret: STRIPE_WEBHOOK_SECRET,
+      mode: "test",
+    };
+  }
+  if (NODE_ENV === "production" && STRIPE_SECRET_KEY?.startsWith("sk_live_")) {
+    return {
+      secretKey: STRIPE_SECRET_KEY,
+      webhookSecret: STRIPE_WEBHOOK_SECRET,
+      mode: "live",
+    };
+  }
+  throw new StripePaymentConfigurationError();
 }
 
 function createStripeClient(secretKey: string) {

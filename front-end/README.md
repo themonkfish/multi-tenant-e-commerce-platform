@@ -178,7 +178,7 @@ cross-Tenant order isolation, and status propagation to Customer order history.
 The API route test also verifies retry after the Tenant backend status changes
 but the platform order-history update temporarily fails.
 
-## Stripe test checkout
+## Stripe checkout
 
 Without Stripe keys, use the local simulated checkout described above. For
 provider-backed payment testing, configure a Stripe test-mode secret key and
@@ -186,6 +186,13 @@ webhook signing secret in the frontend environment:
 
 ```text
 STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+For a production deployment, configure a live secret key instead:
+
+```text
+STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
@@ -199,10 +206,10 @@ payment. The browser redirect itself is never considered payment proof.
 generated local demo environment.
 
 When using Supabase, apply every migration in `supabase/migrations/` in order.
-The configured Stripe integration is test-mode only; live Stripe keys are
-rejected. One platform-level Stripe account is used for this initial slice;
-tenant-specific Stripe Connect onboarding and live payment operations remain
-future work.
+One platform-level Stripe account is used for this initial slice. Live keys
+are accepted only with `NODE_ENV=production`; test keys are also supported
+where test checkout is needed. Tenant-specific Stripe Connect onboarding
+remains future work pending platform-country eligibility.
 
 ## Architecture
 
