@@ -23,6 +23,8 @@ describe("GET /api/health", () => {
       status: "healthy",
       platformStore: "configured",
       setupComplete: true,
+      timestamp: expect.any(String),
+      requestId: "health-request-1",
     });
   });
 

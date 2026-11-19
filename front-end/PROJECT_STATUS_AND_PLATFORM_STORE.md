@@ -88,6 +88,9 @@ Status snapshot as of 2026-11-19:
   availability and setup state.
 - Supabase migration CI resets a clean local database, applies every migration
   in repository order, and lints the resulting schema.
+- Public health responses now include UTC timestamps and request correlation
+  IDs, and emit structured JSON logs for healthy or degraded platform-store
+  outcomes.
 - English, French, and Hindi locale routing is available, with a locale
   switcher and regression coverage. Tenant storefront copy and broader customer
   experiences may still be expanded through tenant locale settings.
