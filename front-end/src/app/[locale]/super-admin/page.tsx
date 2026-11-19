@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { HostManagement } from "@/features/hosts/host-management";
 import { PlatformAuditLog } from "@/features/auth/platform-audit-log";
 import { PlatformSettingsForm } from "@/features/auth/platform-settings-form";
+import { PlatformHealthSummary } from "@/features/auth/platform-health-summary";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getSuperAdminSession } from "@/lib/server/session";
 
@@ -20,12 +21,17 @@ export default async function SuperAdminDashboardPage({
     redirect(`/${locale}/super-admin/login`);
   }
 
-  const hosts = await getPlatformStore().listHosts();
-  const auditEvents = await getPlatformStore().listAuditEvents({
+  const store = getPlatformStore();
+  const hosts = await store.listHosts();
+  const auditEvents = await store.listAuditEvents({
     scope: session.scope,
     limit: 100,
   });
-  const setupState = await getPlatformStore().getSetupState();
+  const setupState = await store.getSetupState();
+  const tenantsByHost = await Promise.all(
+    hosts.map((host) => store.listTenantsForHost(host.id)),
+  );
+  const tenants = tenantsByHost.flat();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -53,6 +59,19 @@ export default async function SuperAdminDashboardPage({
       </section>
       <section className="border-t border-slate-200 py-10">
         <PlatformSettingsForm initialSettings={setupState.settings} />
+      </section>
+      <section className="border-t border-slate-200 py-10">
+        <PlatformHealthSummary
+          setupComplete={setupState.initialized}
+          hostCount={hosts.length}
+          tenantCount={tenants.length}
+          activeHostCount={
+            hosts.filter((host) => host.status === "active").length
+          }
+          activeTenantCount={
+            tenants.filter((tenant) => tenant.status === "active").length
+          }
+        />
       </section>
     </main>
   );
