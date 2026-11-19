@@ -6,6 +6,7 @@ import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-set
 import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-connection-form";
 import { TenantDatabaseProviderForm } from "@/features/tenant-auth/tenant-database-provider-form";
 import { TenantStorageProviderForm } from "@/features/tenant-auth/tenant-storage-provider-form";
+import { TenantDataExport } from "@/features/tenant-auth/tenant-data-export";
 import {
   TenantDatabaseConnectionViewSchema,
   TenantStorageConnectionViewSchema,
@@ -202,6 +203,7 @@ export default async function TenantDashboardPage({
             Open order manager
           </a>
         </div>
+        <TenantDataExport />
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <p className="text-sm leading-6 text-amber-900">
             Storefront payment processing and custom-domain routing remain

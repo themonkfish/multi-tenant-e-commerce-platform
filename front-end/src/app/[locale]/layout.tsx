@@ -57,41 +57,41 @@ export default async function LocaleLayout({
       >
         <NextIntlClientProvider>
           <QueryProvider>{children}</QueryProvider>
-        </NextIntlClientProvider>
-        {requestScope?.kind !== "tenant" && (
-          <footer
-            className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4 text-sm"
-            style={{ borderColor: settings.accentColor }}
-          >
-            <span>{settings.name}</span>
-            <nav
-              aria-label="Footer information"
-              className="flex flex-wrap items-center gap-4"
+          {requestScope?.kind !== "tenant" && (
+            <footer
+              className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4 text-sm"
+              style={{ borderColor: settings.accentColor }}
             >
-              <LocaleSwitcher locales={routing.locales} />
-              {settings.termsUrl && (
-                <a
-                  href={settings.termsUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                  style={{ color: settings.primaryColor }}
-                >
-                  Terms
-                </a>
-              )}
-              {settings.privacyUrl && (
-                <a
-                  href={settings.privacyUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                  style={{ color: settings.primaryColor }}
-                >
-                  Privacy
-                </a>
-              )}
-            </nav>
-          </footer>
-        )}
+              <span>{settings.name}</span>
+              <nav
+                aria-label="Footer information"
+                className="flex flex-wrap items-center gap-4"
+              >
+                <LocaleSwitcher locales={routing.locales} />
+                {settings.termsUrl && (
+                  <a
+                    href={settings.termsUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                    style={{ color: settings.primaryColor }}
+                  >
+                    Terms
+                  </a>
+                )}
+                {settings.privacyUrl && (
+                  <a
+                    href={settings.privacyUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                    style={{ color: settings.primaryColor }}
+                  >
+                    Privacy
+                  </a>
+                )}
+              </nav>
+            </footer>
+          )}
+        </NextIntlClientProvider>
       </body>
     </html>
   );

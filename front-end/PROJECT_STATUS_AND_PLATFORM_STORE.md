@@ -80,6 +80,8 @@ Status snapshot as of 2026-11-19:
 - Tenant Owners can export tenant metadata, settings, staff, connection
   metadata, orders, and scoped audit events as secret-free JSON. Export requests
   are origin-checked, rate-limited, and audited.
+- The Tenant portal exposes a one-click JSON data export download for authorized
+  Tenant Owners.
 - Application CI now validates linting, TypeScript, frontend tests, tenant
   backend tests, Playwright flows, Supabase migrations, dependencies, and
   application SBOM generation. A public health route reports platform-store
@@ -89,6 +91,9 @@ Status snapshot as of 2026-11-19:
 - English, French, and Hindi locale routing is available, with a locale
   switcher and regression coverage. Tenant storefront copy and broader customer
   experiences may still be expanded through tenant locale settings.
+- Locale switching is now consistently rendered inside the active
+  `next-intl` client provider, allowing localized pages and footers to start
+  without missing-intl-context errors.
 
 ### Completed
 
@@ -372,7 +377,8 @@ Status snapshot as of 2026-11-19:
 
 - [x] Add local product-management screen for catalog CRUD. REST connection,
       health testing, catalog adapter, and authenticated product API routes are
-      implemented; end-to-end mock coverage remains as a follow-up enhancement.
+      implemented. Playwright now covers tenant-scoped product create, edit,
+      API verification, delete, and isolation against a local mock backend.
 - [x] Implement tenant Supabase and MongoDB data adapters, reference schemas,
       provider setup, test-connection, and schema initialization. Older and newer
       schema versions are classified for upgrade or compatibility handling.
