@@ -13,11 +13,17 @@ const UUID_PATTERN =
 const ORDER_ID_PATTERN =
   /^ORD-[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
-const ORDER_STATUSES = new Set(["Confirmed", "Processing", "Shipped"]);
+const ORDER_STATUSES = new Set([
+  "Confirmed",
+  "Processing",
+  "Shipped",
+  "Cancelled",
+]);
 const ORDER_STATUS_TRANSITIONS = {
-  Confirmed: new Set(["Confirmed", "Processing"]),
+  Confirmed: new Set(["Confirmed", "Processing", "Cancelled"]),
   Processing: new Set(["Processing", "Shipped"]),
   Shipped: new Set(["Shipped"]),
+  Cancelled: new Set(["Cancelled"]),
 };
 
 function sendJson(response, status, body) {
@@ -230,6 +236,9 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
       const url = new URL(request.url ?? "/", "http://localhost");
       const match = url.pathname.match(/^\/v1\/products(?:\/([^/]+))?$/);
       const orderMatch = url.pathname.match(/^\/v1\/orders(?:\/([^/]+))?$/);
+      const inventoryMatch = url.pathname.match(
+        /^\/v1\/products\/inventory\/reservations(?:\/([^/]+)\/(release|commit|restore))?$/,
+      );
 
       if (url.pathname === "/v1/health") {
         if (request.method !== "GET") {
@@ -259,7 +268,7 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
         return;
       }
 
-      if (!match && !orderMatch) {
+      if (!match && !orderMatch && !inventoryMatch) {
         sendJson(response, 404, { error: "not_found" });
         return;
       }
@@ -267,6 +276,103 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
       const tenantId = authenticatedTenant(request, tenantApiKeys);
       if (!tenantId) {
         sendJson(response, 401, { error: "unauthorized" });
+        return;
+      }
+
+      if (inventoryMatch) {
+        const reservationId = inventoryMatch[1];
+        const action = inventoryMatch[2];
+        if (request.method !== "POST") {
+          response.setHeader("allow", "POST");
+          sendJson(response, 405, { error: "method_not_allowed" });
+          return;
+        }
+        let body;
+        try {
+          body = await readJsonBody(request);
+        } catch (error) {
+          sendJson(
+            response,
+            error.status ?? 400,
+            { error: error.status === 413 ? "payload_too_large" : "invalid_json" },
+          );
+          return;
+        }
+        if (
+          typeof body !== "object" ||
+          body === null ||
+          Array.isArray(body) ||
+          body.tenantId !== tenantId
+        ) {
+          sendJson(response, 403, { error: "tenant_scope_mismatch" });
+          return;
+        }
+        if (reservationId === undefined) {
+          const validItems =
+            Array.isArray(body.items) &&
+            body.items.length >= 1 &&
+            body.items.length <= 20 &&
+            body.items.every(
+              (item) =>
+                item !== null &&
+                typeof item === "object" &&
+                !Array.isArray(item) &&
+                typeof item.productId === "string" &&
+                PRODUCT_ID_PATTERN.test(item.productId) &&
+                item.selections !== null &&
+                typeof item.selections === "object" &&
+                !Array.isArray(item.selections) &&
+                Object.keys(item.selections).length >= 1 &&
+                Object.keys(item.selections).length <= 3 &&
+                Object.values(item.selections).every(
+                  (selection) =>
+                    typeof selection === "string" &&
+                    selection.trim().length > 0 &&
+                    selection.length <= 40,
+                ) &&
+                Number.isInteger(item.quantity) &&
+                item.quantity >= 1 &&
+                item.quantity <= 100,
+            );
+          if (
+            Object.keys(body).sort().join(",") !==
+              "items,reservationId,tenantId" ||
+            typeof body.reservationId !== "string" ||
+            !/^[A-Za-z0-9_-]{1,128}$/.test(body.reservationId) ||
+            !validItems
+          ) {
+            sendJson(response, 400, { error: "invalid_inventory_reservation" });
+            return;
+          }
+          sendJson(
+            response,
+            200,
+            repository.reserveInventory({
+              tenantId,
+              reservationId: body.reservationId,
+              items: body.items,
+            }),
+          );
+          return;
+        }
+        if (
+          !action ||
+          Object.keys(body).join(",") !== "tenantId" ||
+          !/^[A-Za-z0-9_-]{1,128}$/.test(reservationId)
+        ) {
+          sendJson(response, 400, { error: "invalid_inventory_reservation" });
+          return;
+        }
+        const result = repository.transitionInventoryReservation({
+          tenantId,
+          reservationId,
+          action,
+        });
+        if (!result) {
+          sendJson(response, 404, { error: "inventory_reservation_not_found" });
+          return;
+        }
+        sendJson(response, 200, result);
         return;
       }
 

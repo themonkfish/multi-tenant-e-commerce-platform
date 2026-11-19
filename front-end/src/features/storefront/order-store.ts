@@ -7,7 +7,7 @@ import type { CartItem } from "@/features/storefront/cart-store";
 export type OrderSummary = {
   id: string;
   createdAt: string;
-  status: "Confirmed" | "Processing" | "Shipped";
+  status: "Confirmed" | "Processing" | "Shipped" | "Cancelled";
   items: CartItem[];
   subtotal: number;
   total: number;

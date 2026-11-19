@@ -102,7 +102,7 @@ type TenantSchemaMetadataDocument = {
 type InventoryReservationDocument = {
   _id: string;
   tenantId: string;
-  status: "reserved" | "released" | "committed";
+  status: "reserved" | "released" | "committed" | "restored";
   items: InventoryReservationItem[];
   createdAt: Date;
   updatedAt?: Date;
@@ -407,9 +407,13 @@ export class MongoTenantCatalog implements CatalogPort {
     await this.transitionInventoryReservation(reservationId, "committed");
   }
 
+  async restoreInventory(reservationId: string): Promise<void> {
+    await this.transitionInventoryReservation(reservationId, "restored");
+  }
+
   private async transitionInventoryReservation(
     value: string,
-    nextStatus: "released" | "committed",
+    nextStatus: "released" | "committed" | "restored",
   ): Promise<void> {
     const reservationId = this.reservationId(value);
     await this.withClient(async (client, db) => {
@@ -423,8 +427,18 @@ export class MongoTenantCatalog implements CatalogPort {
             { _id: reservationId, tenantId: this.tenantId },
             { session },
           );
-          if (!reservation || reservation.status !== "reserved") return;
-          if (nextStatus === "released") {
+          if (!reservation) return;
+          const shouldRestoreStock =
+            (nextStatus === "released" && reservation.status === "reserved") ||
+            (nextStatus === "restored" && reservation.status === "committed");
+          if (
+            (nextStatus === "committed" && reservation.status !== "reserved") ||
+            (nextStatus === "released" && reservation.status !== "reserved") ||
+            (nextStatus === "restored" && reservation.status !== "committed")
+          ) {
+            return;
+          }
+          if (shouldRestoreStock) {
             const items = z
               .array(
                 z.object({
@@ -450,7 +464,11 @@ export class MongoTenantCatalog implements CatalogPort {
             }
           }
           await reservations.updateOne(
-            { _id: reservationId, tenantId: this.tenantId, status: "reserved" },
+            {
+              _id: reservationId,
+              tenantId: this.tenantId,
+              status: reservation.status,
+            },
             { $set: { status: nextStatus, updatedAt: new Date() } },
             { session },
           );

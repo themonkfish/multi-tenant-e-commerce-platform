@@ -51,7 +51,11 @@ Status snapshot as of 2026-11-19:
   signed payment webhooks before syncing card orders to the Tenant backend.
   India-only INR cash-on-delivery orders require an Indian delivery address,
   are synced as unpaid orders, and can be marked collected by an authorized
-  Tenant operator with an audit event. Checkout now requires a validated
+  Tenant operator with an audit event. Customers and Tenant operators can
+  cancel unpaid COD orders before processing; cancellation synchronizes the
+  Tenant order, restores tracked inventory, releases discount redemptions, and
+  can be retried after partial failure. Paid Stripe orders remain
+  non-cancellable until refunds are implemented. Checkout now requires a validated
   India delivery address for all payments, calculates tenant-configured flat
   shipping fees and free-shipping thresholds from server-verified item prices,
   and snapshots subtotal, shipping, and total. Tenant Owners can configure
@@ -92,9 +96,10 @@ Status snapshot as of 2026-11-19:
   in repository order, and lints the resulting schema.
 - CI generates a sorted dependency-notices JSON manifest from the frontend
   package lock and uploads it alongside the SBOM and dependency audit artifacts.
-- The tenant reference SQLite backend now implements catalog schema version 6
+- The tenant reference SQLite backend now implements catalog schema version 7
   fields for categories, images, options, inventory variants, and variant
-  pricing overrides.
+  pricing overrides, plus idempotent reservation restoration and cancellable
+  order statuses.
 - Playwright readiness waits now allow up to five minutes for slow Next.js
   startup and the E2E local backend/fixture server.
 - Public health responses now include UTC timestamps and request correlation
@@ -396,7 +401,8 @@ Status snapshot as of 2026-11-19:
       health testing, catalog adapter, and authenticated product API routes are
       implemented. Playwright covers tenant-scoped product create, edit, API
       verification, delete, and isolation against a local mock backend. The
-      reference SQLite backend supports catalog schema version 6 fields.
+      reference SQLite backend supports catalog schema version 7 fields and
+      idempotent reservation restoration.
 - [x] Implement tenant Supabase and MongoDB data adapters, reference schemas,
       provider setup, test-connection, and schema initialization. Older and newer
       schema versions are classified for upgrade or compatibility handling.
@@ -415,6 +421,11 @@ Status snapshot as of 2026-11-19:
 - [x] Add India-only Cash on Delivery with required Indian delivery address,
       Tenant REST order delivery, authorized collection confirmation, and
       audit logging.
+- [x] Allow Customers and Tenant operators to cancel unpaid COD orders before
+      processing. The platform records cancellation before synchronizing the
+      Tenant backend, restoring tracked inventory, and releasing discount
+      redemptions; cleanup can be retried after partial failure. Paid Stripe
+      orders remain non-cancellable until refunds are supported.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove
@@ -432,7 +443,7 @@ Status snapshot as of 2026-11-19:
       and pagination across REST, Supabase, and MongoDB catalog providers.
 - [x] Product image management: tenant-scoped uploads, HTTPS image URLs saved
       through all catalog adapters, and storefront rendering. Tenant Supabase
-      catalog schemas must be upgraded to version 6.
+      catalog schemas must be upgraded to version 7.
 - [x] Tenant discount codes with server-side price validation, single-code
       checkout, fixed/percentage calculation, pre-shipping application, and
       reserved/committed redemption limits.
@@ -568,7 +579,7 @@ features are implemented.
     in the tenant project before testing and initialization; MongoDB Atlas
     collections and indexes are initialized by the app. Database providers
     take precedence over REST for catalog operations. The supported database
-    schema is version 6; test results report incompatible versions, and the
+    schema is version 7; test results report incompatible versions, and the
     app will not initialize a database with a newer version.
     MongoDB initializes a `tenant_products` collection with a strict product
     document validator, tenant-scoped slug and creation-time indexes, and a
@@ -610,15 +621,24 @@ features are implemented.
     `POST /{apiVersion}/products/inventory/reservations/{reservationId}/release`
     and `/commit` must perform idempotent state transitions and reject
     cross-tenant requests. Release restores reserved quantities; commit
-    consumes them.
+    consumes them. To support COD cancellation, REST backends must also accept
+    `PATCH /{apiVersion}/orders/{orderId}` with
+    `{ "status": "Cancelled" }` for a confirmed COD order and implement
+    idempotent committed-stock restoration through
+    `POST /{apiVersion}/products/inventory/reservations/{reservationId}/restore`.
+    COD reservation IDs use `{orderId}-cod`.
 
-Tenant Supabase catalog projects use schema version 6 for product images,
+Tenant Supabase catalog projects use schema version 7 for product images,
 categories, product option variants, variant price/SKU overrides, and inventory
-reservations. Apply the current
+reservations and committed-inventory restoration. Apply the current
 `supabase/reference/tenant-catalog.sql` to an
 existing Supabase tenant project, then use the Tenant Owner database setup to
 initialize the schema. MongoDB Atlas catalogs update their product validator
-and advance to version 6 through the same initialize-schema action.
+and advance to version 7 through the same initialize-schema action. Existing
+platform Supabase projects must also apply
+`supabase/migrations/0026_cod_order_cancellation.sql` for cancellation state
+and redemption cleanup support. Paid Stripe orders remain non-cancellable
+until a refund flow is implemented.
 
 The tenant portal saves branding and locale metadata but does not yet apply it
 to a live storefront. REST catalog requests use the saved connection, but

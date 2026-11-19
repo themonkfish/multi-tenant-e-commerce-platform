@@ -53,12 +53,19 @@ alter table public.tenant_products
 create table if not exists public.tenant_inventory_reservations (
   tenant_id uuid not null,
   reservation_id text not null check (char_length(reservation_id) between 1 and 128),
-  status text not null check (status in ('reserved', 'released', 'committed')),
+  status text not null check (
+    status in ('reserved', 'released', 'committed', 'restored')
+  ),
   items jsonb not null check (jsonb_typeof(items) = 'array'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (tenant_id, reservation_id)
 );
+
+alter table public.tenant_inventory_reservations
+  drop constraint if exists tenant_inventory_reservations_status_check,
+  add constraint tenant_inventory_reservations_status_check
+    check (status in ('reserved', 'released', 'committed', 'restored'));
 
 create index if not exists tenant_products_tenant_created_idx
   on public.tenant_products (tenant_id, created_at desc);
@@ -113,18 +120,18 @@ begin
     if existing_tenant_id <> p_tenant_id then
       raise exception 'This Supabase project is initialized for another tenant';
     end if;
-    if existing_version < 6 then
+    if existing_version < 7 then
       update public.tenant_schema_metadata
-        set version = 6, updated_at = now()
+        set version = 7, updated_at = now()
         where id = 'tenant-catalog';
-      return 6;
+      return 7;
     end if;
     return existing_version;
   end if;
 
   insert into public.tenant_schema_metadata (id, tenant_id, version, updated_at)
-    values ('tenant-catalog', p_tenant_id, 6, now());
-  return 6;
+    values ('tenant-catalog', p_tenant_id, 7, now());
+  return 7;
 end;
 $$;
 
@@ -311,15 +318,75 @@ as $$
       and status = 'reserved';
 $$;
 
+create or replace function public.restore_tenant_product_inventory(
+  p_tenant_id uuid,
+  p_reservation_id text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  reservation_items jsonb;
+  item jsonb;
+  product_variants jsonb;
+  variant_index integer;
+  current_stock integer;
+  requested_quantity integer;
+begin
+  select items into reservation_items
+    from public.tenant_inventory_reservations
+    where tenant_id = p_tenant_id
+      and reservation_id = p_reservation_id
+      and status = 'committed'
+    for update;
+  if not found then return; end if;
+
+  for item in select value from jsonb_array_elements(reservation_items)
+  loop
+    requested_quantity := (item ->> 'quantity')::integer;
+    select variants into product_variants
+      from public.tenant_products
+      where tenant_id = p_tenant_id and id = (item ->> 'productId')::uuid
+      for update;
+    select (entry.ordinality - 1)::integer,
+           (entry.value ->> 'stock')::integer
+      into variant_index, current_stock
+      from jsonb_array_elements(product_variants) with ordinality as entry(value, ordinality)
+      where entry.value -> 'selections' = item -> 'selections';
+    if variant_index is null then
+      raise exception 'Committed inventory variant no longer exists';
+    end if;
+    update public.tenant_products
+      set variants = jsonb_set(
+        product_variants,
+        array[variant_index::text, 'stock'],
+        to_jsonb(current_stock + requested_quantity)
+      ),
+      updated_at = now()
+      where tenant_id = p_tenant_id and id = (item ->> 'productId')::uuid;
+  end loop;
+
+  update public.tenant_inventory_reservations
+    set status = 'restored', updated_at = now()
+    where tenant_id = p_tenant_id and reservation_id = p_reservation_id;
+end;
+$$;
+
 revoke all on function public.reserve_tenant_product_inventory(uuid, text, jsonb)
   from public, anon, authenticated;
 revoke all on function public.release_tenant_product_inventory(uuid, text)
   from public, anon, authenticated;
 revoke all on function public.commit_tenant_product_inventory(uuid, text)
   from public, anon, authenticated;
+revoke all on function public.restore_tenant_product_inventory(uuid, text)
+  from public, anon, authenticated;
 grant execute on function public.reserve_tenant_product_inventory(uuid, text, jsonb)
   to service_role;
 grant execute on function public.release_tenant_product_inventory(uuid, text)
   to service_role;
 grant execute on function public.commit_tenant_product_inventory(uuid, text)
+  to service_role;
+grant execute on function public.restore_tenant_product_inventory(uuid, text)
   to service_role;

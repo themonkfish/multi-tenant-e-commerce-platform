@@ -243,6 +243,11 @@ export interface PlatformStore
     status: CustomerOrder["status"];
     fulfillment?: CustomerOrder["fulfillment"];
   }): Promise<CustomerOrder | null>;
+  cancelCustomerCodOrder(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+  }): Promise<CustomerOrder | null>;
   listCustomerOrders(
     tenantId: string,
     customerId: string,
@@ -269,6 +274,7 @@ export interface PlatformStore
   }): Promise<boolean>;
   releaseDiscountRedemption(tenantId: string, orderId: string): Promise<void>;
   commitDiscountRedemption(tenantId: string, orderId: string): Promise<void>;
+  cancelDiscountRedemption(tenantId: string, orderId: string): Promise<void>;
   getTenantStoreSettings(
     tenantId: string,
     hostId: string,

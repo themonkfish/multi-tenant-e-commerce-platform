@@ -1444,6 +1444,7 @@ export class SupabasePlatformStore implements PlatformStore {
       })
       .eq("tenant_id", input.tenantId)
       .eq("id", input.orderId)
+      .neq("status", "Cancelled")
       .select("*")
       .maybeSingle();
     if (error) {
@@ -1452,6 +1453,43 @@ export class SupabasePlatformStore implements PlatformStore {
       );
     }
     return data ? customerOrderFromRow(data) : null;
+  }
+
+  async cancelCustomerCodOrder(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+  }): Promise<CustomerOrder | null> {
+    const { data, error } = await this.client
+      .from("platform_customer_orders")
+      .update({
+        status: "Cancelled",
+        backend_sync_status: "pending",
+        backend_sync_error: null,
+      })
+      .eq("tenant_id", input.tenantId)
+      .eq("customer_id", input.customerId)
+      .eq("id", input.orderId)
+      .eq("status", "Confirmed")
+      .eq("payment_method", "cash_on_delivery")
+      .eq("payment_status", "cod_due")
+      .is("fulfillment", null)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not cancel customer order: ${error.message}`);
+    }
+    if (data) return customerOrderFromRow(data);
+    const current = await this.getCustomerOrder(
+      input.tenantId,
+      input.customerId,
+      input.orderId,
+    );
+    return current?.status === "Cancelled" &&
+      current.paymentMethod === "cash_on_delivery" &&
+      current.paymentStatus === "cod_due"
+      ? current
+      : null;
   }
 
   async listCustomerOrders(
@@ -1509,6 +1547,7 @@ export class SupabasePlatformStore implements PlatformStore {
       .eq("tenant_id", input.tenantId)
       .eq("payment_method", "cash_on_delivery")
       .eq("payment_status", "cod_due")
+      .neq("status", "Cancelled")
       .order("created_at", { ascending: false })
       .range(from, from + input.limit - 1);
     if (error) {
@@ -1632,6 +1671,19 @@ export class SupabasePlatformStore implements PlatformStore {
     );
     if (error) {
       throw new Error(`Could not commit discount code: ${error.message}`);
+    }
+  }
+
+  async cancelDiscountRedemption(
+    tenantId: string,
+    orderId: string,
+  ): Promise<void> {
+    const { error } = await this.client.rpc(
+      "cancel_platform_discount_redemption",
+      { p_tenant_id: tenantId, p_order_id: orderId },
+    );
+    if (error) {
+      throw new Error(`Could not cancel discount code: ${error.message}`);
     }
   }
 

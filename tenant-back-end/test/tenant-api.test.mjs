@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
@@ -73,7 +74,7 @@ test("health check returns the contract required by the frontend", async () => {
     status: "healthy",
     db: "up",
     storage: "up",
-    schemaVersion: "6",
+    schemaVersion: "7",
   });
 
   const unauthorized = await fetch(`${baseUrl}/health`);
@@ -211,6 +212,67 @@ test("persists category, image, options, stock variants, and variant pricing", a
   assert.deepEqual(updated.variantPricing, [
     { selections: { Size: "S" }, amount: 2099, sku: "BAG-S" },
   ]);
+});
+
+test("reserves, commits, and restores tenant inventory idempotently", async () => {
+  const productResponse = await fetch(`${baseUrl}/products`, {
+    method: "POST",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({
+      tenantId,
+      title: "Stocked Bag",
+      slug: "stocked-bag",
+      status: "active",
+      price: { amount: 1999, currency: "USD" },
+      options: [{ name: "Size", values: ["M"] }],
+      variants: [{ selections: { Size: "M" }, stock: 5 }],
+    }),
+  });
+  assert.equal(productResponse.status, 201);
+  const product = await productResponse.json();
+  const reservation = {
+    tenantId,
+    reservationId: "order-stock-reservation",
+    items: [{ productId: product.id, selections: { Size: "M" }, quantity: 2 }],
+  };
+  const reserve = () =>
+    fetch(`${baseUrl}/products/inventory/reservations`, {
+      method: "POST",
+      headers: { ...auth(), "content-type": "application/json" },
+      body: JSON.stringify(reservation),
+    });
+
+  const reserved = await reserve();
+  assert.equal(reserved.status, 200);
+  assert.deepEqual(await reserved.json(), { reserved: true });
+  const replay = await reserve();
+  assert.deepEqual(await replay.json(), { reserved: true });
+
+  const afterReserve = await fetch(`${baseUrl}/products/${product.id}`, {
+    headers: auth(),
+  });
+  assert.equal((await afterReserve.json()).variants[0].stock, 3);
+
+  const action = (name) =>
+    fetch(
+      `${baseUrl}/products/inventory/reservations/${reservation.reservationId}/${name}`,
+      {
+        method: "POST",
+        headers: { ...auth(), "content-type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      },
+    );
+  const committed = await action("commit");
+  assert.deepEqual(await committed.json(), { status: "committed" });
+  const restored = await action("restore");
+  assert.deepEqual(await restored.json(), { status: "restored" });
+  const restoreReplay = await action("restore");
+  assert.deepEqual(await restoreReplay.json(), { status: "restored" });
+
+  const afterRestore = await fetch(`${baseUrl}/products/${product.id}`, {
+    headers: auth(),
+  });
+  assert.equal((await afterRestore.json()).variants[0].stock, 5);
 });
 
 test("rejects invalid payloads, duplicate slugs, and invalid pagination", async () => {
@@ -361,6 +423,89 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
     headers: auth(otherApiKey),
   });
   assert.equal(isolatedRead.status, 404);
+
+  const cancellableOrder = {
+    ...order,
+    id: "ORD-550e8400-e29b-41d4-a716-446655440099",
+  };
+  assert.equal((await create(cancellableOrder)).status, 201);
+  const cancelled = await fetch(`${baseUrl}/orders/${cancellableOrder.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Cancelled" }),
+  });
+  assert.equal(cancelled.status, 200);
+  assert.equal((await cancelled.json()).order.status, "Cancelled");
+
+  const retryCancellation = await fetch(
+    `${baseUrl}/orders/${cancellableOrder.id}`,
+    {
+      method: "PATCH",
+      headers: { ...auth(), "content-type": "application/json" },
+      body: JSON.stringify({ status: "Cancelled" }),
+    },
+  );
+  assert.equal(retryCancellation.status, 200);
+  assert.equal((await retryCancellation.json()).order.status, "Cancelled");
+
+  const advanceCancelled = await fetch(
+    `${baseUrl}/orders/${cancellableOrder.id}`,
+    {
+      method: "PATCH",
+      headers: { ...auth(), "content-type": "application/json" },
+      body: JSON.stringify({ status: "Processing" }),
+    },
+  );
+  assert.equal(advanceCancelled.status, 409);
+});
+
+test("upgrades an existing SQLite order status constraint", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "tenant-schema-upgrade-"));
+  const databaseFile = join(directory, "tenant.sqlite");
+  const legacy = new DatabaseSync(databaseFile);
+  legacy.exec(`
+    CREATE TABLE orders (
+      tenant_id TEXT NOT NULL,
+      id TEXT NOT NULL,
+      customer_id TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (
+        status IN ('Confirmed', 'Processing', 'Shipped')
+      ),
+      created_at TEXT NOT NULL,
+      items_json TEXT NOT NULL CHECK (json_valid(items_json) AND json_type(items_json) = 'array'),
+      total INTEGER NOT NULL CHECK (total >= 0),
+      currency TEXT NOT NULL CHECK (length(currency) = 3),
+      item_count INTEGER NOT NULL CHECK (item_count > 0),
+      PRIMARY KEY (tenant_id, id)
+    );
+    INSERT INTO orders VALUES (
+      'tenant-upgrade',
+      'ORD-550e8400-e29b-41d4-a716-446655440099',
+      'customer-upgrade',
+      'Confirmed',
+      '2026-10-22T12:00:00.000Z',
+      '[]',
+      0,
+      'USD',
+      1
+    );
+  `);
+  legacy.close();
+
+  const upgraded = await createSqliteProductRepository(databaseFile);
+  try {
+    assert.equal(
+      upgraded.updateOrderStatus(
+        "tenant-upgrade",
+        "ORD-550e8400-e29b-41d4-a716-446655440099",
+        "Cancelled",
+      ).status,
+      "Cancelled",
+    );
+  } finally {
+    upgraded.close();
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("seeds products without overwriting an existing tenant catalog", () => {

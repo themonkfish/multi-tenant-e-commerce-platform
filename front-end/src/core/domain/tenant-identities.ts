@@ -92,7 +92,7 @@ const CustomerOrderBaseSchema = z.object({
   id: z.string().min(1).max(100),
   tenantId: z.uuid(),
   customerId: z.uuid(),
-  status: z.enum(["Confirmed", "Processing", "Shipped"]),
+  status: z.enum(["Confirmed", "Processing", "Shipped", "Cancelled"]),
   createdAt: z.iso.datetime(),
   items: z.array(CustomerOrderItemSchema).default([]),
   subtotal: z.number().int().min(0).max(2_147_483_647).optional(),

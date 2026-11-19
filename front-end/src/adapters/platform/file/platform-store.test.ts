@@ -1697,6 +1697,29 @@ describe("FilePlatformStore", () => {
       expect.objectContaining({ id: order.id, fulfillment }),
     ]);
 
+    const cancellableOrder = {
+      ...order,
+      id: "ORD-550e8400-e29b-41d4-a716-446655440013",
+    };
+    await store.createCustomerOrder(cancellableOrder);
+    await expect(
+      store.cancelCustomerCodOrder({
+        tenantId,
+        customerId,
+        orderId: cancellableOrder.id,
+      }),
+    ).resolves.toMatchObject({ id: cancellableOrder.id, status: "Cancelled" });
+    await expect(
+      store.markCustomerOrderCashOnDeliveryCollected({
+        tenantId,
+        orderId: cancellableOrder.id,
+        auditEvent,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      store.listTenantCashOnDeliveryOrders({ tenantId, page: 1, limit: 20 }),
+    ).resolves.toMatchObject({ data: [], meta: { total: 0 } });
+
     const state = JSON.parse(await readFile(filePath, "utf8"));
     expect(state.auditEvents).toContainEqual(auditEvent);
   });

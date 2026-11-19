@@ -1237,7 +1237,8 @@ export class FilePlatformStore implements PlatformStore {
         (order) =>
           order.tenantId === input.tenantId &&
           order.paymentMethod === "cash_on_delivery" &&
-          order.paymentStatus === "cod_due",
+          order.paymentStatus === "cod_due" &&
+          order.status !== "Cancelled",
       )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     const from = (input.page - 1) * input.limit;
@@ -1259,9 +1260,11 @@ export class FilePlatformStore implements PlatformStore {
           candidate.tenantId === input.tenantId &&
           candidate.id === input.orderId &&
           candidate.paymentMethod === "cash_on_delivery" &&
-          candidate.paymentStatus === "cod_due",
+          candidate.paymentStatus === "cod_due" &&
+          candidate.status !== "Cancelled",
       );
       if (!order) return null;
+      if (order.status === "Cancelled") return null;
       order.paymentStatus = "paid";
       state.auditEvents.push(input.auditEvent);
       const updated = CustomerOrderSchema.parse(order);
@@ -1310,8 +1313,44 @@ export class FilePlatformStore implements PlatformStore {
           candidate.id === input.orderId,
       );
       if (!order) return null;
+      if (order.status === "Cancelled" && input.status !== "Cancelled") {
+        return null;
+      }
       order.status = input.status;
       if (input.fulfillment) order.fulfillment = input.fulfillment;
+      const updated = CustomerOrderSchema.parse(order);
+      await this.writeState(state);
+      return updated;
+    });
+  }
+
+  async cancelCustomerCodOrder(input: {
+    tenantId: string;
+    customerId: string;
+    orderId: string;
+  }): Promise<CustomerOrder | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const order = state.customerOrders.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.customerId === input.customerId &&
+          candidate.id === input.orderId,
+      );
+      if (
+        !order ||
+        order.paymentMethod !== "cash_on_delivery" ||
+        order.paymentStatus !== "cod_due"
+      ) {
+        return null;
+      }
+      if (order.status === "Cancelled") {
+        return CustomerOrderSchema.parse(order);
+      }
+      if (order.status !== "Confirmed" || order.fulfillment) return null;
+      order.status = "Cancelled";
+      order.backendSyncStatus = "pending";
+      delete order.backendSyncError;
       const updated = CustomerOrderSchema.parse(order);
       await this.writeState(state);
       return updated;
@@ -1403,6 +1442,27 @@ export class FilePlatformStore implements PlatformStore {
       );
       if (redemption?.status === "reserved") {
         redemption.status = "committed";
+        redemption.updatedAt = new Date().toISOString();
+        await this.writeState(state);
+      }
+    });
+  }
+
+  async cancelDiscountRedemption(
+    tenantId: string,
+    orderId: string,
+  ): Promise<void> {
+    await this.withLock(async () => {
+      const state = await this.readState();
+      const redemption = state.discountRedemptions.find(
+        (candidate) =>
+          candidate.tenantId === tenantId && candidate.orderId === orderId,
+      );
+      if (
+        redemption?.status === "reserved" ||
+        redemption?.status === "committed"
+      ) {
+        redemption.status = "released";
         redemption.updatedAt = new Date().toISOString();
         await this.writeState(state);
       }

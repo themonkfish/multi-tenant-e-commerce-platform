@@ -28,6 +28,10 @@ function errorMessage(body: unknown): string {
       return "Enter a tracking number and a valid HTTPS tracking URL.";
     case "connection_not_configured":
       return "Connect the Tenant REST backend in store setup to manage orders.";
+    case "order_not_cancellable":
+      return "Only confirmed, unpaid cash-on-delivery orders can be cancelled.";
+    case "order_sync_pending":
+      return "Sync this order with the Tenant backend before cancelling it.";
     case "tenant_backend_error":
     case "tenant_backend_unavailable":
       return "The Tenant backend is unavailable. Try again later.";
@@ -244,6 +248,49 @@ export function TenantOrderManagement({
     }
   }
 
+  async function cancelCashOrder(order: CustomerOrder) {
+    if (
+      !window.confirm(
+        "Cancel this unpaid cash-on-delivery order? This cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setCashError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/tenant/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, status: "Cancelled" }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setCashError(errorMessage(body));
+        return;
+      }
+      const parsed =
+        typeof body === "object" && body !== null && "order" in body
+          ? CustomerOrderSchema.safeParse(body.order)
+          : null;
+      if (!parsed?.success || parsed.data.status !== "Cancelled") {
+        setCashError("The platform returned an invalid cancellation result.");
+        return;
+      }
+      setCashOrders((current) =>
+        current.filter((candidate) => candidate.id !== parsed.data.id),
+      );
+      setCashTotal((current) => Math.max(0, current - 1));
+      setNotice(`Order ${parsed.data.id} cancelled.`);
+      await Promise.all([loadOrders(page), loadCashOrders(cashPage)]);
+    } catch {
+      setCashError("Could not reach the platform to cancel this order.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function viewOrder(orderId: string) {
     setBusy(true);
     setError("");
@@ -331,14 +378,24 @@ export function TenantOrderManagement({
                       </p>
                     </div>
                     {canManage && (
-                      <button
-                        className="rounded-md bg-amber-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                        disabled={busy}
-                        onClick={() => void markCashCollected(order)}
-                        type="button"
-                      >
-                        {busy ? "Confirming…" : "Mark cash collected"}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          className="rounded-md bg-amber-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                          disabled={busy}
+                          onClick={() => void markCashCollected(order)}
+                          type="button"
+                        >
+                          {busy ? "Confirming…" : "Mark cash collected"}
+                        </button>
+                        <button
+                          className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
+                          disabled={busy}
+                          onClick={() => void cancelCashOrder(order)}
+                          type="button"
+                        >
+                          Cancel order
+                        </button>
+                      </div>
                     )}
                   </div>
                   {order.deliveryAddress && (

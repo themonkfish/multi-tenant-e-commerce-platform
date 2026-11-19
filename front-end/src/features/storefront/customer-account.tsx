@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useOrderStore } from "@/features/storefront/order-store";
-import type { CustomerOrder } from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
+import type { CustomerOrder } from "@/core/domain/tenant-identities";
 import { CustomerOrderSyncStatus } from "./order-sync-status";
 
 export function StorefrontCustomerAccount({
@@ -18,6 +18,10 @@ export function StorefrontCustomerAccount({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(
+    null,
+  );
   const previewOrders = useOrderStore((state) => state.orders);
   const orders = customer?.orders ?? previewOrders;
   const orderDateFormatter = new Intl.DateTimeFormat(locale, {
@@ -51,6 +55,44 @@ export function StorefrontCustomerAccount({
     }
   }
 
+  async function cancelOrder(orderId: string) {
+    if (
+      !window.confirm(
+        "Cancel this unpaid cash-on-delivery order? This cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    setCancellingOrderId(orderId);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(
+        `/api/customer/orders/${encodeURIComponent(orderId)}/cancel`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        const body: unknown = await response.json();
+        setError(
+          typeof body === "object" &&
+            body !== null &&
+            "error" in body &&
+            body.error === "order_sync_pending"
+            ? "This order must sync with the store before it can be cancelled."
+            : "This order could not be cancelled. It may already be processing.",
+        );
+        router.refresh();
+        return;
+      }
+      setNotice(`Order ${orderId} cancelled.`);
+      router.refresh();
+    } catch {
+      setError("The cancellation request could not reach the server.");
+    } finally {
+      setCancellingOrderId(null);
+    }
+  }
+
   return (
     <section className="space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -68,6 +110,11 @@ export function StorefrontCustomerAccount({
         {error && (
           <p className="mt-3 text-sm text-red-700" role="alert">
             {error}
+          </p>
+        )}
+        {notice && (
+          <p className="mt-3 text-sm text-emerald-700" role="status">
+            {notice}
           </p>
         )}
         {customer ? (
@@ -136,18 +183,20 @@ export function StorefrontCustomerAccount({
                     </h4>
                   </div>
                   <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                    {"paymentMethod" in order &&
-                    order.paymentMethod === "cash_on_delivery" &&
-                    order.paymentStatus === "cod_due"
-                      ? "Cash due on delivery"
+                    {order.status === "Cancelled"
+                      ? "Cancelled"
                       : "paymentMethod" in order &&
                           order.paymentMethod === "cash_on_delivery" &&
-                          order.paymentStatus === "paid"
-                        ? "Cash collected"
-                        : "paymentStatus" in order &&
-                            order.paymentStatus !== "paid"
-                          ? `Payment ${order.paymentStatus}`
-                          : order.status}
+                          order.paymentStatus === "cod_due"
+                        ? "Cash due on delivery"
+                        : "paymentMethod" in order &&
+                            order.paymentMethod === "cash_on_delivery" &&
+                            order.paymentStatus === "paid"
+                          ? "Cash collected"
+                          : "paymentStatus" in order &&
+                              order.paymentStatus !== "paid"
+                            ? `Payment ${order.paymentStatus}`
+                            : order.status}
                   </span>
                 </div>
 
@@ -243,6 +292,27 @@ export function StorefrontCustomerAccount({
                     <div className="mt-4">
                       <CustomerOrderSyncStatus initialOrder={order} />
                     </div>
+                  )}
+                {customer &&
+                  "paymentMethod" in order &&
+                  order.paymentMethod === "cash_on_delivery" &&
+                  order.paymentStatus === "cod_due" &&
+                  ((order.status === "Confirmed" &&
+                    order.backendSyncStatus === "synced") ||
+                    (order.status === "Cancelled" &&
+                      order.backendSyncStatus !== "synced")) && (
+                    <button
+                      className="mt-4 rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
+                      disabled={busy || cancellingOrderId !== null}
+                      onClick={() => void cancelOrder(order.id)}
+                      type="button"
+                    >
+                      {cancellingOrderId === order.id
+                        ? "Cancelling…"
+                        : order.status === "Cancelled"
+                          ? "Retry cancellation"
+                          : "Cancel order"}
+                    </button>
                   )}
               </article>
             ))}

@@ -173,6 +173,10 @@ type SupabaseTenantDatabase = {
         Args: { p_tenant_id: string; p_reservation_id: string };
         Returns: undefined;
       };
+      restore_tenant_product_inventory: {
+        Args: { p_tenant_id: string; p_reservation_id: string };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -400,6 +404,14 @@ export class SupabaseTenantCatalog implements CatalogPort {
       p_tenant_id: this.tenantId,
       p_reservation_id: reservationId,
     });
+    if (error) this.throwBackend(error.message, error.code);
+  }
+
+  async restoreInventory(reservationId: string): Promise<void> {
+    const { error } = await this.client.rpc(
+      "restore_tenant_product_inventory",
+      { p_tenant_id: this.tenantId, p_reservation_id: reservationId },
+    );
     if (error) this.throwBackend(error.message, error.code);
   }
 

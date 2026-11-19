@@ -240,8 +240,12 @@ export class RestCatalogAdapter implements CatalogPort {
     await this.reservationAction("commit", reservationId);
   }
 
+  async restoreInventory(reservationId: string): Promise<void> {
+    await this.reservationAction("restore", reservationId);
+  }
+
   private async reservationAction(
-    action: "release" | "commit",
+    action: "release" | "commit" | "restore",
     reservationId: string,
   ): Promise<void> {
     const id = z

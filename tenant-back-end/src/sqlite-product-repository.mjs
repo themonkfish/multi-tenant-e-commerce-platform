@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const SCHEMA_VERSION = "6";
+const SCHEMA_VERSION = "7";
 
 function toProduct(row) {
   if (!row) return null;
@@ -66,13 +66,28 @@ export async function createSqliteProductRepository(databaseFile) {
       tenant_id TEXT NOT NULL,
       id TEXT NOT NULL,
       customer_id TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('Confirmed', 'Processing', 'Shipped')),
+      status TEXT NOT NULL CHECK (
+        status IN ('Confirmed', 'Processing', 'Shipped', 'Cancelled')
+      ),
       created_at TEXT NOT NULL,
       items_json TEXT NOT NULL CHECK (json_valid(items_json) AND json_type(items_json) = 'array'),
       total INTEGER NOT NULL CHECK (total >= 0),
       currency TEXT NOT NULL CHECK (length(currency) = 3),
       item_count INTEGER NOT NULL CHECK (item_count > 0),
       PRIMARY KEY (tenant_id, id)
+    );
+    CREATE TABLE IF NOT EXISTS inventory_reservations (
+      tenant_id TEXT NOT NULL,
+      reservation_id TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (
+        status IN ('reserved', 'released', 'committed', 'restored')
+      ),
+      items_json TEXT NOT NULL CHECK (
+        json_valid(items_json) AND json_type(items_json) = 'array'
+      ),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (tenant_id, reservation_id)
     );
     CREATE INDEX IF NOT EXISTS orders_tenant_created
       ON orders (tenant_id, created_at DESC, id);
@@ -81,6 +96,40 @@ export async function createSqliteProductRepository(databaseFile) {
       applied_at TEXT NOT NULL
     );
   `);
+  const orderTable = database
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'orders'")
+    .get();
+  if (!orderTable.sql.includes("'Cancelled'")) {
+    database.exec(`
+      BEGIN IMMEDIATE;
+      ALTER TABLE orders RENAME TO orders_before_cancellation;
+      CREATE TABLE orders (
+        tenant_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        customer_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (
+          status IN ('Confirmed', 'Processing', 'Shipped', 'Cancelled')
+        ),
+        created_at TEXT NOT NULL,
+        items_json TEXT NOT NULL CHECK (
+          json_valid(items_json) AND json_type(items_json) = 'array'
+        ),
+        total INTEGER NOT NULL CHECK (total >= 0),
+        currency TEXT NOT NULL CHECK (length(currency) = 3),
+        item_count INTEGER NOT NULL CHECK (item_count > 0),
+        PRIMARY KEY (tenant_id, id)
+      );
+      INSERT INTO orders
+        (tenant_id, id, customer_id, status, created_at, items_json, total, currency, item_count)
+      SELECT
+        tenant_id, id, customer_id, status, created_at, items_json, total, currency, item_count
+      FROM orders_before_cancellation;
+      DROP TABLE orders_before_cancellation;
+      CREATE INDEX IF NOT EXISTS orders_tenant_created
+        ON orders (tenant_id, created_at DESC, id);
+      COMMIT;
+    `);
+  }
   const productColumns = new Set(
     database.prepare("PRAGMA table_info(products)").all().map((row) => row.name),
   );
@@ -108,6 +157,139 @@ export async function createSqliteProductRepository(databaseFile) {
   const selectOrder = database.prepare(
     "SELECT * FROM orders WHERE tenant_id = ? AND id = ?",
   );
+  const selectReservation = database.prepare(
+    "SELECT * FROM inventory_reservations WHERE tenant_id = ? AND reservation_id = ?",
+  );
+
+  function sameSelections(left, right) {
+    const normalize = (value) =>
+      Object.entries(value).sort(([a], [b]) => a.localeCompare(b));
+    return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+  }
+
+  function sameReservationItems(left, right) {
+    return (
+      left.length === right.length &&
+      left.every(
+        (item, index) =>
+          item.productId === right[index].productId &&
+          item.quantity === right[index].quantity &&
+          sameSelections(item.selections, right[index].selections),
+      )
+    );
+  }
+
+  function adjustInventoryStock(tenantId, item, delta) {
+    const product = toProduct(selectProduct.get(tenantId, item.productId));
+    if (!product?.variants) return false;
+    const index = product.variants.findIndex((variant) =>
+      sameSelections(variant.selections, item.selections),
+    );
+    if (index < 0) return false;
+    const stock = product.variants[index].stock + delta;
+    if (stock < 0 || stock > 1_000_000) return false;
+    const variants = product.variants.map((variant, variantIndex) =>
+      variantIndex === index ? { ...variant, stock } : variant,
+    );
+    database
+      .prepare(
+        "UPDATE products SET variants_json = ?, updated_at = ? WHERE tenant_id = ? AND id = ?",
+      )
+      .run(
+        JSON.stringify(variants),
+        new Date().toISOString(),
+        tenantId,
+        item.productId,
+      );
+    return true;
+  }
+
+  function reserveInventory({ tenantId, reservationId, items }) {
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      const prior = selectReservation.get(tenantId, reservationId);
+      if (prior) {
+        const sameItems = sameReservationItems(
+          JSON.parse(prior.items_json),
+          items,
+        );
+        database.exec("COMMIT");
+        return {
+          reserved:
+            sameItems &&
+            (prior.status === "reserved" || prior.status === "committed"),
+        };
+      }
+      for (const item of items) {
+        if (!adjustInventoryStock(tenantId, item, -item.quantity)) {
+          database.exec("ROLLBACK");
+          return { reserved: false };
+        }
+      }
+      const now = new Date().toISOString();
+      database
+        .prepare(
+          `INSERT INTO inventory_reservations
+           (tenant_id, reservation_id, status, items_json, created_at, updated_at)
+           VALUES (?, ?, 'reserved', ?, ?, ?)`,
+        )
+        .run(tenantId, reservationId, JSON.stringify(items), now, now);
+      database.exec("COMMIT");
+      return { reserved: true };
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  function transitionInventoryReservation({
+    tenantId,
+    reservationId,
+    action,
+  }) {
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      const reservation = selectReservation.get(tenantId, reservationId);
+      if (!reservation) {
+        database.exec("ROLLBACK");
+        return null;
+      }
+      const transition = {
+        release: { from: "reserved", to: "released", restoreStock: true },
+        commit: { from: "reserved", to: "committed", restoreStock: false },
+        restore: { from: "committed", to: "restored", restoreStock: true },
+      }[action];
+      if (reservation.status !== transition.from) {
+        database.exec("COMMIT");
+        return { status: reservation.status };
+      }
+      if (transition.restoreStock) {
+        for (const item of JSON.parse(reservation.items_json)) {
+          if (!adjustInventoryStock(tenantId, item, item.quantity)) {
+            throw new Error("Inventory variant could not be restored");
+          }
+        }
+      }
+      database
+        .prepare(
+          `UPDATE inventory_reservations
+           SET status = ?, updated_at = ?
+           WHERE tenant_id = ? AND reservation_id = ? AND status = ?`,
+        )
+        .run(
+          transition.to,
+          new Date().toISOString(),
+          tenantId,
+          reservationId,
+          transition.from,
+        );
+      database.exec("COMMIT");
+      return { status: transition.to };
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
+  }
 
   function toOrder(row) {
     if (!row) return null;
@@ -186,6 +368,10 @@ export async function createSqliteProductRepository(databaseFile) {
     getOrder(tenantId, id) {
       return toOrder(selectOrder.get(tenantId, id));
     },
+
+    reserveInventory,
+
+    transitionInventoryReservation,
 
     listOrders({ tenantId, page, limit }) {
       const offset = (page - 1) * limit;

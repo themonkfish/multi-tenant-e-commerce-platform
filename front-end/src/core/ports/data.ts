@@ -78,6 +78,7 @@ export interface CatalogPort {
   }): Promise<boolean>;
   releaseInventory(reservationId: string): Promise<void>;
   commitInventory(reservationId: string): Promise<void>;
+  restoreInventory(reservationId: string): Promise<void>;
 }
 
 export class TenantDataBackendError extends Error {

@@ -231,6 +231,15 @@ describe("RestCatalogAdapter", () => {
         path: `/products/inventory/reservations/${reservationId}/commit`,
       }),
     );
+    await adapter.restoreInventory(reservationId);
+    expect(transport).toHaveBeenLastCalledWith(
+      config,
+      "secret",
+      expect.objectContaining({
+        method: "POST",
+        path: `/products/inventory/reservations/${reservationId}/restore`,
+      }),
+    );
   });
 
   it("passes search and category filters and returns unique product categories", async () => {

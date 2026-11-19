@@ -7,12 +7,13 @@ import { OrderFulfillmentSchema } from "@/core/domain/tenant-identities";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantPortalSession } from "@/lib/server/session";
+import { cancelCustomerCodOrder } from "@/lib/server/cancel-customer-cod-order";
 import { z } from "zod";
 
 const OrderIdSchema = z.string().regex(/^ORD-[A-Fa-f0-9-]{36}$/);
 const UpdateOrderSchema = z
   .object({
-    status: z.enum(["Processing", "Shipped"]),
+    status: z.enum(["Processing", "Shipped", "Cancelled"]),
     fulfillment: OrderFulfillmentSchema.optional(),
   })
   .strict();
@@ -141,6 +142,30 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
   try {
+    if (parsed.data.status === "Cancelled") {
+      const platformOrder = (
+        await store.listTenantOrders(session.scope.id)
+      ).find((order) => order.id === parsed.data.orderId);
+      if (!platformOrder) {
+        return NextResponse.json({ error: "order_not_found" }, { status: 404 });
+      }
+      const result = await cancelCustomerCodOrder({
+        store,
+        tenantId: session.scope.id,
+        hostId: session.scope.hostId,
+        customerId: platformOrder.customerId,
+        orderId: platformOrder.id,
+        actorId: session.userId,
+        scope: session.scope,
+        auditAction: "tenant.order.cod_cancelled",
+      });
+      if ("error" in result) {
+        const status = result.error === "order_not_found" ? 404 : 409;
+        return NextResponse.json({ error: result.error }, { status });
+      }
+      return NextResponse.json({ order: result.order });
+    }
+
     const adapter = await createTenantOrderAdapter(
       session.scope.id,
       session.scope.hostId,
