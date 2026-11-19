@@ -355,8 +355,10 @@ Status snapshot as of 2026-11-19:
    - Add compliance and export/deletion workflows for tenant data.
 
 7. **P3 — Growth and expansion work**
-   - Add CMS, reviews, reporting, expanded staff roles, webhooks, PWA support,
-     and theming tools.
+   - Add CMS, reviews, reporting, expanded staff roles, webhooks, and theming
+     tools.
+   - PWA shell support is implemented with a web manifest, 192/512 icons,
+     service-worker registration, and no API or cross-tenant HTML caching.
    - Expand i18n and localized storefront customer experiences beyond the
      configured English, French, and Hindi foundation.
 
@@ -444,8 +446,8 @@ Status snapshot as of 2026-11-19:
       handling, and production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
-- [ ] Later growth work: CMS, reviews, reporting, expanded staff roles, webhooks,
-      PWA, and theming tools.
+- [ ] Later growth work: CMS, reviews, reporting, expanded staff roles,
+      webhooks, offline commerce behavior, and theming tools.
 
 #### Production decisions and hardening
 

@@ -7,6 +7,7 @@ import { routing } from "@/i18n/routing";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { PwaProvider } from "@/components/providers/pwa-provider";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -18,6 +19,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: settings.name,
     description: `${settings.name} — a configurable commerce workspace.`,
+    manifest: "/manifest.webmanifest",
+    themeColor: settings.primaryColor,
+    icons: {
+      icon: [
+        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+    },
   };
 }
 
@@ -57,6 +66,7 @@ export default async function LocaleLayout({
       >
         <NextIntlClientProvider>
           <QueryProvider>{children}</QueryProvider>
+          <PwaProvider />
           {requestScope?.kind !== "tenant" && (
             <footer
               className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4 text-sm"
