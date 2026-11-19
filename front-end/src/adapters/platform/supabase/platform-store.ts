@@ -58,6 +58,10 @@ import type {
   SuperAdminRecord,
 } from "@/core/ports/platform-store";
 import type { AccessScope } from "@/core/tenancy/scope";
+import {
+  ProductReviewSchema,
+  type ProductReview,
+} from "@/core/domain/product-review";
 import { createPlatformSupabaseClient } from "./client";
 
 export class SupabasePlatformStore implements PlatformStore {
@@ -1131,6 +1135,67 @@ export class SupabasePlatformStore implements PlatformStore {
       );
     }
     return true;
+  }
+
+  async createProductReview(review: ProductReview): Promise<ProductReview> {
+    const validated = ProductReviewSchema.parse(review);
+    const { data, error } = await this.client
+      .from("platform_product_reviews")
+      .insert({
+        id: validated.id,
+        tenant_id: validated.tenantId,
+        product_id: validated.productId,
+        customer_id: validated.customerId,
+        rating: validated.rating,
+        title: validated.title,
+        body: validated.body,
+        created_at: validated.createdAt,
+      })
+      .select("*")
+      .single();
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error("A review already exists for this product");
+      }
+      throw new Error(`Could not create product review: ${error.message}`);
+    }
+    return ProductReviewSchema.parse({
+      id: data.id,
+      tenantId: data.tenant_id,
+      productId: data.product_id,
+      customerId: data.customer_id,
+      rating: data.rating,
+      title: data.title,
+      body: data.body,
+      createdAt: data.created_at,
+    });
+  }
+
+  async listProductReviews(
+    tenantId: string,
+    productId: string,
+  ): Promise<ProductReview[]> {
+    const { data, error } = await this.client
+      .from("platform_product_reviews")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("product_id", productId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      throw new Error(`Could not list product reviews: ${error.message}`);
+    }
+    return (data ?? []).map((row) =>
+      ProductReviewSchema.parse({
+        id: row.id,
+        tenantId: row.tenant_id,
+        productId: row.product_id,
+        customerId: row.customer_id,
+        rating: row.rating,
+        title: row.title,
+        body: row.body,
+        createdAt: row.created_at,
+      }),
+    );
   }
 
   async createCustomerOrder(

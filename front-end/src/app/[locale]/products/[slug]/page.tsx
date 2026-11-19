@@ -7,6 +7,7 @@ import {
   StorefrontAddToCartButton,
   StorefrontCartButton,
 } from "@/features/storefront/cart-button";
+import { ProductReviews } from "@/features/storefront/product-reviews";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
 
@@ -218,6 +219,9 @@ export default async function TenantProductDetailPage({
           </p>
         </div>
       </article>
+      <section className="mt-6">
+        <ProductReviews productId={product.id} />
+      </section>
     </main>
   );
 }

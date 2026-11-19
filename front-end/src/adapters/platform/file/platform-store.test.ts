@@ -401,6 +401,53 @@ describe("FilePlatformStore", () => {
     });
   });
 
+  it("creates one tenant-scoped review per Customer and product", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active", domains: [] });
+    await store.createHost(host, hostAudit());
+    const tenant = {
+      id: "550e8400-e29b-41d4-a716-446655440050",
+      hostId: host.id,
+      slug: "review-shop",
+      name: "Review Shop",
+      status: "active" as const,
+      plan: "starter",
+      domains: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await store.createTenantForHost(tenant, hostAudit("tenant.created"));
+    const customer = await store.createCustomerAccount({
+      id: "550e8400-e29b-41d4-a716-446655440051",
+      tenantId: tenant.id,
+      email: "reviewer@example.com",
+      passwordHash: "argon2id-hash",
+      createdAt: new Date().toISOString(),
+    });
+    const review = {
+      id: "550e8400-e29b-41d4-a716-446655440052",
+      tenantId: tenant.id,
+      productId: "product-1",
+      customerId: customer.id,
+      rating: 5,
+      title: "Excellent",
+      body: "A useful and reliable product.",
+      createdAt: new Date().toISOString(),
+    };
+
+    await expect(store.createProductReview(review)).resolves.toEqual(review);
+    await expect(
+      store.listProductReviews(tenant.id, "product-1"),
+    ).resolves.toEqual([review]);
+    await expect(
+      store.createProductReview({
+        ...review,
+        id: "550e8400-e29b-41d4-a716-446655440053",
+        title: "Duplicate",
+      }),
+    ).rejects.toThrow("A review already exists for this product");
+  });
+
   it("deletes a Customer account and its scoped order history", async () => {
     const store = await createStore();
     const host = hostConfig({ status: "active", domains: [] });

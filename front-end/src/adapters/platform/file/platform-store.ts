@@ -52,6 +52,10 @@ import {
   PlatformSettingsSchema,
   type PlatformSettings,
 } from "@/core/domain/platform-settings";
+import {
+  ProductReviewSchema,
+  type ProductReview,
+} from "@/core/domain/product-review";
 import type {
   AuditEvent,
   BootstrapInput,
@@ -110,6 +114,7 @@ const FileStateSchema = z.object({
   tenantStaff: z.array(TenantStaffSchema).default([]),
   customerAccounts: z.array(CustomerAccountSchema).default([]),
   customerOrders: z.array(CustomerOrderSchema).default([]),
+  productReviews: z.array(ProductReviewSchema).default([]),
   tenants: z.array(TenantRecordSchema).default([]),
   tenantDomainClaims: z.array(TenantDomainClaimSchema).default([]),
   tenantStoreSettings: z
@@ -188,6 +193,7 @@ const EMPTY_STATE: FileState = {
   tenantStaff: [],
   customerAccounts: [],
   customerOrders: [],
+  productReviews: [],
   tenants: [],
   tenantDomainClaims: [],
   tenantStoreSettings: [],
@@ -305,6 +311,49 @@ export class FilePlatformStore implements PlatformStore {
       await this.writeState(state);
       return true;
     });
+  }
+
+  async createProductReview(review: ProductReview): Promise<ProductReview> {
+    const validated = ProductReviewSchema.parse(review);
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === validated.tenantId && candidate.status === "active",
+      );
+      const customer = state.customerAccounts.find(
+        (candidate) =>
+          candidate.id === validated.customerId &&
+          candidate.tenantId === validated.tenantId,
+      );
+      if (!tenant || !customer) {
+        throw new Error("Customer or tenant is unavailable");
+      }
+      const duplicate = state.productReviews.some(
+        (candidate) =>
+          candidate.tenantId === validated.tenantId &&
+          candidate.productId === validated.productId &&
+          candidate.customerId === validated.customerId,
+      );
+      if (duplicate) {
+        throw new Error("A review already exists for this product");
+      }
+      state.productReviews.push(validated);
+      await this.writeState(state);
+      return validated;
+    });
+  }
+
+  async listProductReviews(
+    tenantId: string,
+    productId: string,
+  ): Promise<ProductReview[]> {
+    return (await this.readState()).productReviews
+      .filter(
+        (review) =>
+          review.tenantId === tenantId && review.productId === productId,
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
   async completeBootstrap(input: {
@@ -964,6 +1013,10 @@ export class FilePlatformStore implements PlatformStore {
         return false;
       }
       state.customerAccounts.splice(accountIndex, 1);
+      state.productReviews = state.productReviews.filter(
+        (review) =>
+          review.tenantId !== tenantId || review.customerId !== customerId,
+      );
       const deletedOrderIds = new Set(
         state.customerOrders
           .filter(

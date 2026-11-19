@@ -21,6 +21,7 @@ import type {
   TenantStorageProviderConfig,
 } from "@/core/domain/tenant-config";
 import type { PlatformSettings } from "@/core/domain/platform-settings";
+import type { ProductReview } from "@/core/domain/product-review";
 import type {
   CustomerAccount,
   CustomerOrder,
@@ -196,6 +197,11 @@ export interface PlatformStore
     createdAt: string;
   }): Promise<CustomerAccount>;
   deleteCustomerAccount(tenantId: string, customerId: string): Promise<boolean>;
+  createProductReview(review: ProductReview): Promise<ProductReview>;
+  listProductReviews(
+    tenantId: string,
+    productId: string,
+  ): Promise<ProductReview[]>;
   createCustomerOrder(
     order: CustomerOrder,
   ): Promise<{ order: CustomerOrder; created: boolean }>;

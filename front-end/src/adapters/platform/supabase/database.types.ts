@@ -423,6 +423,30 @@ export type PlatformDatabase = {
         };
         Relationships: [];
       };
+      platform_product_reviews: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          product_id: string;
+          customer_id: string;
+          rating: number;
+          title: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          product_id: string;
+          customer_id: string;
+          rating: number;
+          title: string;
+          body: string;
+          created_at: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       platform_tenant_owner_invites: {
         Row: {
           id: string;

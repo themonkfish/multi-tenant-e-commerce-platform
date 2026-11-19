@@ -446,8 +446,10 @@ Status snapshot as of 2026-11-19:
       handling, and production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
-- [ ] Later growth work: CMS, reviews, reporting, expanded staff roles,
-      webhooks, offline commerce behavior, and theming tools.
+- [ ] Later growth work: CMS, reporting, expanded staff roles, webhooks,
+      offline commerce behavior, and theming tools.
+- [x] Product reviews: authenticated Customers can submit one tenant-scoped
+      review per product, and active storefront product pages show public reviews.
 
 #### Production decisions and hardening
 
