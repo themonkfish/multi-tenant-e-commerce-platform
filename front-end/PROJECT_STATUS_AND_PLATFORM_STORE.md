@@ -113,6 +113,8 @@ Status snapshot as of 2026-11-19:
       host and tenant counts are shown beside the public health endpoint link.
 - [x] Super Admin analytics: persisted order count, paid and COD-due counts,
       and gross order totals grouped by currency are shown across tenant scopes.
+- [x] Super Admin domain inventory: platform, host, verified tenant, and pending
+      tenant domain claims are shown with scope and status.
 - [x] Super Admin audit-log view: the platform dashboard lists recent
       platform-scoped audit events and exports up to 1,000 events as JSON.
 - [x] Host API authorization, same-origin checks, rate limits, input
@@ -237,7 +239,8 @@ Status snapshot as of 2026-11-19:
       support contact; a recent platform audit log and JSON export are available.
       Empty hosts can be deleted with confirmation; hosts with tenants are
       protected. Platform branding and legal links are editable. Staff/roles,
-      domains, and billing remain. Basic persisted order analytics are available.
+      and billing remain. Basic persisted order analytics and platform/host/
+      tenant/pending-domain inventory are available.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, automated domain/TLS

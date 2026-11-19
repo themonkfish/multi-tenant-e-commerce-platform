@@ -5,6 +5,7 @@ import { PlatformAuditLog } from "@/features/auth/platform-audit-log";
 import { PlatformSettingsForm } from "@/features/auth/platform-settings-form";
 import { PlatformHealthSummary } from "@/features/auth/platform-health-summary";
 import { PlatformAnalyticsSummary } from "@/features/auth/platform-analytics-summary";
+import { PlatformDomainInventory } from "@/features/auth/platform-domain-inventory";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getSuperAdminSession } from "@/lib/server/session";
 
@@ -37,6 +38,11 @@ export default async function SuperAdminDashboardPage({
     tenants.map((tenant) => store.listTenantOrders(tenant.id)),
   );
   const orders = tenantOrders.flat();
+  const tenantClaims = (
+    await Promise.all(
+      hosts.map((host) => store.listTenantDomainClaims(host.id)),
+    )
+  ).flat();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -80,6 +86,14 @@ export default async function SuperAdminDashboardPage({
       </section>
       <section className="border-t border-slate-200 py-10">
         <PlatformAnalyticsSummary orders={orders} />
+      </section>
+      <section className="border-t border-slate-200 py-10">
+        <PlatformDomainInventory
+          hosts={hosts}
+          tenants={tenants}
+          tenantClaims={tenantClaims}
+          platformDomain={setupState.platformDomain}
+        />
       </section>
     </main>
   );
