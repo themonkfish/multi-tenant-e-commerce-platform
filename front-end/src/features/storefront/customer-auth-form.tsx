@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
+  const t = useTranslations("CustomerAuth");
   const [register, setRegister] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,19 +36,19 @@ export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
             : undefined;
         setError(
           code === "rate_limited"
-            ? "Too many attempts. Wait before trying again."
+            ? t("tooManyAttempts")
             : code === "account_exists"
-              ? "An account already exists. Sign in instead."
+              ? t("accountExists")
               : register
-                ? "Check the email and use a password of at least 14 characters."
-                : "Email or password is incorrect.",
+                ? t("registrationInvalid")
+                : t("loginInvalid"),
         );
         return;
       }
       router.push(redirectTo);
       router.refresh();
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("serverUnreachable"));
     } finally {
       setBusy(false);
     }
@@ -58,7 +60,7 @@ export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
         className="block space-y-2 text-sm font-medium"
         htmlFor="customer-email"
       >
-        Email
+        {t("email")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="customer-email"
@@ -72,7 +74,8 @@ export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
         className="block space-y-2 text-sm font-medium"
         htmlFor="customer-password"
       >
-        Password{register ? " (14+ characters)" : ""}
+        {t("password")}
+        {register ? ` (${t("passwordMinimum")})` : ""}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="customer-password"
@@ -94,7 +97,7 @@ export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
         disabled={busy}
         type="submit"
       >
-        {busy ? "Please wait…" : register ? "Create account" : "Sign in"}
+        {busy ? t("pleaseWait") : register ? t("createAccount") : t("signIn")}
       </button>
       <button
         className="w-full text-sm font-medium text-indigo-700 underline"
@@ -104,9 +107,7 @@ export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
         }}
         type="button"
       >
-        {register
-          ? "Already have an account? Sign in"
-          : "New here? Create an account"}
+        {register ? t("existingAccountPrompt") : t("newAccountPrompt")}
       </button>
     </form>
   );

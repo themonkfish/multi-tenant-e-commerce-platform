@@ -68,6 +68,24 @@
     "retrying": "Nouvelle tentative…",
     "retry": "Réessayer la transmission"
   },
+  "CustomerAuth": {
+    "pageEyebrow": "Compte client",
+    "pageTitle": "Connectez-vous ou créez un compte",
+    "pageDescription": "Les comptes clients sont propres à cette boutique. L’historique des commandes est privé et visible uniquement par le client connecté.",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "passwordMinimum": "14 caractères minimum",
+    "tooManyAttempts": "Trop de tentatives. Veuillez patienter avant de réessayer.",
+    "accountExists": "Un compte existe déjà. Connectez-vous plutôt.",
+    "registrationInvalid": "Vérifiez l’adresse e-mail et utilisez un mot de passe d’au moins 14 caractères.",
+    "loginInvalid": "L’adresse e-mail ou le mot de passe est incorrect.",
+    "serverUnreachable": "Impossible de joindre le serveur. Veuillez réessayer.",
+    "pleaseWait": "Veuillez patienter…",
+    "createAccount": "Créer un compte",
+    "signIn": "Se connecter",
+    "existingAccountPrompt": "Vous avez déjà un compte ? Connectez-vous",
+    "newAccountPrompt": "Nouveau ici ? Créez un compte"
+  },
   "Home": {
     "platformName": "Espace commerce",
     "phase": "Phase 1 - Fondations",

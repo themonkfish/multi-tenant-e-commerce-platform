@@ -68,6 +68,24 @@
     "retrying": "Retrying…",
     "retry": "Retry delivery"
   },
+  "CustomerAuth": {
+    "pageEyebrow": "Customer account",
+    "pageTitle": "Sign in or create an account",
+    "pageDescription": "Customer accounts belong to this store. Order history is private and visible only to the signed-in customer.",
+    "email": "Email",
+    "password": "Password",
+    "passwordMinimum": "14+ characters",
+    "tooManyAttempts": "Too many attempts. Wait before trying again.",
+    "accountExists": "An account already exists. Sign in instead.",
+    "registrationInvalid": "Check the email and use a password of at least 14 characters.",
+    "loginInvalid": "Email or password is incorrect.",
+    "serverUnreachable": "The request could not reach the server. Please try again.",
+    "pleaseWait": "Please wait…",
+    "createAccount": "Create account",
+    "signIn": "Sign in",
+    "existingAccountPrompt": "Already have an account? Sign in",
+    "newAccountPrompt": "New here? Create an account"
+  },
   "Home": {
     "platformName": "Commerce Workspace",
     "phase": "Phase 1 · Foundation",
