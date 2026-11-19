@@ -13,6 +13,7 @@ const namespaces = [
   "CustomerAuth",
   "CustomerAccount",
   "CustomerCart",
+  "CustomerCheckout",
   "CustomerOrderProgress",
   "CustomerOrderSync",
 ] as const;

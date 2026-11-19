@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { StorefrontCheckoutSuccess } from "@/features/storefront/checkout-success";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
@@ -15,6 +16,7 @@ export default async function CheckoutSuccessPage({
   searchParams,
 }: CheckoutSuccessPageProps) {
   const [{ locale }, { orderId }] = await Promise.all([params, searchParams]);
+  const t = await getTranslations({ locale, namespace: "CustomerCheckout" });
   const requestScope = await getRequestDomainScope();
 
   if (requestScope?.kind !== "tenant") {
@@ -61,7 +63,7 @@ export default async function CheckoutSuccessPage({
         <div className="flex items-center gap-3">
           {settings.branding.logoUrl ? (
             <img
-              alt={`${settings.branding.name} logo`}
+              alt={t("storeLogoAlt", { store: settings.branding.name })}
               className="h-12 w-12 rounded-lg object-cover"
               src={settings.branding.logoUrl}
             />
@@ -75,7 +77,7 @@ export default async function CheckoutSuccessPage({
           )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Order confirmation
+              {t("orderConfirmation")}
             </p>
             <h1 className="text-2xl font-semibold text-slate-950">
               {settings.branding.name}
@@ -87,13 +89,13 @@ export default async function CheckoutSuccessPage({
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}/account`}
           >
-            My account
+            {t("myAccount")}
           </Link>
           <Link
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}/products`}
           >
-            Shop again
+            {t("shopAgain")}
           </Link>
         </div>
       </header>

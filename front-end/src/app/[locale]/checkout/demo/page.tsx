@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { StorefrontDemoCheckout } from "@/features/storefront/demo-checkout";
 import {
   isDemoCheckoutSession,
@@ -24,6 +25,7 @@ export default async function DemoCheckoutPage({
     searchParams,
     headers(),
   ]);
+  const t = await getTranslations({ locale, namespace: "CustomerCheckout" });
   if (!isLocalDemoCheckoutEnabled(requestHeaders.get("host"))) notFound();
 
   const requestScope = await getRequestDomainScope();
@@ -56,22 +58,19 @@ export default async function DemoCheckoutPage({
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
       <header className="mb-8">
         <p className="text-sm font-semibold uppercase tracking-wide text-amber-700">
-          Local demo checkout
+          {t("localDemoCheckout")}
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-950">
-          Simulate a payment
+          {t("simulatePayment")}
         </h1>
-        <p className="mt-3 text-sm text-slate-600">
-          This local-only screen does not charge a card. Choose a result to test
-          the order confirmation and delivery flow.
-        </p>
+        <p className="mt-3 text-sm text-slate-600">{t("demoDescription")}</p>
       </header>
       <StorefrontDemoCheckout locale={locale} order={order} />
       <Link
         className="mt-6 inline-flex text-sm font-medium text-slate-700 underline"
         href={`/${locale}/cart`}
       >
-        Return to cart
+        {t("returnToCart")}
       </Link>
     </main>
   );

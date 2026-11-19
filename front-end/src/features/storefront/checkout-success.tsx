@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   CustomerOrderSchema,
   type CustomerOrder,
@@ -17,6 +18,8 @@ export function StorefrontCheckoutSuccess({
   locale: string;
   order: CustomerOrder;
 }) {
+  const t = useTranslations("CustomerCheckout");
+  const accountT = useTranslations("CustomerAccount");
   const [currentOrder, setCurrentOrder] = useState(order);
   const clearCart = useCartStore((state) => state.clear);
 
@@ -75,6 +78,21 @@ export function StorefrontCheckoutSuccess({
     timeStyle: "short",
     timeZone: "UTC",
   });
+  const orderStatusLabels = {
+    Confirmed: accountT("orderStatus.confirmed"),
+    Processing: accountT("orderStatus.processing"),
+    Shipped: accountT("orderStatus.shipped"),
+    Delivered: accountT("orderStatus.delivered"),
+    Cancelled: accountT("orderStatus.cancelled"),
+  };
+  const statusLabel =
+    currentOrder.paymentStatus === "paid"
+      ? orderStatusLabels[currentOrder.status]
+      : currentOrder.paymentStatus === "cod_due"
+        ? t("awaitingCashCollection")
+        : currentOrder.paymentStatus === "pending"
+          ? accountT("paymentPending")
+          : accountT("paymentFailed");
 
   return (
     <section className="space-y-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
@@ -82,34 +100,34 @@ export function StorefrontCheckoutSuccess({
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
           {currentOrder.paymentStatus === "paid" &&
           currentOrder.paymentMethod === "cash_on_delivery"
-            ? "Cash collected"
+            ? t("cashCollected")
             : currentOrder.paymentStatus === "paid"
-              ? "Payment confirmed"
+              ? t("paymentConfirmed")
               : currentOrder.paymentStatus === "cod_due"
-                ? "Cash on delivery"
+                ? t("cashOnDelivery")
                 : currentOrder.paymentStatus === "failed"
-                  ? "Payment not completed"
-                  : "Payment processing"}
+                  ? t("paymentNotCompleted")
+                  : t("paymentProcessing")}
         </p>
         <h2 className="mt-2 text-3xl font-semibold text-emerald-950">
           {currentOrder.paymentStatus === "paid"
-            ? "Your order is confirmed"
+            ? t("orderConfirmed")
             : currentOrder.paymentStatus === "cod_due"
-              ? "Your order is confirmed"
+              ? t("orderConfirmed")
               : currentOrder.paymentStatus === "failed"
-                ? "Your payment was not completed"
-                : "We are confirming your payment"}
+                ? t("paymentIncomplete")
+                : t("confirmingPayment")}
         </h2>
         <p className="mt-2 text-sm text-emerald-900">
           {currentOrder.paymentStatus === "paid"
             ? currentOrder.paymentMethod === "cash_on_delivery"
-              ? "The store operator confirmed receipt of cash for this order."
-              : "Payment was confirmed by Stripe. Your order has been sent to the store."
+              ? t("cashReceiptConfirmed")
+              : t("stripePaymentConfirmed")
             : currentOrder.paymentStatus === "cod_due"
-              ? "Your order has been sent to the store. Pay the store operator when it is delivered."
+              ? t("cashDueOnDelivery")
               : currentOrder.paymentStatus === "failed"
-                ? "No payment was confirmed. Return to your cart to try checkout again."
-                : "Stripe is processing the payment confirmation. This page will update automatically."}
+                ? t("paymentWasNotConfirmed")
+                : t("stripePaymentProcessing")}
         </p>
       </div>
 
@@ -120,28 +138,22 @@ export function StorefrontCheckoutSuccess({
 
       <div className="rounded-xl border border-emerald-200 bg-white p-4 text-sm text-slate-700">
         <div className="flex flex-col justify-between gap-2 sm:flex-row">
-          <span className="font-medium text-slate-500">Order ID</span>
+          <span className="font-medium text-slate-500">{t("orderId")}</span>
           <span className="font-semibold text-slate-900">{order.id}</span>
         </div>
         <div className="mt-3 flex flex-col justify-between gap-2 sm:flex-row">
-          <span className="font-medium text-slate-500">Placed</span>
+          <span className="font-medium text-slate-500">{t("placed")}</span>
           <span className="font-semibold text-slate-900">
             {dateFormatter.format(new Date(order.createdAt))}
           </span>
         </div>
         <div className="mt-3 flex flex-col justify-between gap-2 sm:flex-row">
-          <span className="font-medium text-slate-500">Status</span>
-          <span className="font-semibold text-emerald-700">
-            {currentOrder.paymentStatus === "paid"
-              ? currentOrder.status
-              : currentOrder.paymentStatus === "cod_due"
-                ? "Awaiting cash collection"
-                : currentOrder.paymentStatus}
-          </span>
+          <span className="font-medium text-slate-500">{t("status")}</span>
+          <span className="font-semibold text-emerald-700">{statusLabel}</span>
         </div>
         {currentOrder.deliveryAddress && (
           <div className="mt-3">
-            <p className="font-medium text-slate-500">Delivery address</p>
+            <p className="font-medium text-slate-500">{t("deliveryAddress")}</p>
             <p className="mt-1 font-semibold text-slate-900">
               {currentOrder.deliveryAddress.fullName} ·{" "}
               {currentOrder.deliveryAddress.line1}
@@ -157,7 +169,9 @@ export function StorefrontCheckoutSuccess({
       </div>
 
       <div className="rounded-xl border border-emerald-200 bg-white p-4">
-        <h3 className="text-lg font-semibold text-slate-900">Order summary</h3>
+        <h3 className="text-lg font-semibold text-slate-900">
+          {t("orderSummary")}
+        </h3>
         <div className="mt-4 space-y-3 text-sm text-slate-700">
           {currentOrder.items.map((item) => (
             <div
@@ -177,7 +191,10 @@ export function StorefrontCheckoutSuccess({
                   <p className="text-sm text-slate-500">SKU: {item.sku}</p>
                 )}
                 <p className="text-xs text-slate-500">
-                  Qty {item.quantity} · {item.slug}
+                  {t("quantityAndSlug", {
+                    quantity: item.quantity,
+                    slug: item.slug,
+                  })}
                 </p>
               </div>
               <span className="font-medium text-slate-900">
@@ -193,7 +210,7 @@ export function StorefrontCheckoutSuccess({
 
         <div className="mt-4 border-t border-slate-200 pt-4">
           <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
-            <span>Subtotal</span>
+            <span>{t("subtotal")}</span>
             <span>
               {formatCurrencyAmount(
                 currentOrder.subtotal ??
@@ -209,10 +226,11 @@ export function StorefrontCheckoutSuccess({
           {(currentOrder.discountAmount ?? 0) > 0 && (
             <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
               <span>
-                Discount
                 {currentOrder.discountCode
-                  ? ` (${currentOrder.discountCode})`
-                  : ""}
+                  ? t("discountWithCode", {
+                      code: currentOrder.discountCode,
+                    })
+                  : t("discount")}
               </span>
               <span>
                 −
@@ -226,7 +244,7 @@ export function StorefrontCheckoutSuccess({
           )}
           {(currentOrder.taxAmount ?? 0) > 0 && (
             <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
-              <span>Tax</span>
+              <span>{t("tax")}</span>
               <span>
                 {formatCurrencyAmount(
                   currentOrder.taxAmount ?? 0,
@@ -237,7 +255,7 @@ export function StorefrontCheckoutSuccess({
             </div>
           )}
           <div className="mb-3 flex items-center justify-between text-sm text-slate-700">
-            <span>Shipping</span>
+            <span>{t("shipping")}</span>
             <span>
               {formatCurrencyAmount(
                 currentOrder.shippingAmount ?? 0,
@@ -247,7 +265,7 @@ export function StorefrontCheckoutSuccess({
             </span>
           </div>
           <div className="flex items-center justify-between text-base font-semibold text-slate-900">
-            <span>Total</span>
+            <span>{t("total")}</span>
             <span>
               {formatCurrencyAmount(
                 currentOrder.total,
@@ -264,13 +282,13 @@ export function StorefrontCheckoutSuccess({
           className="inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
           href={`/${locale}/products`}
         >
-          Continue shopping
+          {t("continueShopping")}
         </Link>
         <Link
           className="inline-flex rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900"
           href={`/${locale}/account`}
         >
-          View account
+          {t("viewAccount")}
         </Link>
       </div>
     </section>

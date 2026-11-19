@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   CustomerOrderSchema,
   type CustomerOrder,
@@ -16,6 +17,7 @@ export function StorefrontDemoCheckout({
   order: CustomerOrder;
 }) {
   const router = useRouter();
+  const t = useTranslations("CustomerCheckout");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,7 +35,7 @@ export function StorefrontDemoCheckout({
       );
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError("The simulated payment could not be recorded. Please retry.");
+        setError(t("simulationFailure"));
         return;
       }
       const updated =
@@ -41,7 +43,7 @@ export function StorefrontDemoCheckout({
           ? CustomerOrderSchema.safeParse(body.order)
           : null;
       if (!updated?.success) {
-        setError("The server returned an invalid order status.");
+        setError(t("invalidOrderStatus"));
         return;
       }
       if (updated.data.paymentStatus === "paid") {
@@ -52,7 +54,7 @@ export function StorefrontDemoCheckout({
         router.replace(`/${locale}/cart?payment=failed`);
       }
     } catch {
-      setError("Could not reach the server. Please retry.");
+      setError(t("serverUnavailable"));
     } finally {
       setSubmitting(false);
     }
@@ -60,7 +62,9 @@ export function StorefrontDemoCheckout({
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-950">Order summary</h2>
+      <h2 className="text-lg font-semibold text-slate-950">
+        {t("orderSummary")}
+      </h2>
       <ul className="mt-4 divide-y divide-slate-100">
         {order.items.map((item) => (
           <li
@@ -93,7 +97,7 @@ export function StorefrontDemoCheckout({
         ))}
       </ul>
       <p className="mt-4 flex justify-between border-t border-slate-200 pt-4 font-semibold">
-        <span>Subtotal</span>
+        <span>{t("subtotal")}</span>
         <span>
           {formatCurrencyAmount(
             order.subtotal ??
@@ -109,7 +113,9 @@ export function StorefrontDemoCheckout({
       {(order.discountAmount ?? 0) > 0 && (
         <p className="mt-2 flex justify-between text-sm text-slate-600">
           <span>
-            Discount{order.discountCode ? ` (${order.discountCode})` : ""}
+            {order.discountCode
+              ? t("discountWithCode", { code: order.discountCode })
+              : t("discount")}
           </span>
           <span>
             −
@@ -123,14 +129,14 @@ export function StorefrontDemoCheckout({
       )}
       {(order.taxAmount ?? 0) > 0 && (
         <p className="mt-2 flex justify-between text-sm text-slate-600">
-          <span>Tax</span>
+          <span>{t("tax")}</span>
           <span>
             {formatCurrencyAmount(order.taxAmount ?? 0, order.currency, locale)}
           </span>
         </p>
       )}
       <p className="mt-2 flex justify-between text-sm text-slate-600">
-        <span>Shipping</span>
+        <span>{t("shipping")}</span>
         <span>
           {formatCurrencyAmount(
             order.shippingAmount ?? 0,
@@ -140,7 +146,7 @@ export function StorefrontDemoCheckout({
         </span>
       </p>
       <p className="mt-2 flex justify-between border-t border-slate-200 pt-3 font-semibold">
-        <span>Total</span>
+        <span>{t("total")}</span>
         <span>{formatCurrencyAmount(order.total, order.currency, locale)}</span>
       </p>
       {error && (
@@ -155,7 +161,7 @@ export function StorefrontDemoCheckout({
           onClick={() => void simulatePayment("paid")}
           type="button"
         >
-          {submitting ? "Recording result…" : "Simulate successful payment"}
+          {submitting ? t("recordingResult") : t("simulateSuccessfulPayment")}
         </button>
         <button
           className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 disabled:opacity-60"
@@ -163,7 +169,7 @@ export function StorefrontDemoCheckout({
           onClick={() => void simulatePayment("failed")}
           type="button"
         >
-          Simulate failed payment
+          {t("simulateFailedPayment")}
         </button>
       </div>
     </section>

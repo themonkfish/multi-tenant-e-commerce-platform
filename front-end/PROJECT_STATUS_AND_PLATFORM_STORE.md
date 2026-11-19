@@ -70,10 +70,10 @@ Status snapshot as of 2026-11-19:
   successful card and COD orders consume them. Basic fulfillment tracking is
   supported when Tenant operators ship an order, including a manual
   **Delivered** confirmation after shipment. Customer sign-in/registration,
-  cart and checkout form, account history, order-sync messages, and order
-  progress are localized in English, French, and Hindi; cancellation has a
-  distinct terminal state. Live carrier integrations and live card payments
-  remain future work.
+  cart and checkout form, order confirmation, demo payment screens, account
+  history, order-sync messages, and order progress are localized in English,
+  French, and Hindi; cancellation has a distinct terminal state. Live carrier
+  integrations and live card payments remain future work.
   Stripe Connect onboarding is blocked pending confirmation that India is
   eligible for the platform country.
 - Tenant Owners can configure AWS S3 or an S3-compatible service with encrypted
@@ -200,6 +200,9 @@ Status snapshot as of 2026-11-19:
 - [x] The Customer cart and checkout form are localized in English, French,
       and Hindi, including discount handling, payment methods, delivery fields,
       checkout feedback, and add-to-cart controls.
+- [x] Order confirmation and local demo-payment screens are localized in
+      English, French, and Hindi, including payment outcomes, order details,
+      and totals.
 - [x] Tenant Owners can configure a flat shipping fee and optional
       free-shipping threshold in the store's default currency. Checkout
       validates India delivery details for card and COD orders and calculates
@@ -308,12 +311,13 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [ ] **i18n:** English, French, and Hindi routing is now configured with a locale
-      switcher and 254 frontend tests. Customer sign-in/registration, cart and
-      checkout form, account, order-sync messages, and order progress are
-      localized in all three languages, with catalog checks for missing keys
-      and interpolation variables. The tenant storefront preview uses the saved
-      default locale metadata but the full public storefront remains to be
-      comprehensively translated.
+      switcher and 255 frontend tests. Customer sign-in/registration, cart and
+      checkout form, order confirmation and demo payment screens, account,
+      order-sync messages, and order progress are localized in all three
+      languages, with catalog checks for missing keys and interpolation
+      variables. The tenant storefront preview uses the saved default locale
+      metadata but the full public storefront remains to be comprehensively
+      translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
       mutation limits are per-account. Structured logging and request
