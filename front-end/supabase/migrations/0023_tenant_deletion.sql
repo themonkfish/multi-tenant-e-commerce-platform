@@ -19,7 +19,7 @@ begin
     where id = p_tenant_id and host_id = p_host_id
   ) then
     return false;
-  end;
+  end if;
 
   delete from public.platform_secret_vault
   where tenant_id = p_tenant_id;

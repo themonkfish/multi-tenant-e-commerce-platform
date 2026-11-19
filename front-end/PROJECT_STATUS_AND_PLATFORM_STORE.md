@@ -84,6 +84,8 @@ Status snapshot as of 2026-11-19:
   backend tests, Playwright flows, Supabase migrations, dependencies, and
   application SBOM generation. A public health route reports platform-store
   availability and setup state.
+- Supabase migration CI resets a clean local database, applies every migration
+  in repository order, and lints the resulting schema.
 - English, French, and Hindi locale routing is available, with a locale
   switcher and regression coverage. Tenant storefront copy and broader customer
   experiences may still be expanded through tenant locale settings.

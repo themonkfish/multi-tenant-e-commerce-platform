@@ -34,8 +34,11 @@ jobs:
         with:
           version: v2.stable
 
-      - name: Start a clean local database and apply all migrations
+      - name: Start a clean local database
         run: supabase db start
+
+      - name: Reset and apply every migration in order
+        run: supabase db reset --local
 
       - name: Lint migrated database schema
         run: supabase db lint --local --fail-on error
