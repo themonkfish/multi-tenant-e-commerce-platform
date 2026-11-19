@@ -18,6 +18,7 @@
     "test:e2e": "node scripts/run-e2e.mjs",
     "security:audit": "npm audit --audit-level=high",
     "security:sbom": "npm sbom --package-lock-only --sbom-format cyclonedx --sbom-type application",
+    "security:notices": "node scripts/dependency-notices.mjs",
     "platform-store:backup": "node scripts/platform-store-backup.mjs backup",
     "platform-store:restore": "node scripts/platform-store-backup.mjs restore",
     "test:platform-backup": "node --test scripts/platform-store-backup.test.mjs",

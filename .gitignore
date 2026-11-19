@@ -9,6 +9,9 @@
 **/build/
 **/test-results/
 **/playwright-report/
+**/dependency-notices.json
+**/dependency-audit.json
+**/application-sbom.cdx.json
 
 # Local configuration and platform state
 **/.env*

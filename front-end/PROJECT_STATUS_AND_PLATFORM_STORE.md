@@ -88,6 +88,8 @@ Status snapshot as of 2026-11-19:
   availability and setup state.
 - Supabase migration CI resets a clean local database, applies every migration
   in repository order, and lints the resulting schema.
+- CI generates a sorted dependency-notices JSON manifest from the frontend
+  package lock and uploads it alongside the SBOM and dependency audit artifacts.
 - The tenant reference SQLite backend now implements catalog schema version 6
   fields for categories, images, options, inventory variants, and variant
   pricing overrides.

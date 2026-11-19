@@ -63,6 +63,9 @@ jobs:
       - name: Generate application SBOM
         run: npm --prefix front-end run security:sbom > front-end/application-sbom.cdx.json
 
+      - name: Generate dependency notices
+        run: npm --prefix front-end run security:notices
+
       - name: Upload security artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -70,6 +73,7 @@ jobs:
           path: |
             front-end/dependency-audit.json
             front-end/application-sbom.cdx.json
+            front-end/dependency-notices.json
           if-no-files-found: error
 
       - name: Install Playwright browsers
