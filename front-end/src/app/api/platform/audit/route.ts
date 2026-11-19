@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -26,6 +27,15 @@ export async function GET(request: Request) {
   const events = await getPlatformStore().listAuditEvents({
     scope: session.scope,
     limit: parsed.data.limit,
+  });
+  const now = new Date().toISOString();
+  await getPlatformStore().appendAuditEvent({
+    id: randomUUID(),
+    actorId: session.userId,
+    scope: session.scope,
+    action: "platform.audit.exported",
+    resourceType: "audit_export",
+    createdAt: now,
   });
   const body = JSON.stringify(
     {

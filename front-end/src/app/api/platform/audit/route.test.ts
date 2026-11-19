@@ -29,6 +29,7 @@ describe("GET /api/platform/audit", () => {
       scope: { kind: "platform", id: "platform" },
       permissions: ["platform:read"],
     });
+    const appendAuditEvent = vi.fn().mockResolvedValue(undefined);
     store.mockReturnValue({
       listAuditEvents: vi.fn().mockResolvedValue([
         {
@@ -40,6 +41,7 @@ describe("GET /api/platform/audit", () => {
           createdAt: "2026-11-18T00:00:00.000Z",
         },
       ]),
+      appendAuditEvent,
     });
     const response = await GET(
       new Request("https://platform.example.com/api/platform/audit?limit=10"),
@@ -52,5 +54,12 @@ describe("GET /api/platform/audit", () => {
       scope: { kind: "platform", id: "platform" },
       events: [{ action: "platform.audit.exported" }],
     });
+    expect(appendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: "platform", id: "platform" },
+        action: "platform.audit.exported",
+        resourceType: "audit_export",
+      }),
+    );
   });
 });

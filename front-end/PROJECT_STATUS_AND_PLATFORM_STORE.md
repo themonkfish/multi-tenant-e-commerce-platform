@@ -105,6 +105,8 @@ Status snapshot as of 2026-11-19:
       plan and tenant/domain limits, and activate or suspend hosts.
 - [x] Super Admin host editing: update host name, slug, plan, limits, domains,
       support contact, branding name, and audit the change.
+- [x] Super Admin audit-log view: the platform dashboard lists recent
+      platform-scoped audit events and exports up to 1,000 events as JSON.
 - [x] Host API authorization, same-origin checks, rate limits, input
       validation, duplicate slug/domain checks, and audit logging.
 - [x] Authenticated host/Super Admin mutation throttles use per-account
@@ -224,8 +226,9 @@ Status snapshot as of 2026-11-19:
       deployment configuration; email delivery intentionally remains manual.
 - [ ] **Super Admin dashboard:** host creation/status management works;
       editing host details works for name, slug, plan, limits, domains, and
-      support contact; deletion, staff/roles, settings, health, analytics,
-      domains, billing, and audit-log views remain.
+      support contact; a recent platform audit log and JSON export are available.
+      Deletion, staff/roles, settings, health, analytics, domains, and billing
+      remain.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, automated domain/TLS
