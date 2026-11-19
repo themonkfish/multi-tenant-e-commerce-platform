@@ -4,6 +4,8 @@ import { GET, POST } from "./route";
 const customerSession = vi.hoisted(() => vi.fn());
 const requestScope = vi.hoisted(() => vi.fn());
 const store = vi.hoisted(() => vi.fn());
+const isSameOrigin = vi.hoisted(() => vi.fn());
+const createRateLimitKey = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/server/session", () => ({
   getCustomerSession: customerSession,
@@ -14,9 +16,36 @@ vi.mock("@/lib/server/request-scope", () => ({
 vi.mock("@/lib/server/platform", () => ({
   getPlatformStore: store,
 }));
+vi.mock("@/lib/server/http", () => ({
+  isSameOrigin,
+  createRateLimitKey,
+}));
+
+const tenantId = "550e8400-e29b-41d4-a716-446655440002";
+const customerId = "550e8400-e29b-41d4-a716-446655440003";
+
+function reviewRequest() {
+  return new Request(
+    "https://store.example.com/api/products/product-1/reviews",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        productId: "product-1",
+        rating: 5,
+        title: "Excellent",
+        body: "A useful product.",
+      }),
+    },
+  );
+}
 
 describe("product review routes", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    isSameOrigin.mockReturnValue(true);
+    createRateLimitKey.mockReturnValue("test-rate-limit-key");
+  });
 
   it("lists public tenant-scoped reviews", async () => {
     requestScope.mockResolvedValue({
@@ -35,23 +64,82 @@ describe("product review routes", () => {
 
   it("requires Customer authentication for review submission", async () => {
     customerSession.mockResolvedValue(null);
-    const response = await POST(
-      new Request("https://store.example.com/api/products/product-1/reviews", {
-        method: "POST",
-        headers: {
-          origin: "https://store.example.com",
-          host: "store.example.com",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          productId: "product-1",
-          rating: 5,
-          title: "Excellent",
-          body: "A useful product.",
-        }),
-      }),
-      { params: Promise.resolve({ productId: "product-1" }) },
-    );
+    const response = await POST(reviewRequest(), {
+      params: Promise.resolve({ productId: "product-1" }),
+    });
     expect(response.status).toBe(401);
+  });
+
+  it("requires a paid order containing the reviewed product", async () => {
+    customerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId: "host-1" },
+      permissions: ["customer:orders:read"],
+    });
+    const listCustomerOrders = vi.fn().mockResolvedValue([
+      {
+        paymentStatus: "pending",
+        items: [{ productId: "product-1" }],
+      },
+      {
+        paymentStatus: "paid",
+        items: [{ productId: "another-product" }],
+      },
+    ]);
+    const createProductReview = vi.fn();
+    store.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listCustomerOrders,
+      createProductReview,
+    });
+
+    const response = await POST(reviewRequest(), {
+      params: Promise.resolve({ productId: "product-1" }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "purchase_required" });
+    expect(listCustomerOrders).toHaveBeenCalledWith(tenantId, customerId);
+    expect(createProductReview).not.toHaveBeenCalled();
+  });
+
+  it("accepts a review when a paid tenant order contains the product", async () => {
+    customerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId: "host-1" },
+      permissions: ["customer:orders:read"],
+    });
+    const savedReview = {
+      id: "review-1",
+      tenantId,
+      productId: "product-1",
+      customerId,
+      rating: 5,
+      title: "Excellent",
+      body: "A useful product.",
+      createdAt: "2026-11-19T00:00:00.000Z",
+    };
+    const createProductReview = vi.fn().mockResolvedValue(savedReview);
+    store.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listCustomerOrders: vi.fn().mockResolvedValue([
+        {
+          paymentStatus: "paid",
+          items: [{ productId: "product-1" }],
+        },
+      ]),
+      createProductReview,
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const response = await POST(reviewRequest(), {
+      params: Promise.resolve({ productId: "product-1" }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ review: savedReview });
+    expect(createProductReview).toHaveBeenCalledOnce();
   });
 });

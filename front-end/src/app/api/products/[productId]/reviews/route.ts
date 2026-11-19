@@ -67,6 +67,19 @@ export async function POST(request: Request, { params }: ReviewRouteProps) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
+  const customerOrders = await store.listCustomerOrders(
+    session.scope.id,
+    session.userId,
+  );
+  const hasPaidPurchase = customerOrders.some(
+    (order) =>
+      order.paymentStatus === "paid" &&
+      order.items.some((item) => item.productId === productId),
+  );
+  if (!hasPaidPurchase) {
+    return NextResponse.json({ error: "purchase_required" }, { status: 403 });
+  }
+
   const review = ProductReviewSchema.parse({
     id: randomUUID(),
     tenantId: session.scope.id,

@@ -100,6 +100,9 @@ Status snapshot as of 2026-11-19:
 - Public health responses now include UTC timestamps and request correlation
   IDs, and emit structured JSON logs for healthy or degraded platform-store
   outcomes.
+- Product reviews require an authenticated Customer with a paid tenant order
+  containing the reviewed product; review eligibility is checked against
+  server-side order snapshots.
 - English, French, and Hindi locale routing is available, with a locale
   switcher and regression coverage. Tenant storefront copy and broader customer
   experiences may still be expanded through tenant locale settings.
@@ -448,8 +451,9 @@ Status snapshot as of 2026-11-19:
       analytics, and platform settings.
 - [ ] Later growth work: CMS, reporting, expanded staff roles, webhooks,
       offline commerce behavior, and theming tools.
-- [x] Product reviews: authenticated Customers can submit one tenant-scoped
-      review per product, and active storefront product pages show public reviews.
+- [x] Product reviews: authenticated Customers with a paid tenant order
+      containing the product can submit one tenant-scoped review per product;
+      active storefront product pages show public reviews.
 
 #### Production decisions and hardening
 

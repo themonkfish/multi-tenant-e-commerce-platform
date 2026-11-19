@@ -55,7 +55,12 @@ export function ProductReviews({ productId }: { productId: string }) {
             "error" in body &&
             body.error === "review_exists"
             ? "You have already reviewed this product."
-            : "The review could not be saved.",
+            : typeof body === "object" &&
+                body !== null &&
+                "error" in body &&
+                body.error === "purchase_required"
+              ? "A paid order for this product is required to submit a review."
+              : "The review could not be saved.",
         );
         return;
       }
@@ -82,7 +87,7 @@ export function ProductReviews({ productId }: { productId: string }) {
       <div>
         <h3 className="text-xl font-semibold text-slate-950">Reviews</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Verified customers can submit one review per product.
+          Customers with a paid order for this product can submit one review.
         </p>
       </div>
       {reviews.length === 0 ? (
