@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { formatCurrencyAmount } from "@/core/domain/money";
 import {
@@ -20,6 +21,7 @@ export default async function TenantProductCatalogPage({
   searchParams,
 }: CataloguePageProps) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "CustomerCatalog" });
   const filters = await searchParams;
   const value = (entry: string | string[] | undefined) =>
     (Array.isArray(entry) ? entry[0] : entry)?.trim() ?? "";
@@ -138,7 +140,7 @@ export default async function TenantProductCatalogPage({
         <div className="flex items-center gap-3">
           {settings.branding.logoUrl ? (
             <img
-              alt={`${settings.branding.name} logo`}
+              alt={t("storeLogoAlt", { store: settings.branding.name })}
               className="h-12 w-12 rounded-lg object-cover"
               src={settings.branding.logoUrl}
             />
@@ -152,7 +154,7 @@ export default async function TenantProductCatalogPage({
           )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Store catalog
+              {t("catalogLabel")}
             </p>
             <h1 className="text-2xl font-semibold text-slate-950">
               {settings.branding.name}
@@ -165,7 +167,7 @@ export default async function TenantProductCatalogPage({
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}`}
           >
-            Return home
+            {t("returnHome")}
           </Link>
         </div>
       </header>
@@ -177,7 +179,7 @@ export default async function TenantProductCatalogPage({
           role="search"
         >
           <label className="sr-only" htmlFor="product-search">
-            Search products
+            {t("searchLabel")}
           </label>
           <input
             className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2"
@@ -185,7 +187,7 @@ export default async function TenantProductCatalogPage({
             id="product-search"
             maxLength={100}
             name="search"
-            placeholder="Search product names"
+            placeholder={t("searchPlaceholder")}
             type="search"
           />
           {category && <input name="category" type="hidden" value={category} />}
@@ -194,25 +196,28 @@ export default async function TenantProductCatalogPage({
             style={{ backgroundColor: settings.branding.primaryColor }}
             type="submit"
           >
-            Search
+            {t("search")}
           </button>
           {(search || category) && (
             <Link
               className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium hover:bg-slate-50"
               href={`/${locale}/products`}
             >
-              Clear filters
+              {t("clearFilters")}
             </Link>
           )}
         </form>
         {categories.length > 0 && (
-          <nav aria-label="Product categories" className="flex flex-wrap gap-2">
+          <nav
+            aria-label={t("productCategories")}
+            className="flex flex-wrap gap-2"
+          >
             <Link
               aria-current={category ? undefined : "page"}
               className={`rounded-full border px-3 py-1.5 text-sm ${!category ? "border-indigo-700 bg-indigo-50 font-semibold text-indigo-800" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
               href={categoryHref()}
             >
-              All categories
+              {t("allCategories")}
             </Link>
             {categories.map((item) => (
               <Link
@@ -227,23 +232,18 @@ export default async function TenantProductCatalogPage({
           </nav>
         )}
         <p className="text-sm text-slate-600">
-          {total} product{total === 1 ? "" : "s"}
-          {search ? ` matching “${search}”` : ""}
-          {category ? ` in ${category}` : ""}
+          {t("productCount", { count: total })}
+          {search ? ` ${t("matchingSearch", { search })}` : ""}
+          {category ? ` ${t("inCategory", { category })}` : ""}
         </p>
       </section>
 
       {products.length === 0 ? (
         <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="text-lg font-medium text-slate-900">
-            {search || category
-              ? "No products match these filters."
-              : "No active products are available yet."}
+            {search || category ? t("noFilterMatches") : t("noActiveProducts")}
           </p>
-          <p className="mt-2 text-sm text-slate-600">
-            The tenant backend is connected, but the catalog is empty or not yet
-            published.
-          </p>
+          <p className="mt-2 text-sm text-slate-600">{t("emptyDescription")}</p>
         </section>
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -286,14 +286,12 @@ export default async function TenantProductCatalogPage({
                       color: settings.branding.accentColor,
                     }}
                   >
-                    {product.status}
+                    {t("active")}
                   </span>
                 </div>
 
                 <p className="text-sm text-slate-600">
-                  {product.sku
-                    ? `SKU: ${product.sku}`
-                    : "Ready for storefront display"}
+                  {product.sku ? `SKU: ${product.sku}` : t("readyForDisplay")}
                 </p>
                 {product.category && (
                   <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
@@ -331,7 +329,7 @@ export default async function TenantProductCatalogPage({
                         backgroundColor: settings.branding.primaryColor,
                       }}
                     >
-                      View item
+                      {t("viewItem")}
                     </Link>
                   </div>
                 </div>
@@ -342,7 +340,7 @@ export default async function TenantProductCatalogPage({
       )}
       {pageCount > 1 && (
         <nav
-          aria-label="Product pages"
+          aria-label={t("productPages")}
           className="mt-6 flex items-center justify-between"
         >
           {currentPage > 1 ? (
@@ -350,20 +348,20 @@ export default async function TenantProductCatalogPage({
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
               href={categoryHref(category || undefined, currentPage - 1)}
             >
-              Previous
+              {t("previous")}
             </Link>
           ) : (
             <span />
           )}
           <span className="text-sm text-slate-600">
-            Page {currentPage} of {pageCount}
+            {t("pageOf", { currentPage, pageCount })}
           </span>
           {currentPage < pageCount ? (
             <Link
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
               href={categoryHref(category || undefined, currentPage + 1)}
             >
-              Next
+              {t("next")}
             </Link>
           ) : (
             <span />
