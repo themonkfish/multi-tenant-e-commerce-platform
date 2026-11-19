@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { HostManagement } from "@/features/hosts/host-management";
 import { PlatformAuditLog } from "@/features/auth/platform-audit-log";
+import { PlatformSettingsForm } from "@/features/auth/platform-settings-form";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getSuperAdminSession } from "@/lib/server/session";
 
@@ -24,6 +25,7 @@ export default async function SuperAdminDashboardPage({
     scope: session.scope,
     limit: 100,
   });
+  const setupState = await getPlatformStore().getSetupState();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -48,6 +50,9 @@ export default async function SuperAdminDashboardPage({
       </section>
       <section className="border-t border-slate-200 py-10">
         <PlatformAuditLog events={auditEvents} />
+      </section>
+      <section className="border-t border-slate-200 py-10">
+        <PlatformSettingsForm initialSettings={setupState.settings} />
       </section>
     </main>
   );

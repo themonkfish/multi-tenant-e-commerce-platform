@@ -107,6 +107,8 @@ Status snapshot as of 2026-11-19:
       support contact, branding name, and audit the change.
 - [x] Super Admin host deletion: empty hosts can be deleted with confirmation;
       hosts with tenants are rejected without deleting any records.
+- [x] Super Admin platform settings: platform name, theme colors, terms URL,
+      and privacy URL can be viewed and updated with validation and audit events.
 - [x] Super Admin audit-log view: the platform dashboard lists recent
       platform-scoped audit events and exports up to 1,000 events as JSON.
 - [x] Host API authorization, same-origin checks, rate limits, input
@@ -230,8 +232,8 @@ Status snapshot as of 2026-11-19:
       editing host details works for name, slug, plan, limits, domains, and
       support contact; a recent platform audit log and JSON export are available.
       Empty hosts can be deleted with confirmation; hosts with tenants are
-      protected. Staff/roles, settings, health, analytics, domains, and billing
-      remain.
+      protected. Platform branding and legal links are editable. Staff/roles,
+      health, analytics, domains, and billing remain.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, automated domain/TLS

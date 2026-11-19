@@ -46,6 +46,7 @@ import {
 import {
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettingsSchema,
+  type PlatformSettings,
 } from "@/core/domain/platform-settings";
 import type {
   AuditEvent,
@@ -81,6 +82,22 @@ export class SupabasePlatformStore implements PlatformStore {
         data.platform_settings ?? DEFAULT_PLATFORM_SETTINGS,
       ),
     };
+  }
+
+  async updatePlatformSettings(
+    settings: PlatformSettings,
+    auditEvent: AuditEvent,
+  ): Promise<PlatformSettings> {
+    const validated = PlatformSettingsSchema.parse(settings);
+    const { error } = await this.client
+      .from("platform_state")
+      .update({ platform_settings: validated })
+      .eq("id", 1);
+    if (error) {
+      throw new Error(`Could not update platform settings: ${error.message}`);
+    }
+    await this.appendAuditEvent(auditEvent);
+    return validated;
   }
 
   async getBootstrapAdmin(

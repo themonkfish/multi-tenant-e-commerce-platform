@@ -49,6 +49,7 @@ import {
 import {
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettingsSchema,
+  type PlatformSettings,
 } from "@/core/domain/platform-settings";
 import type {
   AuditEvent,
@@ -218,6 +219,19 @@ export class FilePlatformStore implements PlatformStore {
       reservedSubdomains: state.reservedSubdomains,
       settings: state.platformSettings,
     };
+  }
+
+  async updatePlatformSettings(
+    settings: PlatformSettings,
+    auditEvent: AuditEvent,
+  ): Promise<PlatformSettings> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      state.platformSettings = PlatformSettingsSchema.parse(settings);
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+      return state.platformSettings;
+    });
   }
 
   async getBootstrapAdmin(

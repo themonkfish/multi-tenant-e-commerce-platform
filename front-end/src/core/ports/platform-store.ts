@@ -76,6 +76,10 @@ export type SecretRecord = {
 export interface PlatformStore
   extends HostConfigurationStore, TenantConfigurationStore {
   getSetupState(): Promise<PlatformSetupState>;
+  updatePlatformSettings(
+    settings: PlatformSettings,
+    auditEvent: AuditEvent,
+  ): Promise<PlatformSettings>;
   getBootstrapAdmin(
     setupTokenHash: string,
     email: string,
