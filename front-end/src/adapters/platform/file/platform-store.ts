@@ -470,6 +470,38 @@ export class FilePlatformStore implements PlatformStore {
     });
   }
 
+  async deleteHost(
+    id: string,
+    auditEvent: AuditEvent,
+  ): Promise<"deleted" | "not_found" | "host_has_tenants"> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const hostIndex = state.hosts.findIndex(
+        (candidate) => candidate.id === id,
+      );
+      if (hostIndex === -1) {
+        return "not_found";
+      }
+      if (state.tenants.some((tenant) => tenant.hostId === id)) {
+        return "host_has_tenants";
+      }
+
+      state.hosts.splice(hostIndex, 1);
+      state.hostOwners = state.hostOwners.filter(
+        (owner) => owner.hostId !== id,
+      );
+      state.hostOwnerInvites = state.hostOwnerInvites.filter(
+        (invite) => invite.hostId !== id,
+      );
+      state.tenantDomainClaims = state.tenantDomainClaims.filter(
+        (claim) => claim.hostId !== id,
+      );
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+      return "deleted";
+    });
+  }
+
   async createHostOwnerInvite(
     invite: HostOwnerInvite,
     auditEvent: AuditEvent,

@@ -105,6 +105,8 @@ Status snapshot as of 2026-11-19:
       plan and tenant/domain limits, and activate or suspend hosts.
 - [x] Super Admin host editing: update host name, slug, plan, limits, domains,
       support contact, branding name, and audit the change.
+- [x] Super Admin host deletion: empty hosts can be deleted with confirmation;
+      hosts with tenants are rejected without deleting any records.
 - [x] Super Admin audit-log view: the platform dashboard lists recent
       platform-scoped audit events and exports up to 1,000 events as JSON.
 - [x] Host API authorization, same-origin checks, rate limits, input
@@ -227,7 +229,8 @@ Status snapshot as of 2026-11-19:
 - [ ] **Super Admin dashboard:** host creation/status management works;
       editing host details works for name, slug, plan, limits, domains, and
       support contact; a recent platform audit log and JSON export are available.
-      Deletion, staff/roles, settings, health, analytics, domains, and billing
+      Empty hosts can be deleted with confirmation; hosts with tenants are
+      protected. Staff/roles, settings, health, analytics, domains, and billing
       remain.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
@@ -623,7 +626,8 @@ Before deploying the app:
    `0016_tenant_storage_providers.sql`,
    `0017_order_fulfillment_tracking.sql`,
    `0018_checkout_shipping.sql`, `0019_discount_codes.sql`, and
-   `0020_checkout_tax.sql`, and `0021_host_updates.sql`.
+   `0020_checkout_tax.sql`, `0021_host_updates.sql`, and
+   `0022_host_deletion.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

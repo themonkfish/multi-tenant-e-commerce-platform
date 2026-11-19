@@ -179,3 +179,50 @@ export async function PATCH(request: Request, { params }: HostRouteProps) {
   }
   return NextResponse.json({ host });
 }
+
+export async function DELETE(request: Request, { params }: HostRouteProps) {
+  const session = await getSuperAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!canAccessPermission(session, "platform:write")) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
+  }
+
+  const { hostId } = await params;
+  if (!z.uuid().safeParse(hostId).success) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const store = getPlatformStore();
+  const allowed = await store.consumeRateLimit({
+    key: createRateLimitKey(request, "platform-host-delete", session.userId),
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+    now: Date.now(),
+  });
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
+  const now = new Date().toISOString();
+  const result = await store.deleteHost(hostId, {
+    id: randomUUID(),
+    actorId: session.userId,
+    scope: { kind: "platform", id: "platform" },
+    action: "host.deleted",
+    resourceType: "host",
+    resourceId: hostId,
+    createdAt: now,
+  });
+  if (result === "not_found") {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  if (result === "host_has_tenants") {
+    return NextResponse.json({ error: "host_has_tenants" }, { status: 409 });
+  }
+  return NextResponse.json({ deleted: true });
+}

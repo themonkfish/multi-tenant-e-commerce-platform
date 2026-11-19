@@ -329,6 +329,44 @@ describe("FilePlatformStore", () => {
     ).resolves.toBeNull();
   });
 
+  it("deletes an empty host and rejects deletion with tenants", async () => {
+    const store = await createStore();
+    const host = hostConfig();
+    await store.createHost(host, hostAudit());
+
+    await expect(
+      store.deleteHost(host.id, hostAudit("host.deleted")),
+    ).resolves.toBe("deleted");
+    await expect(store.getHostById(host.id)).resolves.toBeNull();
+
+    const tenantHost = hostConfig({
+      id: "550e8400-e29b-41d4-a716-446655440010",
+      slug: "tenant-host",
+      domains: [],
+      status: "active",
+    });
+    await store.createHost(tenantHost, hostAudit());
+    await store.createTenantForHost(
+      {
+        id: "550e8400-e29b-41d4-a716-446655440011",
+        hostId: tenantHost.id,
+        slug: "shop",
+        name: "Shop",
+        status: "pending",
+        plan: "starter",
+        domains: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      hostAudit("tenant.created"),
+    );
+
+    await expect(
+      store.deleteHost(tenantHost.id, hostAudit("host.deleted")),
+    ).resolves.toBe("host_has_tenants");
+    await expect(store.getHostById(tenantHost.id)).resolves.toEqual(tenantHost);
+  });
+
   it("reads existing platform store files that predate host records", async () => {
     const store = await createStore();
     await writeFile(

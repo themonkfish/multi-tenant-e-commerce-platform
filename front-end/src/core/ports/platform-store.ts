@@ -108,6 +108,10 @@ export interface PlatformStore
     updatedAt: string,
     auditEvent: AuditEvent,
   ): Promise<HostConfig | null>;
+  deleteHost(
+    id: string,
+    auditEvent: AuditEvent,
+  ): Promise<"deleted" | "not_found" | "host_has_tenants">;
   createHostOwnerInvite(
     invite: HostOwnerInvite,
     auditEvent: AuditEvent,

@@ -1,4 +1,5 @@
 import type { AuditEvent } from "@/core/ports/platform-store";
+import Link from "next/link";
 
 function formatAuditDate(createdAt: string): string {
   const date = new Date(createdAt);
@@ -22,12 +23,12 @@ export function PlatformAuditLog({ events }: { events: AuditEvent[] }) {
             Recent platform-scoped administrative activity.
           </p>
         </div>
-        <a
+        <Link
           className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
           href="/api/platform/audit?limit=1000"
         >
           Export JSON
-        </a>
+        </Link>
       </div>
 
       {events.length === 0 ? (

@@ -417,6 +417,38 @@ export function HostManagement({
     }
   }
 
+  async function deleteHost(host: HostConfig) {
+    if (
+      !window.confirm(
+        `Delete host "${host.name}"? This is only allowed when the host has no tenants.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/platform/hosts/${host.id}`, {
+        method: "DELETE",
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        const code = getErrorCode(body);
+        setError(
+          code === "host_has_tenants"
+            ? "A host cannot be deleted while it has tenants."
+            : describeHostError(code),
+        );
+        return;
+      }
+      setHosts((current) => current.filter((item) => item.id !== host.id));
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-10">
       <section aria-labelledby="hosts-heading" className="space-y-4">
@@ -482,6 +514,14 @@ export function HostManagement({
                   type="button"
                 >
                   {host.status === "active" ? "Suspend host" : "Activate host"}
+                </button>
+                <button
+                  className="shrink-0 rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                  disabled={busy}
+                  onClick={() => void deleteHost(host)}
+                  type="button"
+                >
+                  Delete host
                 </button>
               </li>
             ))}
