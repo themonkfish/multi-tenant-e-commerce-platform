@@ -4,6 +4,7 @@ import { HostManagement } from "@/features/hosts/host-management";
 import { PlatformAuditLog } from "@/features/auth/platform-audit-log";
 import { PlatformSettingsForm } from "@/features/auth/platform-settings-form";
 import { PlatformHealthSummary } from "@/features/auth/platform-health-summary";
+import { PlatformAnalyticsSummary } from "@/features/auth/platform-analytics-summary";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getSuperAdminSession } from "@/lib/server/session";
 
@@ -32,6 +33,10 @@ export default async function SuperAdminDashboardPage({
     hosts.map((host) => store.listTenantsForHost(host.id)),
   );
   const tenants = tenantsByHost.flat();
+  const tenantOrders = await Promise.all(
+    tenants.map((tenant) => store.listTenantOrders(tenant.id)),
+  );
+  const orders = tenantOrders.flat();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -72,6 +77,9 @@ export default async function SuperAdminDashboardPage({
             tenants.filter((tenant) => tenant.status === "active").length
           }
         />
+      </section>
+      <section className="border-t border-slate-200 py-10">
+        <PlatformAnalyticsSummary orders={orders} />
       </section>
     </main>
   );
