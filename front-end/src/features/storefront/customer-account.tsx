@@ -7,6 +7,7 @@ import { useOrderStore } from "@/features/storefront/order-store";
 import { formatCurrencyAmount } from "@/core/domain/money";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
 import { CustomerOrderSyncStatus } from "./order-sync-status";
+import { CustomerOrderProgress } from "./customer-order-progress";
 
 export function StorefrontCustomerAccount({
   locale,
@@ -215,6 +216,7 @@ export function StorefrontCustomerAccount({
                       : `${order.total} ${order.currency}`}
                   </span>
                 </div>
+                {customer && <CustomerOrderProgress status={order.status} />}
                 {customer &&
                   "shippingAmount" in order &&
                   (order.shippingAmount ?? 0) > 0 && (
