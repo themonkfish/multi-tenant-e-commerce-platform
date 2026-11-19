@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
   backupPlatformStore,
   restorePlatformStore,
+  rotatePlatformStoreBackups,
   verifyBackupEnvelope,
 } from "./platform-store-backup.mjs";
 
@@ -67,4 +75,31 @@ test("rejects restore without force", async () => {
     }),
     /requires --force/,
   );
+});
+
+test("rotates platform-store backups by retained count", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "platform-store-rotate-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const source = join(directory, "platform-store.json");
+  const backupDirectory = join(directory, "backups");
+  await writeFile(source, JSON.stringify(state()), "utf8");
+
+  const names = [
+    "platform-store-2026-11-16T10-00-00-000Z.json",
+    "platform-store-2026-11-17T10-00-00-000Z.json",
+    "platform-store-2026-11-18T10-00-00-000Z.json",
+  ];
+  await mkdir(backupDirectory, {
+    recursive: true,
+  });
+  for (const name of names) {
+    await writeFile(join(backupDirectory, name), "{}", "utf8");
+  }
+
+  const removed = await rotatePlatformStoreBackups({
+    targetDirectory: backupDirectory,
+    keep: 2,
+  });
+  assert.equal(removed.length, 1);
+  assert.equal((await readdir(backupDirectory)).length, 2);
 });

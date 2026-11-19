@@ -77,6 +77,8 @@ Status snapshot as of 2026-11-19:
 - The file platform store has checksummed timestamped backup and guarded restore
   scripts. Restore requires `--force`, leaves a pre-restore copy, and rejects
   checksum or format mismatches.
+- Platform-store backup rotation retains a configurable newest backup count
+  and removes older timestamped backup files without touching restore copies.
 - Tenant Owners can export tenant metadata, settings, staff, connection
   metadata, orders, and scoped audit events as secret-free JSON. Export requests
   are origin-checked, rate-limited, and audited.

@@ -6,6 +6,7 @@ import {
   stat,
   writeFile,
   unlink,
+  readdir,
 } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -33,6 +34,7 @@ function usage() {
     "Usage:",
     "  node scripts/platform-store-backup.mjs backup [target-directory]",
     "  node scripts/platform-store-backup.mjs restore <backup-file> --force",
+    "  node scripts/platform-store-backup.mjs rotate [target-directory] --keep=<count>",
   ].join("\n");
 }
 
@@ -162,6 +164,44 @@ export async function restorePlatformStore({
   return target;
 }
 
+export async function rotatePlatformStoreBackups({
+  targetDirectory = "backups",
+  keep = 10,
+}) {
+  if (!Number.isSafeInteger(keep) || keep < 1 || keep > 365) {
+    throw new Error("Backup rotation keep count must be between 1 and 365");
+  }
+  const directory = resolve(targetDirectory);
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+  const backups = (
+    await Promise.all(
+      entries
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            /^platform-store-\d{4}-\d{2}-\d{2}T.*\.json$/.test(entry.name),
+        )
+        .map(async (entry) => {
+          const path = resolve(directory, entry.name);
+          const details = await stat(path);
+          return { name: entry.name, path, mtimeMs: details.mtimeMs };
+        }),
+    )
+  ).sort(
+    (left, right) =>
+      right.mtimeMs - left.mtimeMs || right.name.localeCompare(left.name),
+  );
+  const removed = backups.slice(keep).map((backup) => backup.path);
+  await Promise.all(removed.map((path) => unlink(path)));
+  return removed;
+}
+
 const isDirectRun =
   process.argv[1] &&
   pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
@@ -186,6 +226,14 @@ if (isDirectRun) {
         force: options.includes("--force"),
       });
       console.log(destination);
+    } else if (command === "rotate") {
+      const keepOption = options.find((option) => option.startsWith("--keep="));
+      const keep = keepOption ? Number(keepOption.slice("--keep=".length)) : 10;
+      const removed = await rotatePlatformStoreBackups({
+        targetDirectory: argument ?? "backups",
+        keep,
+      });
+      console.log(`Removed ${removed.length} old platform-store backup(s)`);
     } else {
       throw new Error(usage());
     }

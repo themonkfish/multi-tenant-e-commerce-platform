@@ -17,6 +17,7 @@
     "test:e2e": "npm --prefix front-end run test:e2e",
     "platform-store:backup": "npm --prefix front-end run platform-store:backup",
     "platform-store:restore": "npm --prefix front-end run platform-store:restore",
+    "platform-store:rotate": "npm --prefix front-end run platform-store:rotate",
     "test:platform-backup": "npm --prefix front-end run test:platform-backup",
     "backend": "npm --prefix back-end run dev",
     "start:backend": "npm --prefix back-end start",
