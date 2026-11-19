@@ -401,6 +401,38 @@ describe("FilePlatformStore", () => {
     });
   });
 
+  it("deletes a Customer account and its scoped order history", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active", domains: [] });
+    await store.createHost(host, hostAudit());
+    const tenant = {
+      id: "550e8400-e29b-41d4-a716-446655440040",
+      hostId: host.id,
+      slug: "customer-shop",
+      name: "Customer Shop",
+      status: "active" as const,
+      plan: "starter",
+      domains: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await store.createTenantForHost(tenant, hostAudit("tenant.created"));
+    const customer = await store.createCustomerAccount({
+      id: "550e8400-e29b-41d4-a716-446655440041",
+      tenantId: tenant.id,
+      email: "delete@example.com",
+      passwordHash: "argon2id-hash",
+      createdAt: new Date().toISOString(),
+    });
+
+    await expect(
+      store.deleteCustomerAccount(tenant.id, customer.id),
+    ).resolves.toBe(true);
+    await expect(
+      store.getCustomerAccountForTenant(tenant.id, customer.id),
+    ).resolves.toBeNull();
+  });
+
   it("purges platform-owned tenant records when deleting a tenant", async () => {
     const store = await createStore();
     const host = hostConfig({

@@ -951,6 +951,41 @@ export class FilePlatformStore implements PlatformStore {
     });
   }
 
+  async deleteCustomerAccount(
+    tenantId: string,
+    customerId: string,
+  ): Promise<boolean> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const accountIndex = state.customerAccounts.findIndex(
+        (account) => account.tenantId === tenantId && account.id === customerId,
+      );
+      if (accountIndex === -1) {
+        return false;
+      }
+      state.customerAccounts.splice(accountIndex, 1);
+      const deletedOrderIds = new Set(
+        state.customerOrders
+          .filter(
+            (order) =>
+              order.tenantId === tenantId && order.customerId === customerId,
+          )
+          .map((order) => order.id),
+      );
+      state.customerOrders = state.customerOrders.filter(
+        (order) =>
+          order.tenantId !== tenantId || order.customerId !== customerId,
+      );
+      state.discountRedemptions = state.discountRedemptions.filter(
+        (redemption) =>
+          redemption.tenantId !== tenantId ||
+          !deletedOrderIds.has(redemption.orderId),
+      );
+      await this.writeState(state);
+      return true;
+    });
+  }
+
   async createCustomerOrder(
     input: CustomerOrder,
   ): Promise<{ order: CustomerOrder; created: boolean }> {

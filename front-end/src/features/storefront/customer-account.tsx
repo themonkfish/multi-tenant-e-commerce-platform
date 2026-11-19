@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useOrderStore } from "@/features/storefront/order-store";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
 import { formatCurrencyAmount } from "@/core/domain/money";
@@ -13,12 +15,41 @@ export function StorefrontCustomerAccount({
   locale: string;
   customer: { email: string; orders: CustomerOrder[] } | null;
 }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const previewOrders = useOrderStore((state) => state.orders);
   const orders = customer?.orders ?? previewOrders;
   const orderDateFormatter = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeZone: "UTC",
   });
+
+  async function deleteAccount() {
+    if (
+      !window.confirm(
+        "Permanently delete this Customer account and its order history?",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/customer/auth/account", {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        setError("The account could not be deleted. Please try again.");
+        return;
+      }
+      router.push(`/${locale}/account`);
+    } catch {
+      setError("The account request could not reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section className="space-y-6">
@@ -34,19 +65,30 @@ export function StorefrontCustomerAccount({
             ? "These orders are loaded from your private account in this store."
             : "Preview orders are stored only in this browser. Sign in to view tenant-scoped account orders."}
         </p>
+        {error && (
+          <p className="mt-3 text-sm text-red-700" role="alert">
+            {error}
+          </p>
+        )}
         {customer ? (
-          <form
-            action="/api/customer/auth/logout"
-            method="post"
-            className="mt-4"
-          >
+          <div className="mt-4 flex flex-wrap gap-2">
+            <form action="/api/customer/auth/logout" method="post">
+              <button
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
+                type="submit"
+              >
+                Sign out
+              </button>
+            </form>
             <button
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
-              type="submit"
+              className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
+              disabled={busy}
+              onClick={() => void deleteAccount()}
+              type="button"
             >
-              Sign out
+              {busy ? "Deleting…" : "Delete account"}
             </button>
-          </form>
+          </div>
         ) : (
           <Link
             className="mt-4 inline-flex rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white"

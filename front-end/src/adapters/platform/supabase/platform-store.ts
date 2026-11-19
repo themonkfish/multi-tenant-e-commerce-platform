@@ -1074,6 +1074,65 @@ export class SupabasePlatformStore implements PlatformStore {
     });
   }
 
+  async deleteCustomerAccount(
+    tenantId: string,
+    customerId: string,
+  ): Promise<boolean> {
+    const { data: account, error: accountError } = await this.client
+      .from("platform_customers")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("id", customerId)
+      .maybeSingle();
+    if (accountError) {
+      throw new Error(
+        `Could not find customer account: ${accountError.message}`,
+      );
+    }
+    if (!account) {
+      return false;
+    }
+
+    const { data: orders, error: ordersError } = await this.client
+      .from("platform_customer_orders")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customerId);
+    if (ordersError) {
+      throw new Error(`Could not find customer orders: ${ordersError.message}`);
+    }
+    const orderIds = (orders ?? []).map((order) => order.id);
+    if (orderIds.length > 0) {
+      await this.client
+        .from("platform_discount_redemptions")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .in("order_id", orderIds);
+    }
+
+    const { error: deleteOrdersError } = await this.client
+      .from("platform_customer_orders")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customerId);
+    if (deleteOrdersError) {
+      throw new Error(
+        `Could not delete customer orders: ${deleteOrdersError.message}`,
+      );
+    }
+    const { error: deleteAccountError } = await this.client
+      .from("platform_customers")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("id", customerId);
+    if (deleteAccountError) {
+      throw new Error(
+        `Could not delete customer account: ${deleteAccountError.message}`,
+      );
+    }
+    return true;
+  }
+
   async createCustomerOrder(
     input: CustomerOrder,
   ): Promise<{ order: CustomerOrder; created: boolean }> {

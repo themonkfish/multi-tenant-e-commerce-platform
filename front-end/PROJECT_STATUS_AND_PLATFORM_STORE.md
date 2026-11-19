@@ -439,6 +439,9 @@ Status snapshot as of 2026-11-19:
       party notices, backups, tenant export/deletion, and compliance workflows.
       Tenant JSON export and Host-owned platform-record purging are implemented;
       external provider data requires separate purge procedures.
+- [x] Customer self-service account deletion: authenticated Customers can
+      delete their platform account and Customer-owned order history; external
+      provider or carrier records require separate deletion workflows.
 - [ ] Decide whether tenants may move between hosts or data providers, how
       migrations work, and which compliance regions/data residency are required.
 

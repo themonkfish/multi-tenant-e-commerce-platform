@@ -195,6 +195,7 @@ export interface PlatformStore
     passwordHash: string;
     createdAt: string;
   }): Promise<CustomerAccount>;
+  deleteCustomerAccount(tenantId: string, customerId: string): Promise<boolean>;
   createCustomerOrder(
     order: CustomerOrder,
   ): Promise<{ order: CustomerOrder; created: boolean }>;
