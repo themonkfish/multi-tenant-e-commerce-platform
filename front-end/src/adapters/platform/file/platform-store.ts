@@ -26,6 +26,7 @@ import {
   type TenantDomainClaim,
   type TenantRecord,
   type TenantStoreSettings,
+  type UpdateTenantInput,
   type TenantStatus,
 } from "@/core/domain/host-portal";
 import {
@@ -1857,6 +1858,30 @@ export class FilePlatformStore implements PlatformStore {
       tenant.status = input.status;
       tenant.updatedAt = input.updatedAt;
       state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return tenant;
+    });
+  }
+
+  async updateTenantDetails(
+    hostId: string,
+    tenantId: string,
+    input: UpdateTenantInput,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<TenantRecord | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) => candidate.id === tenantId && candidate.hostId === hostId,
+      );
+      if (!tenant) {
+        return null;
+      }
+      tenant.name = input.name;
+      tenant.plan = input.plan;
+      tenant.updatedAt = updatedAt;
+      state.auditEvents.push(auditEvent);
       await this.writeState(state);
       return tenant;
     });

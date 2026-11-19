@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { TenantStatusSchema } from "@/core/domain/host-portal";
+import {
+  TenantStatusSchema,
+  UpdateTenantInputSchema,
+} from "@/core/domain/host-portal";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -41,8 +44,9 @@ export async function PATCH(request: Request, { params }: TenantRouteProps) {
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
-  const parsed = UpdateTenantSchema.safeParse(rawBody);
-  if (!parsed.success) {
+  const statusParsed = UpdateTenantSchema.safeParse(rawBody);
+  const detailsParsed = UpdateTenantInputSchema.safeParse(rawBody);
+  if (!statusParsed.success && !detailsParsed.success) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   }
 
@@ -58,7 +62,8 @@ export async function PATCH(request: Request, { params }: TenantRouteProps) {
   }
 
   if (
-    parsed.data.status === "active" &&
+    statusParsed.success &&
+    statusParsed.data.status === "active" &&
     !(await store.listHosts()).some(
       (host) => host.id === session.scope.id && host.status === "active",
     )
@@ -67,17 +72,42 @@ export async function PATCH(request: Request, { params }: TenantRouteProps) {
   }
 
   const now = new Date().toISOString();
+  if (detailsParsed.success) {
+    const tenant = await store.updateTenantDetails(
+      session.scope.id,
+      tenantId,
+      detailsParsed.data,
+      now,
+      {
+        id: randomUUID(),
+        actorId: session.userId,
+        scope: { kind: "host", id: session.scope.id },
+        action: "tenant.updated",
+        resourceType: "tenant",
+        resourceId: tenantId,
+        createdAt: now,
+      },
+    );
+    if (!tenant) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    return NextResponse.json({ tenant });
+  }
+
+  if (!statusParsed.success) {
+    return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+  }
   const tenant = await store.updateTenantStatus({
     hostId: session.scope.id,
     tenantId,
-    status: parsed.data.status,
+    status: statusParsed.data.status,
     updatedAt: now,
     auditEvent: {
       id: randomUUID(),
       actorId: session.userId,
       scope: { kind: "host", id: session.scope.id },
       action:
-        parsed.data.status === "suspended"
+        statusParsed.data.status === "suspended"
           ? "tenant.suspended"
           : "tenant.activated",
       resourceType: "tenant",

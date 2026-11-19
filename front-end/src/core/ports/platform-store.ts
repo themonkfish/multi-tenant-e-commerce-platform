@@ -13,6 +13,7 @@ import type {
   TenantRecord,
   TenantStoreSettings,
   TenantStatus,
+  UpdateTenantInput,
 } from "@/core/domain/host-portal";
 import type {
   TenantDatabaseProviderConfig,
@@ -347,6 +348,13 @@ export interface PlatformStore
     updatedAt: string;
     auditEvent: AuditEvent;
   }): Promise<TenantRecord | null>;
+  updateTenantDetails(
+    hostId: string,
+    tenantId: string,
+    input: UpdateTenantInput,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<TenantRecord | null>;
   deleteTenantForHost(
     hostId: string,
     tenantId: string,

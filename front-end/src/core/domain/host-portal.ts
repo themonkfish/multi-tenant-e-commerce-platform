@@ -62,6 +62,13 @@ export const TenantRecordSchema = z.object({
 
 export type TenantRecord = z.infer<typeof TenantRecordSchema>;
 
+export const UpdateTenantInputSchema = z.object({
+  name: TenantRecordSchema.shape.name,
+  plan: TenantRecordSchema.shape.plan,
+});
+
+export type UpdateTenantInput = z.infer<typeof UpdateTenantInputSchema>;
+
 export const CreateTenantInputSchema = z.object({
   slug: TenantRecordSchema.shape.slug,
   name: TenantRecordSchema.shape.name,

@@ -379,6 +379,45 @@ export function HostTenantManagement({
     }
   }
 
+  async function updateTenantDetails(
+    tenant: TenantRecord,
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/host/tenants/${tenant.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.get("name"),
+          plan: form.get("plan"),
+        }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(describeTenantError(errorCode(body)));
+        return;
+      }
+      const parsed = TenantResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError("The server returned an invalid tenant record.");
+        return;
+      }
+      setTenants((current) =>
+        current.map((item) =>
+          item.id === parsed.data.tenant.id ? parsed.data.tenant : item,
+        ),
+      );
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deleteTenant(tenant: TenantRecord) {
     if (
       !window.confirm(
@@ -442,6 +481,40 @@ export function HostTenantManagement({
                   <p className="mt-1 text-sm text-slate-600">
                     {tenant.slug} · {tenant.plan}
                   </p>
+                  <form
+                    className="mt-3 flex flex-wrap items-end gap-2"
+                    onSubmit={(event) =>
+                      void updateTenantDetails(tenant, event)
+                    }
+                  >
+                    <label className="space-y-1 text-xs font-medium">
+                      Store name
+                      <input
+                        className="block rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        name="name"
+                        defaultValue={tenant.name}
+                        maxLength={120}
+                        required
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs font-medium">
+                      Plan
+                      <input
+                        className="block rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        name="plan"
+                        defaultValue={tenant.plan}
+                        maxLength={80}
+                        required
+                      />
+                    </label>
+                    <button
+                      className="rounded-md border border-indigo-300 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"
+                      disabled={busy}
+                      type="submit"
+                    >
+                      Save details
+                    </button>
+                  </form>
                   {tenant.domains.length > 0 && (
                     <div className="mt-3 space-y-3">
                       <p className="text-sm font-medium text-slate-700">

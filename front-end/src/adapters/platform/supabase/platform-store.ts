@@ -23,6 +23,7 @@ import {
   type TenantRecord,
   type TenantStoreSettings,
   type TenantStatus,
+  type UpdateTenantInput,
 } from "@/core/domain/host-portal";
 import {
   CustomerAccountSchema,
@@ -2009,6 +2010,39 @@ export class SupabasePlatformStore implements PlatformStore {
     return (
       (await this.listTenantsForHost(input.hostId)).find(
         (tenant) => tenant.id === input.tenantId,
+      ) ?? null
+    );
+  }
+
+  async updateTenantDetails(
+    hostId: string,
+    tenantId: string,
+    input: UpdateTenantInput,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<TenantRecord | null> {
+    const { data, error } = await this.client.rpc("update_platform_tenant", {
+      p_host_id: hostId,
+      p_tenant_id: tenantId,
+      p_name: input.name,
+      p_plan: input.plan,
+      p_updated_at: updatedAt,
+      p_actor_id: auditEvent.actorId,
+      p_audit_id: auditEvent.id,
+      p_audit_action: auditEvent.action,
+      p_audit_resource_type: auditEvent.resourceType,
+      p_audit_resource_id: auditEvent.resourceId ?? null,
+      p_audit_created_at: auditEvent.createdAt,
+    });
+    if (error) {
+      throw new Error(`Could not update tenant: ${error.message}`);
+    }
+    if (!data) {
+      return null;
+    }
+    return (
+      (await this.listTenantsForHost(hostId)).find(
+        (tenant) => tenant.id === tenantId,
       ) ?? null
     );
   }

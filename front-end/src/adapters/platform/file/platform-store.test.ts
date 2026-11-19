@@ -367,6 +367,40 @@ describe("FilePlatformStore", () => {
     await expect(store.getHostById(tenantHost.id)).resolves.toEqual(tenantHost);
   });
 
+  it("updates tenant name and plan details", async () => {
+    const store = await createStore();
+    const host = hostConfig({ status: "active", domains: [] });
+    await store.createHost(host, hostAudit());
+    const tenant = {
+      id: "550e8400-e29b-41d4-a716-446655440030",
+      hostId: host.id,
+      slug: "detail-shop",
+      name: "Original Name",
+      status: "active" as const,
+      plan: "starter",
+      domains: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await store.createTenantForHost(tenant, hostAudit("tenant.created"));
+
+    const updatedAt = new Date().toISOString();
+    await expect(
+      store.updateTenantDetails(
+        host.id,
+        tenant.id,
+        { name: "Updated Name", plan: "growth" },
+        updatedAt,
+        hostAudit("tenant.updated"),
+      ),
+    ).resolves.toMatchObject({
+      id: tenant.id,
+      name: "Updated Name",
+      plan: "growth",
+      updatedAt,
+    });
+  });
+
   it("purges platform-owned tenant records when deleting a tenant", async () => {
     const store = await createStore();
     const host = hostConfig({

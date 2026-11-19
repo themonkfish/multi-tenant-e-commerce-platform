@@ -124,6 +124,8 @@ Status snapshot as of 2026-11-19:
       its platform-owned staff, customers, orders, settings, connections,
       domains, invites, discounts, and secrets. External provider data requires
       separate purge procedures.
+- [x] Host tenant metadata editing: Host Owners can update tenant names and
+      plans through the host-scoped portal, with validation and audit events.
 - [x] Super Admin role matrix: effective platform, host, tenant, staff, and
       customer permissions are visible in the dashboard. Host Staff accounts
       and broader Super Admin staff-account management remain future work.
@@ -650,7 +652,8 @@ Before deploying the app:
    `0017_order_fulfillment_tracking.sql`,
    `0018_checkout_shipping.sql`, `0019_discount_codes.sql`, and
    `0020_checkout_tax.sql`, `0021_host_updates.sql`,
-   `0022_host_deletion.sql`, and `0023_tenant_deletion.sql`.
+   `0022_host_deletion.sql`, `0023_tenant_deletion.sql`, and
+   `0024_tenant_metadata_updates.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or
