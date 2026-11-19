@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const SCHEMA_VERSION = "2";
+const SCHEMA_VERSION = "6";
 
 function toProduct(row) {
   if (!row) return null;
@@ -17,6 +17,17 @@ function toProduct(row) {
       currency: row.price_currency,
     },
     ...(row.sku === null ? {} : { sku: row.sku }),
+    ...(row.category === null ? {} : { category: row.category }),
+    ...(row.image_url === null ? {} : { imageUrl: row.image_url }),
+    ...(row.options_json === null
+      ? {}
+      : { options: JSON.parse(row.options_json) }),
+    ...(row.variants_json === null
+      ? {}
+      : { variants: JSON.parse(row.variants_json) }),
+    ...(row.variant_pricing_json === null
+      ? {}
+      : { variantPricing: JSON.parse(row.variant_pricing_json) }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -40,6 +51,11 @@ export async function createSqliteProductRepository(databaseFile) {
       price_amount INTEGER NOT NULL CHECK (price_amount >= 0),
       price_currency TEXT NOT NULL CHECK (length(price_currency) = 3),
       sku TEXT,
+      category TEXT,
+      image_url TEXT,
+      options_json TEXT,
+      variants_json TEXT,
+      variant_pricing_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       UNIQUE (tenant_id, slug)
@@ -186,12 +202,28 @@ export async function createSqliteProductRepository(databaseFile) {
       return toOrder(selectOrder.get(tenantId, id));
     },
 
-    createProduct({ id, tenantId, title, slug, status, price, sku, now }) {
+    createProduct({
+      id,
+      tenantId,
+      title,
+      slug,
+      status,
+      price,
+      sku,
+      category,
+      imageUrl,
+      options,
+      variants,
+      variantPricing,
+      now,
+    }) {
       database
         .prepare(
           `INSERT INTO products
-           (id, tenant_id, title, slug, status, price_amount, price_currency, sku, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, tenant_id, title, slug, status, price_amount, price_currency, sku,
+            category, image_url, options_json, variants_json, variant_pricing_json,
+            created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
@@ -202,6 +234,11 @@ export async function createSqliteProductRepository(databaseFile) {
           price.amount,
           price.currency,
           sku ?? null,
+          category ?? null,
+          imageUrl ?? null,
+          options ? JSON.stringify(options) : null,
+          variants ? JSON.stringify(variants) : null,
+          variantPricing ? JSON.stringify(variantPricing) : null,
           now,
           now,
         );
@@ -258,12 +295,28 @@ export async function createSqliteProductRepository(databaseFile) {
       const sku = Object.hasOwn(fields, "sku")
         ? (fields.sku ?? null)
         : (current.sku ?? null);
+      const category = Object.hasOwn(fields, "category")
+        ? (fields.category ?? null)
+        : (current.category ?? null);
+      const imageUrl = Object.hasOwn(fields, "imageUrl")
+        ? (fields.imageUrl ?? null)
+        : (current.imageUrl ?? null);
+      const options = Object.hasOwn(fields, "options")
+        ? fields.options
+        : current.options;
+      const variants = Object.hasOwn(fields, "variants")
+        ? fields.variants
+        : current.variants;
+      const variantPricing = Object.hasOwn(fields, "variantPricing")
+        ? fields.variantPricing
+        : current.variantPricing;
 
       database
         .prepare(
           `UPDATE products SET
              title = ?, slug = ?, status = ?, price_amount = ?,
-             price_currency = ?, sku = ?, updated_at = ?
+             price_currency = ?, sku = ?, category = ?, image_url = ?,
+             options_json = ?, variants_json = ?, variant_pricing_json = ?, updated_at = ?
            WHERE tenant_id = ? AND id = ?`,
         )
         .run(
@@ -273,6 +326,11 @@ export async function createSqliteProductRepository(databaseFile) {
           updated.price.amount,
           updated.price.currency,
           sku,
+          category,
+          imageUrl,
+          options ? JSON.stringify(options) : null,
+          variants ? JSON.stringify(variants) : null,
+          variantPricing ? JSON.stringify(variantPricing) : null,
           now,
           tenantId,
           id,

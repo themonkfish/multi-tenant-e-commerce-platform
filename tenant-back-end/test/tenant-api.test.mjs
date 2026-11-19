@@ -73,7 +73,7 @@ test("health check returns the contract required by the frontend", async () => {
     status: "healthy",
     db: "up",
     storage: "up",
-    schemaVersion: "2",
+    schemaVersion: "6",
   });
 
   const unauthorized = await fetch(`${baseUrl}/health`);

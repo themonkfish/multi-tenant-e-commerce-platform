@@ -374,7 +374,7 @@ function waitForExit(child, name) {
 }
 
 async function waitForUrl(url, init) {
-  const deadline = Date.now() + 110_000;
+  const deadline = Date.now() + 240_000;
   while (Date.now() < deadline) {
     if (backend.exitCode !== null || frontend.exitCode !== null) {
       throw new Error("An E2E server exited before becoming ready");

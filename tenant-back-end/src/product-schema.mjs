@@ -20,6 +20,11 @@ function validateFields(input, { partial, allowTenantId = false }) {
     "status",
     "price",
     "sku",
+    "category",
+    "options",
+    "variants",
+    "variantPricing",
+    "imageUrl",
     ...(allowTenantId ? ["tenantId"] : []),
   ]);
   if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
@@ -78,6 +83,34 @@ function validateFields(input, { partial, allowTenantId = false }) {
     (typeof input.sku !== "string" || input.sku.length > 100)
   ) {
     throw new InputError("sku must be a string of at most 100 characters");
+  }
+
+  if (
+    "category" in input &&
+    input.category !== null &&
+    (typeof input.category !== "string" ||
+      input.category.trim().length < 1 ||
+      input.category.length > 80)
+  ) {
+    throw new InputError("category must be 1-80 characters or null");
+  }
+
+  if (
+    "imageUrl" in input &&
+    input.imageUrl !== null &&
+    (typeof input.imageUrl !== "string" ||
+      !/^https:\/\/[^/]/.test(input.imageUrl) ||
+      input.imageUrl.length > 2048)
+  ) {
+    throw new InputError("imageUrl must be an HTTPS URL or null");
+  }
+
+  for (const field of ["options", "variants", "variantPricing"]) {
+    if (field in input && input[field] !== undefined) {
+      if (!Array.isArray(input[field]) || input[field].length > 200) {
+        throw new InputError(`${field} must be an array of at most 200 items`);
+      }
+    }
   }
 
   if (

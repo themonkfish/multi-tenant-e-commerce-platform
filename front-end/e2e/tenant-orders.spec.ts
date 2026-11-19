@@ -31,6 +31,13 @@ async function signIn(
       `Login failed (${response.status()}): ${JSON.stringify(await response.json())}`,
     );
   }
+  if (path.includes("/staff/")) {
+    await page.waitForURL(/\/en\/tenant\/orders$/);
+  } else if (path.includes("/customer/")) {
+    await page.waitForURL(/\/en\/account$/);
+  } else {
+    await page.waitForURL(/\/en\/tenant$/);
+  }
 }
 
 test("tenant orders are permission-scoped, isolated, and reflected in customer history", async ({

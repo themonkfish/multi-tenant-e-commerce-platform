@@ -27,7 +27,9 @@ test("tenant owner can create, edit, and delete catalog products", async ({
   await page.getByLabel("Slug").fill("e2e-catalog-bag");
   await page.getByLabel("Status").selectOption("active");
   await page.getByLabel("Price amount").fill("2499");
-  await page.getByLabel("Currency").fill("USD");
+  await page
+    .getByRole("textbox", { name: "Currency", exact: true })
+    .fill("USD");
   await page.getByLabel("SKU (optional)").fill("E2E-BAG");
   await page.getByLabel("Category (optional)").fill("Bags");
   await page.getByRole("button", { name: "Create product" }).click();
