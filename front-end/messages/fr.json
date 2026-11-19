@@ -1,4 +1,12 @@
 {
+  "CustomerOrderProgress": {
+    "label": "Suivi de la commande",
+    "confirmed": "Confirmée",
+    "processing": "En cours de traitement",
+    "shipped": "Expédiée",
+    "delivered": "Livrée",
+    "cancelled": "Commande annulée. Elle ne poursuivra pas son acheminement."
+  },
   "Home": {
     "platformName": "Espace commerce",
     "phase": "Phase 1 - Fondations",

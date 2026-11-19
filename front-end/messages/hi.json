@@ -1,4 +1,12 @@
 {
+  "CustomerOrderProgress": {
+    "label": "ऑर्डर की प्रगति",
+    "confirmed": "पुष्ट",
+    "processing": "प्रक्रिया में",
+    "shipped": "भेज दिया गया",
+    "delivered": "डिलीवर किया गया",
+    "cancelled": "ऑर्डर रद्द कर दिया गया है। यह शिपिंग प्रक्रिया में आगे नहीं बढ़ेगा।"
+  },
   "Home": {
     "platformName": "कॉमर्स वर्कस्पेस",
     "phase": "चरण 1 · नींव",

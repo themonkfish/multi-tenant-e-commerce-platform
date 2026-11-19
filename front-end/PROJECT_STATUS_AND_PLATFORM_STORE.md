@@ -70,8 +70,9 @@ Status snapshot as of 2026-11-19:
   successful card and COD orders consume them. Basic fulfillment tracking is
   supported when Tenant operators ship an order, including a manual
   **Delivered** confirmation after shipment. Customer account history shows a
-  progress timeline for active orders and a distinct cancellation state; live
-  carrier integrations and live card payments remain future work.
+  localized English, French, and Hindi progress timeline for active orders and
+  a distinct cancellation state; live carrier integrations and live card
+  payments remain future work.
   Stripe Connect onboarding is blocked pending confirmation that India is
   eligible for the platform country.
 - Tenant Owners can configure AWS S3 or an S3-compatible service with encrypted
@@ -192,7 +193,8 @@ Status snapshot as of 2026-11-19:
       with idempotency, and displays Customer-scoped confirmation/history.
 - [x] Customer order confirmation and account history use server-persisted
       orders, scoped to the signed-in Customer and Tenant, with an accessible
-      order-progress timeline through delivery and a separate cancelled state.
+      English/French/Hindi order-progress timeline through delivery and a
+      separate cancelled state.
 - [x] Tenant Owners can configure a flat shipping fee and optional
       free-shipping threshold in the store's default currency. Checkout
       validates India delivery details for card and COD orders and calculates
@@ -301,8 +303,9 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [ ] **i18n:** English, French, and Hindi routing is now configured with a locale
-      switcher and 245 frontend tests. The tenant storefront preview uses the
-      saved default locale metadata but the full public storefront remains to be
+      switcher and 249 frontend tests. Customer order progress is localized in
+      all three languages. The tenant storefront preview uses the saved default
+      locale metadata but the full public storefront remains to be
       comprehensively translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
@@ -437,8 +440,8 @@ Status snapshot as of 2026-11-19:
       Delivered is terminal, is reflected in Customer order history, and does
       not imply carrier confirmation.
 - [x] Show Customers an accessible order-progress timeline from confirmation
-      through delivery; cancelled orders are displayed as a separate terminal
-      state.
+      through delivery in English, French, and Hindi; cancelled orders are
+      displayed as a separately localized terminal state.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove

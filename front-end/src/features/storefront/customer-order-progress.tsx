@@ -1,33 +1,38 @@
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
+import { useTranslations } from "next-intl";
 
 const ORDER_STAGES = [
-  "Confirmed",
-  "Processing",
-  "Shipped",
-  "Delivered",
-] as const satisfies readonly CustomerOrder["status"][];
+  { status: "Confirmed", message: "confirmed" },
+  { status: "Processing", message: "processing" },
+  { status: "Shipped", message: "shipped" },
+  { status: "Delivered", message: "delivered" },
+] as const;
 
 export function CustomerOrderProgress({
   status,
 }: {
   status: CustomerOrder["status"];
 }) {
+  const t = useTranslations("CustomerOrderProgress");
+
   if (status === "Cancelled") {
     return (
       <p
         className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800"
         role="status"
       >
-        Order cancelled. It will not continue through shipping.
+        {t("cancelled")}
       </p>
     );
   }
 
-  const activeStage = ORDER_STAGES.indexOf(status);
+  const activeStage = ORDER_STAGES.findIndex(
+    (stage) => stage.status === status,
+  );
 
   return (
     <ol
-      aria-label="Order progress"
+      aria-label={t("label")}
       className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4"
     >
       {ORDER_STAGES.map((stage, index) => {
@@ -44,7 +49,7 @@ export function CustomerOrderProgress({
                   ? "bg-emerald-50 text-emerald-800"
                   : "bg-white text-slate-500"
             }`}
-            key={stage}
+            key={stage.status}
           >
             <span
               aria-hidden="true"
@@ -52,7 +57,7 @@ export function CustomerOrderProgress({
             >
               {isComplete ? "✓" : index + 1}
             </span>
-            <span>{stage}</span>
+            <span>{t(stage.message)}</span>
           </li>
         );
       })}
