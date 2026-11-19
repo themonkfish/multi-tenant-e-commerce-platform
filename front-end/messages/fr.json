@@ -256,6 +256,18 @@
     "pageOf": "Page {currentPage} sur {pageCount}",
     "next": "Suivant"
   },
+  "TenantAuth": {
+    "pageEyebrow": "Portail de la boutique",
+    "pageTitle": "Connexion du propriétaire de la boutique",
+    "pageDescription": "L’accès à la boutique se fait uniquement sur invitation. Si vous n’avez pas de compte, demandez une invitation à l’administrateur de l’hôte.",
+    "tooManyAttempts": "Trop de tentatives. Veuillez patienter avant de réessayer.",
+    "invalidCredentials": "L’adresse e-mail ou le mot de passe est incorrect, ou la boutique est indisponible.",
+    "serverUnreachable": "Impossible de joindre le serveur lors de la connexion. Veuillez réessayer.",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "signingIn": "Connexion…",
+    "signIn": "Se connecter"
+  },
   "Home": {
     "platformName": "Espace commerce",
     "phase": "Phase 1 - Fondations",

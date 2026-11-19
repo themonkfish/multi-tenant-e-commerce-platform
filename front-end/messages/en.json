@@ -256,6 +256,18 @@
     "pageOf": "Page {currentPage} of {pageCount}",
     "next": "Next"
   },
+  "TenantAuth": {
+    "pageEyebrow": "Tenant portal",
+    "pageTitle": "Store owner sign in",
+    "pageDescription": "Tenant access is invitation-only. Ask your host administrator for an invitation if you do not have an account.",
+    "tooManyAttempts": "Too many attempts. Wait before trying again.",
+    "invalidCredentials": "Email or password is incorrect, or this store is unavailable.",
+    "serverUnreachable": "Sign-in could not reach the server. Please try again.",
+    "email": "Email",
+    "password": "Password",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in"
+  },
   "Home": {
     "platformName": "Commerce Workspace",
     "phase": "Phase 1 · Foundation",

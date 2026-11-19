@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { TenantLoginForm } from "@/features/tenant-auth/tenant-login-form";
 import { getTenantOwnerSession } from "@/lib/server/session";
 
@@ -12,6 +13,7 @@ export default async function TenantLoginPage({
 }: TenantLoginPageProps) {
   await connection();
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "TenantAuth" });
   if (await getTenantOwnerSession()) {
     redirect(`/${locale}/tenant`);
   }
@@ -21,14 +23,13 @@ export default async function TenantLoginPage({
       <section className="w-full space-y-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
         <header>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-700">
-            Tenant portal
+            {t("pageEyebrow")}
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Store owner sign in
+            {t("pageTitle")}
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Tenant access is invitation-only. Ask your host administrator for an
-            invitation if you do not have an account.
+            {t("pageDescription")}
           </p>
         </header>
         <TenantLoginForm />

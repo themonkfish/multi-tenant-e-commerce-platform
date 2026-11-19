@@ -17,6 +17,7 @@ const namespaces = [
   "CustomerCheckout",
   "CustomerProduct",
   "Home",
+  "TenantAuth",
   "CustomerOrderProgress",
   "CustomerOrderSync",
 ] as const;
@@ -49,7 +50,7 @@ function placeholders(message: string): string[] {
   ].sort();
 }
 
-describe("customer-facing message catalogs", () => {
+describe("localized message catalogs", () => {
   it.each(namespaces)(
     "keeps %s keys and interpolation variables aligned across locales",
     (namespace) => {
