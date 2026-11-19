@@ -74,7 +74,7 @@ test("health check returns the contract required by the frontend", async () => {
     status: "healthy",
     db: "up",
     storage: "up",
-    schemaVersion: "7",
+    schemaVersion: "8",
   });
 
   const unauthorized = await fetch(`${baseUrl}/health`);
@@ -415,9 +415,24 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
   });
   assert.equal(rollback.status, 409);
 
+  const delivered = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Delivered" }),
+  });
+  assert.equal(delivered.status, 200);
+  assert.equal((await delivered.json()).order.status, "Delivered");
+
+  const rollbackDelivered = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({ status: "Shipped" }),
+  });
+  assert.equal(rollbackDelivered.status, 409);
+
   const retryAfterStatusUpdate = await create(order);
   assert.equal(retryAfterStatusUpdate.status, 200);
-  assert.equal((await retryAfterStatusUpdate.json()).order.status, "Shipped");
+  assert.equal((await retryAfterStatusUpdate.json()).order.status, "Delivered");
 
   const isolatedRead = await fetch(`${baseUrl}/orders/${order.id}`, {
     headers: auth(otherApiKey),
@@ -469,7 +484,7 @@ test("upgrades an existing SQLite order status constraint", async () => {
       id TEXT NOT NULL,
       customer_id TEXT NOT NULL,
       status TEXT NOT NULL CHECK (
-        status IN ('Confirmed', 'Processing', 'Shipped')
+        status IN ('Confirmed', 'Processing', 'Shipped', 'Cancelled')
       ),
       created_at TEXT NOT NULL,
       items_json TEXT NOT NULL CHECK (json_valid(items_json) AND json_type(items_json) = 'array'),
@@ -482,7 +497,7 @@ test("upgrades an existing SQLite order status constraint", async () => {
       'tenant-upgrade',
       'ORD-550e8400-e29b-41d4-a716-446655440099',
       'customer-upgrade',
-      'Confirmed',
+      'Shipped',
       '2026-10-22T12:00:00.000Z',
       '[]',
       0,
@@ -498,9 +513,9 @@ test("upgrades an existing SQLite order status constraint", async () => {
       upgraded.updateOrderStatus(
         "tenant-upgrade",
         "ORD-550e8400-e29b-41d4-a716-446655440099",
-        "Cancelled",
+        "Delivered",
       ).status,
-      "Cancelled",
+      "Delivered",
     );
   } finally {
     upgraded.close();

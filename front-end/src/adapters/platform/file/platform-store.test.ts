@@ -1696,6 +1696,13 @@ describe("FilePlatformStore", () => {
     ).resolves.toEqual([
       expect.objectContaining({ id: order.id, fulfillment }),
     ]);
+    await expect(
+      store.updateCustomerOrderStatus({
+        tenantId,
+        orderId: order.id,
+        status: "Delivered",
+      }),
+    ).resolves.toMatchObject({ id: order.id, status: "Delivered" });
 
     const cancellableOrder = {
       ...order,

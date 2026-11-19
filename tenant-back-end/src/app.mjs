@@ -17,12 +17,14 @@ const ORDER_STATUSES = new Set([
   "Confirmed",
   "Processing",
   "Shipped",
+  "Delivered",
   "Cancelled",
 ]);
 const ORDER_STATUS_TRANSITIONS = {
   Confirmed: new Set(["Confirmed", "Processing", "Cancelled"]),
   Processing: new Set(["Processing", "Shipped"]),
-  Shipped: new Set(["Shipped"]),
+  Shipped: new Set(["Shipped", "Delivered"]),
+  Delivered: new Set(["Delivered"]),
   Cancelled: new Set(["Cancelled"]),
 };
 

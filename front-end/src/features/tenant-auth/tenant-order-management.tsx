@@ -153,8 +153,14 @@ export function TenantOrderManagement({
   async function updateStatus(
     order: TenantOrder,
     fulfillment?: NonNullable<TenantOrder["fulfillment"]>,
+    requestedStatus?: Extract<
+      TenantOrder["status"],
+      "Processing" | "Shipped" | "Delivered"
+    >,
   ) {
-    const nextStatus = order.status === "Confirmed" ? "Processing" : "Shipped";
+    const nextStatus =
+      requestedStatus ??
+      (order.status === "Confirmed" ? "Processing" : "Shipped");
     setBusy(true);
     setError("");
     setNotice("");
@@ -189,9 +195,11 @@ export function TenantOrderManagement({
       setTrackingNumber(parsed.data.fulfillment?.trackingNumber ?? "");
       setTrackingUrl(parsed.data.fulfillment?.trackingUrl ?? "");
       setNotice(
-        parsed.data.fulfillment
-          ? "Order shipped and tracking details saved."
-          : `Order status updated to ${parsed.data.status}.`,
+        nextStatus === "Delivered"
+          ? "Order marked as delivered."
+          : parsed.data.fulfillment
+            ? "Order shipped and tracking details saved."
+            : `Order status updated to ${parsed.data.status}.`,
       );
       await loadOrders(page);
     } catch {
@@ -326,6 +334,9 @@ export function TenantOrderManagement({
     timeStyle: "short",
     timeZone: "UTC",
   });
+  const canManageShipment =
+    canManage &&
+    (selected?.status === "Processing" || selected?.status === "Shipped");
 
   return (
     <div className="space-y-5">
@@ -682,7 +693,7 @@ export function TenantOrderManagement({
               {busy ? "Updating…" : "Mark as processing"}
             </button>
           )}
-          {canManage && selected.status !== "Confirmed" && (
+          {canManageShipment && (
             <div className="space-y-3 rounded-md border border-slate-200 p-4">
               <h3 className="font-medium text-slate-900">
                 Shipment details (optional)
@@ -757,6 +768,18 @@ export function TenantOrderManagement({
                     ? "Save tracking details"
                     : "Mark as shipped"}
               </button>
+              {selected.status === "Shipped" && (
+                <button
+                  className="ml-2 rounded-md border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-800 disabled:opacity-60"
+                  disabled={busy}
+                  onClick={() =>
+                    void updateStatus(selected, undefined, "Delivered")
+                  }
+                  type="button"
+                >
+                  {busy ? "Updating…" : "Mark as delivered"}
+                </button>
+              )}
             </div>
           )}
           <p className="text-xs text-slate-500">

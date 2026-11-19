@@ -246,4 +246,59 @@ describe("PATCH /api/tenant/orders recovery", () => {
     );
     expect(await response.json()).toMatchObject({ order: { fulfillment } });
   });
+
+  it("allows operators to mark a shipped order delivered", async () => {
+    const order = {
+      id: orderId,
+      tenantId,
+      customerId,
+      status: "Delivered",
+      createdAt: "2026-10-22T12:00:00.000Z",
+      items: [],
+      total: 0,
+      currency: "USD",
+      itemCount: 1,
+    };
+    const updateOrderStatus = vi.fn().mockResolvedValue(order);
+    const updateCustomerOrderStatus = vi.fn().mockResolvedValue(order);
+    getTenantPortalSession.mockResolvedValue({
+      userId: customerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["orders:read", "orders:write"],
+    });
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      updateCustomerOrderStatus,
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    });
+    createTenantOrderAdapter.mockResolvedValue({ updateOrderStatus });
+
+    const response = await PATCH(
+      new Request("http://store.localhost:3000/api/tenant/orders", {
+        method: "PATCH",
+        headers: {
+          host: "store.localhost:3000",
+          origin: "http://store.localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ orderId, status: "Delivered" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateOrderStatus).toHaveBeenCalledWith(
+      orderId,
+      "Delivered",
+      undefined,
+    );
+    expect(updateCustomerOrderStatus).toHaveBeenCalledWith({
+      tenantId,
+      orderId,
+      status: "Delivered",
+    });
+    expect(await response.json()).toMatchObject({
+      order: { id: orderId, status: "Delivered" },
+    });
+  });
 });

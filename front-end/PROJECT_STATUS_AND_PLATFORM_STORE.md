@@ -68,7 +68,8 @@ Status snapshot as of 2026-11-19:
   retries are idempotent. Variant inventory is opt-in and reserved atomically
   at checkout; failed/expired card payments release reservations, while
   successful card and COD orders consume them. Basic fulfillment tracking is
-  supported when Tenant operators ship an order; live carrier integrations and
+  supported when Tenant operators ship an order, including a manual
+  **Delivered** confirmation after shipment; live carrier integrations and
   live card payments remain future work.
   Stripe Connect onboarding is blocked pending confirmation that India is
   eligible for the platform country.
@@ -96,10 +97,10 @@ Status snapshot as of 2026-11-19:
   in repository order, and lints the resulting schema.
 - CI generates a sorted dependency-notices JSON manifest from the frontend
   package lock and uploads it alongside the SBOM and dependency audit artifacts.
-- The tenant reference SQLite backend now implements catalog schema version 7
-  fields for categories, images, options, inventory variants, and variant
-  pricing overrides, plus idempotent reservation restoration and cancellable
-  order statuses.
+- The tenant reference SQLite backend reports schema version 8, supporting
+  catalog schema version 7 fields for categories, images, options, inventory
+  variants, and variant pricing, plus idempotent reservation restoration,
+  cancellation, and manual delivery status.
 - Playwright readiness waits now allow up to five minutes for slow Next.js
   startup and the E2E local backend/fixture server.
 - Public health responses now include UTC timestamps and request correlation
@@ -218,9 +219,12 @@ Status snapshot as of 2026-11-19:
       updated to reflect operational status changes. Shipment tracking numbers,
       optional carrier names, and HTTPS tracking links are stored in platform
       order snapshots and shown in Tenant management and Customer history.
+      Shipped orders can be manually marked Delivered; delivery is a terminal
+      status and does not trigger a carrier or payment action.
       Connected REST backends should persist and return the optional
       `fulfillment` object when
-      `PATCH /{apiVersion}/orders/{orderId}` changes status to `Shipped`.
+      `PATCH /{apiVersion}/orders/{orderId}` changes status to `Shipped`, and
+      accept `Delivered` only after `Shipped`.
 - [x] Tenant Owner REST backend connection setup with HTTPS URL/version
       validation, encrypted write-only API-key storage, tenant-scoped
       persistence, and audit events.
@@ -295,7 +299,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [ ] **i18n:** English, French, and Hindi routing is now configured with a locale
-      switcher and 219 frontend tests. The tenant storefront preview uses the
+      switcher and 243 frontend tests. The tenant storefront preview uses the
       saved default locale metadata but the full public storefront remains to be
       comprehensively translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
@@ -401,8 +405,9 @@ Status snapshot as of 2026-11-19:
       health testing, catalog adapter, and authenticated product API routes are
       implemented. Playwright covers tenant-scoped product create, edit, API
       verification, delete, and isolation against a local mock backend. The
-      reference SQLite backend supports catalog schema version 7 fields and
-      idempotent reservation restoration.
+      reference SQLite backend reports schema version 8 and supports catalog
+      schema version 7 fields, idempotent reservation restoration, and
+      Delivered order status.
 - [x] Implement tenant Supabase and MongoDB data adapters, reference schemas,
       provider setup, test-connection, and schema initialization. Older and newer
       schema versions are classified for upgrade or compatibility handling.
@@ -426,6 +431,9 @@ Status snapshot as of 2026-11-19:
       Tenant backend, restoring tracked inventory, and releasing discount
       redemptions; cleanup can be retried after partial failure. Paid Stripe
       orders remain non-cancellable until refunds are supported.
+- [x] Let authorized Tenant operators manually mark Shipped orders Delivered.
+      Delivered is terminal, is reflected in Customer order history, and does
+      not imply carrier confirmation.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove
@@ -626,7 +634,10 @@ features are implemented.
     `{ "status": "Cancelled" }` for a confirmed COD order and implement
     idempotent committed-stock restoration through
     `POST /{apiVersion}/products/inventory/reservations/{reservationId}/restore`.
-    COD reservation IDs use `{orderId}-cod`.
+    COD reservation IDs use `{orderId}-cod`. For manual delivery confirmation,
+    accept `PATCH /{apiVersion}/orders/{orderId}` with
+    `{ "status": "Delivered" }` only when the current status is `Shipped`;
+    `Delivered` must be terminal and repeat updates idempotently.
 
 Tenant Supabase catalog projects use schema version 7 for product images,
 categories, product option variants, variant price/SKU overrides, and inventory
@@ -704,8 +715,9 @@ Before deploying the app:
    `0017_order_fulfillment_tracking.sql`,
    `0018_checkout_shipping.sql`, `0019_discount_codes.sql`, and
    `0020_checkout_tax.sql`, `0021_host_updates.sql`,
-   `0022_host_deletion.sql`, `0023_tenant_deletion.sql`, and
-   `0024_tenant_metadata_updates.sql`.
+   `0022_host_deletion.sql`, `0023_tenant_deletion.sql`,
+   `0024_tenant_metadata_updates.sql`, `0025_product_reviews.sql`,
+   `0026_cod_order_cancellation.sql`, and `0027_order_delivery_status.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

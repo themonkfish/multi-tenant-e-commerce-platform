@@ -13,7 +13,7 @@ import { z } from "zod";
 const OrderIdSchema = z.string().regex(/^ORD-[A-Fa-f0-9-]{36}$/);
 const UpdateOrderSchema = z
   .object({
-    status: z.enum(["Processing", "Shipped", "Cancelled"]),
+    status: z.enum(["Processing", "Shipped", "Delivered", "Cancelled"]),
     fulfillment: OrderFulfillmentSchema.optional(),
   })
   .strict();

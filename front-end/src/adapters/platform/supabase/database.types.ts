@@ -352,7 +352,8 @@ export type PlatformDatabase = {
           id: string;
           tenant_id: string;
           customer_id: string;
-          status: "Confirmed" | "Processing" | "Shipped" | "Cancelled";
+          status:
+            "Confirmed" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
           created_at: string;
           items: Json;
           subtotal: number;
@@ -379,7 +380,8 @@ export type PlatformDatabase = {
           id: string;
           tenant_id: string;
           customer_id: string;
-          status: "Confirmed" | "Processing" | "Shipped" | "Cancelled";
+          status:
+            "Confirmed" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
           created_at: string;
           items?: Json;
           subtotal?: number;
@@ -403,7 +405,8 @@ export type PlatformDatabase = {
           backend_sync_error?: string | null;
         };
         Update: {
-          status?: "Confirmed" | "Processing" | "Shipped" | "Cancelled";
+          status?:
+            "Confirmed" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
           subtotal?: number;
           shipping_amount?: number;
           discount_code?: string | null;

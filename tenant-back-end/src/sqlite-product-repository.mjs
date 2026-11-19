@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const SCHEMA_VERSION = "7";
+const SCHEMA_VERSION = "8";
 
 function toProduct(row) {
   if (!row) return null;
@@ -67,7 +67,7 @@ export async function createSqliteProductRepository(databaseFile) {
       id TEXT NOT NULL,
       customer_id TEXT NOT NULL,
       status TEXT NOT NULL CHECK (
-        status IN ('Confirmed', 'Processing', 'Shipped', 'Cancelled')
+        status IN ('Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled')
       ),
       created_at TEXT NOT NULL,
       items_json TEXT NOT NULL CHECK (json_valid(items_json) AND json_type(items_json) = 'array'),
@@ -99,7 +99,10 @@ export async function createSqliteProductRepository(databaseFile) {
   const orderTable = database
     .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'orders'")
     .get();
-  if (!orderTable.sql.includes("'Cancelled'")) {
+  if (
+    !orderTable.sql.includes("'Cancelled'") ||
+    !orderTable.sql.includes("'Delivered'")
+  ) {
     database.exec(`
       BEGIN IMMEDIATE;
       ALTER TABLE orders RENAME TO orders_before_cancellation;
@@ -108,7 +111,7 @@ export async function createSqliteProductRepository(databaseFile) {
         id TEXT NOT NULL,
         customer_id TEXT NOT NULL,
         status TEXT NOT NULL CHECK (
-          status IN ('Confirmed', 'Processing', 'Shipped', 'Cancelled')
+          status IN ('Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled')
         ),
         created_at TEXT NOT NULL,
         items_json TEXT NOT NULL CHECK (
