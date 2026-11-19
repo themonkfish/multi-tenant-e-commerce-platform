@@ -385,8 +385,9 @@ Status snapshot as of 2026-11-19:
 
 - [x] Add local product-management screen for catalog CRUD. REST connection,
       health testing, catalog adapter, and authenticated product API routes are
-      implemented. Playwright now covers tenant-scoped product create, edit,
-      API verification, delete, and isolation against a local mock backend.
+      implemented. Playwright covers tenant-scoped product create, edit, API
+      verification, delete, and isolation against a local mock backend. The
+      reference SQLite backend supports catalog schema version 6 fields.
 - [x] Implement tenant Supabase and MongoDB data adapters, reference schemas,
       provider setup, test-connection, and schema initialization. Older and newer
       schema versions are classified for upgrade or compatibility handling.

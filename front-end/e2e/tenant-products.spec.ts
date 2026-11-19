@@ -45,7 +45,13 @@ test("tenant owner can create, edit, and delete catalog products", async ({
   await productRow.getByRole("button", { name: "Edit" }).click();
   await page.getByLabel("Product title").fill("E2E Updated Bag");
   await page.getByLabel("Price amount").fill("2799");
+  const updateResponse = page.waitForResponse(
+    (response) =>
+      /\/api\/tenant\/products\/[^/]+$/.test(response.url()) &&
+      response.request().method() === "PATCH",
+  );
   await page.getByRole("button", { name: "Save changes" }).click();
+  expect((await updateResponse).ok()).toBe(true);
 
   await expect(page.getByText("Product updated successfully.")).toBeVisible();
   await expect(

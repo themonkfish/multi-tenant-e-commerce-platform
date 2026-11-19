@@ -160,6 +160,59 @@ test("creates, lists, reads, updates, and deletes products", async () => {
   assert.equal(missingResponse.status, 404);
 });
 
+test("persists category, image, options, stock variants, and variant pricing", async () => {
+  const createResponse = await fetch(`${baseUrl}/products`, {
+    method: "POST",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({
+      tenantId,
+      title: "Variant Bag",
+      slug: "variant-bag",
+      status: "active",
+      price: { amount: 1999, currency: "USD" },
+      sku: "BAG-DEFAULT",
+      category: "Bags",
+      imageUrl: "https://cdn.example.test/variant-bag.webp",
+      options: [{ name: "Size", values: ["S", "M"] }],
+      variants: [
+        { selections: { Size: "S" }, stock: 4 },
+        { selections: { Size: "M" }, stock: 8 },
+      ],
+      variantPricing: [
+        { selections: { Size: "M" }, amount: 2299, sku: "BAG-M" },
+      ],
+    }),
+  });
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+  assert.equal(created.category, "Bags");
+  assert.equal(created.imageUrl, "https://cdn.example.test/variant-bag.webp");
+  assert.deepEqual(created.options, [{ name: "Size", values: ["S", "M"] }]);
+  assert.equal(created.variants.length, 2);
+  assert.deepEqual(created.variantPricing, [
+    { selections: { Size: "M" }, amount: 2299, sku: "BAG-M" },
+  ]);
+
+  const updateResponse = await fetch(`${baseUrl}/products/${created.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({
+      title: "Updated Variant Bag",
+      category: "Travel",
+      variantPricing: [
+        { selections: { Size: "S" }, amount: 2099, sku: "BAG-S" },
+      ],
+    }),
+  });
+  assert.equal(updateResponse.status, 200);
+  const updated = await updateResponse.json();
+  assert.equal(updated.title, "Updated Variant Bag");
+  assert.equal(updated.category, "Travel");
+  assert.deepEqual(updated.variantPricing, [
+    { selections: { Size: "S" }, amount: 2099, sku: "BAG-S" },
+  ]);
+});
+
 test("rejects invalid payloads, duplicate slugs, and invalid pagination", async () => {
   const invalidResponse = await fetch(`${baseUrl}/products`, {
     method: "POST",

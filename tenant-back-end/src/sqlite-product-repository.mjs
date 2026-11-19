@@ -81,6 +81,21 @@ export async function createSqliteProductRepository(databaseFile) {
       applied_at TEXT NOT NULL
     );
   `);
+  const productColumns = new Set(
+    database.prepare("PRAGMA table_info(products)").all().map((row) => row.name),
+  );
+  const productColumnDefinitions = [
+    ["category", "TEXT"],
+    ["image_url", "TEXT"],
+    ["options_json", "TEXT"],
+    ["variants_json", "TEXT"],
+    ["variant_pricing_json", "TEXT"],
+  ];
+  for (const [column, definition] of productColumnDefinitions) {
+    if (!productColumns.has(column)) {
+      database.exec(`ALTER TABLE products ADD COLUMN ${column} ${definition}`);
+    }
+  }
   database
     .prepare(
       "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?, ?)",
