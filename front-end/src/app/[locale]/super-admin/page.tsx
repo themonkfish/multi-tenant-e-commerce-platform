@@ -7,6 +7,7 @@ import { PlatformHealthSummary } from "@/features/auth/platform-health-summary";
 import { PlatformAnalyticsSummary } from "@/features/auth/platform-analytics-summary";
 import { PlatformDomainInventory } from "@/features/auth/platform-domain-inventory";
 import { PlatformBillingSummary } from "@/features/auth/platform-billing-summary";
+import { PlatformRoleMatrix } from "@/features/auth/platform-role-matrix";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getSuperAdminSession } from "@/lib/server/session";
 
@@ -98,6 +99,9 @@ export default async function SuperAdminDashboardPage({
       </section>
       <section className="border-t border-slate-200 py-10">
         <PlatformBillingSummary hosts={hosts} tenants={tenants} />
+      </section>
+      <section className="border-t border-slate-200 py-10">
+        <PlatformRoleMatrix />
       </section>
     </main>
   );

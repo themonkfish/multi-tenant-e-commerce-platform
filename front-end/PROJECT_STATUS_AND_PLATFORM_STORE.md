@@ -118,6 +118,9 @@ Status snapshot as of 2026-11-19:
 - [x] Super Admin plan and usage view: host plans, tenant counts, custom-domain
       usage, configured limits, and account status are shown. Live invoicing and
       billing-provider integration remain future work.
+- [x] Super Admin role matrix: effective platform, host, tenant, staff, and
+      customer permissions are visible in the dashboard. Host Staff accounts
+      and broader Super Admin staff-account management remain future work.
 - [x] Super Admin audit-log view: the platform dashboard lists recent
       platform-scoped audit events and exports up to 1,000 events as JSON.
 - [x] Host API authorization, same-origin checks, rate limits, input
@@ -241,8 +244,9 @@ Status snapshot as of 2026-11-19:
       editing host details works for name, slug, plan, limits, domains, and
       support contact; a recent platform audit log and JSON export are available.
       Empty hosts can be deleted with confirmation; hosts with tenants are
-      protected. Platform branding and legal links are editable. Staff/roles,
-      and live billing remain. Basic persisted order analytics,
+      protected. Platform branding, legal links, role permissions, and live
+      billing usage are visible. Live billing remains future work. Basic
+      persisted order analytics,
       platform/host/tenant/pending-domain inventory, and plan/limit usage are
       available.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
