@@ -631,6 +631,26 @@ export type PlatformDatabase = {
         };
         Returns: boolean;
       };
+      update_platform_host: {
+        Args: {
+          p_host_id: string;
+          p_slug: string;
+          p_name: string;
+          p_plan: string;
+          p_max_tenants: number;
+          p_max_custom_domains: number;
+          p_domains: string[];
+          p_support_contact: string | null;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_action: string;
+          p_audit_resource_type: string;
+          p_audit_resource_id: string | null;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
       create_platform_host_owner_invite: {
         Args: {
           p_invite_id: string;

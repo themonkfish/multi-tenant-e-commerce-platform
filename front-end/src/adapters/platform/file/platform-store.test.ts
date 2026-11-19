@@ -274,6 +274,61 @@ describe("FilePlatformStore", () => {
     ]);
   });
 
+  it("updates host details and audits the change", async () => {
+    const store = await createStore();
+    const host = hostConfig();
+    await store.createHost(host, hostAudit());
+
+    const updatedAt = new Date().toISOString();
+    const updated = await store.updateHost(
+      host.id,
+      {
+        slug: "updated-host",
+        name: "Updated Host",
+        plan: "growth",
+        maxTenants: 25,
+        maxCustomDomains: 5,
+        domains: ["new.example.com"],
+        supportContact: "support@example.com",
+      },
+      updatedAt,
+      hostAudit("host.updated"),
+    );
+
+    expect(updated).toMatchObject({
+      id: host.id,
+      slug: "updated-host",
+      name: "Updated Host",
+      plan: "growth",
+      limits: {
+        maxTenants: 25,
+        maxCustomDomains: 5,
+        features: {},
+      },
+      domains: ["new.example.com"],
+      supportContact: "support@example.com",
+    });
+    expect(await store.getHostById(host.id)).toEqual(updated);
+    expect(await store.getHostByDomain("shop.example.com")).toBeNull();
+    expect(await store.getHostByDomain("new.example.com")).toEqual(updated);
+
+    await expect(
+      store.updateHost(
+        "550e8400-e29b-41d4-a716-446655440099",
+        {
+          slug: "missing",
+          name: "Missing",
+          plan: "starter",
+          maxTenants: 10,
+          maxCustomDomains: 1,
+          domains: [],
+        },
+        updatedAt,
+        hostAudit("host.updated"),
+      ),
+    ).resolves.toBeNull();
+  });
+
   it("reads existing platform store files that predate host records", async () => {
     const store = await createStore();
     await writeFile(

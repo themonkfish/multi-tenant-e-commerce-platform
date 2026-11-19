@@ -40,6 +40,18 @@ export const CreateHostInputSchema = z.object({
 
 export type CreateHostInput = z.infer<typeof CreateHostInputSchema>;
 
+export const UpdateHostInputSchema = z.object({
+  slug: HostConfigSchema.shape.slug,
+  name: HostConfigSchema.shape.name,
+  plan: HostConfigSchema.shape.plan,
+  maxTenants: HostConfigSchema.shape.limits.shape.maxTenants,
+  maxCustomDomains: HostConfigSchema.shape.limits.shape.maxCustomDomains,
+  domains: z.array(z.string().min(1).max(253)).max(100),
+  supportContact: z.email().optional(),
+});
+
+export type UpdateHostInput = z.infer<typeof UpdateHostInputSchema>;
+
 export const HostStatusSchema = z.enum(["pending", "active", "suspended"]);
 export type HostStatus = z.infer<typeof HostStatusSchema>;
 

@@ -160,6 +160,175 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
   );
 }
 
+function HostEditForm({
+  host,
+  onUpdated,
+}: {
+  host: HostConfig;
+  onUpdated: (host: HostConfig) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function updateHost(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/platform/hosts/${host.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.get("name"),
+          slug: form.get("slug"),
+          plan: form.get("plan"),
+          maxTenants: Number(form.get("maxTenants")),
+          maxCustomDomains: Number(form.get("maxCustomDomains")),
+          domains: String(form.get("domains") ?? "")
+            .split(",")
+            .map((domain) => domain.trim())
+            .filter(Boolean),
+          ...(String(form.get("supportContact") ?? "").trim()
+            ? { supportContact: String(form.get("supportContact")).trim() }
+            : {}),
+        }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(describeHostError(getErrorCode(body)));
+        return;
+      }
+      const parsed = HostResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError("The server returned an invalid host record.");
+        return;
+      }
+      onUpdated(parsed.data.host);
+      setEditing(false);
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        className="mt-3 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+        onClick={() => setEditing(true)}
+        type="button"
+      >
+        Edit host
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="mt-4 grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2"
+      onSubmit={updateHost}
+    >
+      <label className="space-y-1 text-sm font-medium">
+        Host name
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          name="name"
+          defaultValue={host.name}
+          maxLength={120}
+          required
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Host slug
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          name="slug"
+          defaultValue={host.slug}
+          pattern="[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+          maxLength={63}
+          required
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Plan
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          name="plan"
+          defaultValue={host.plan}
+          maxLength={80}
+          required
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Maximum tenants
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          name="maxTenants"
+          type="number"
+          min={0}
+          max={1_000_000}
+          defaultValue={host.limits.maxTenants}
+          required
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Maximum custom domains
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          name="maxCustomDomains"
+          type="number"
+          min={0}
+          max={10_000}
+          defaultValue={host.limits.maxCustomDomains}
+          required
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Support email
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          name="supportContact"
+          type="email"
+          defaultValue={host.supportContact ?? ""}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium sm:col-span-2">
+        Domains
+        <input
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          name="domains"
+          defaultValue={host.domains.join(", ")}
+        />
+      </label>
+      {error && (
+        <p className="text-sm text-red-700 sm:col-span-2" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2 sm:col-span-2">
+        <button
+          className="rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          disabled={busy}
+          type="submit"
+        >
+          {busy ? "Saving…" : "Save changes"}
+        </button>
+        <button
+          className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
+          disabled={busy}
+          onClick={() => setEditing(false)}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function HostManagement({
   initialHosts,
 }: {
@@ -290,6 +459,16 @@ export function HostManagement({
                   {host.status === "active" && (
                     <HostOwnerInviteForm host={host} />
                   )}
+                  <HostEditForm
+                    host={host}
+                    onUpdated={(updatedHost) =>
+                      setHosts((current) =>
+                        current.map((item) =>
+                          item.id === updatedHost.id ? updatedHost : item,
+                        ),
+                      )
+                    }
+                  />
                 </div>
                 <button
                   className="shrink-0 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"

@@ -4,6 +4,7 @@ import {
   HostConfigSchema,
   type HostConfig,
   type HostStatus,
+  type UpdateHostInput,
 } from "@/core/domain/host-config";
 import {
   HostOwnerInviteSchema,
@@ -392,6 +393,42 @@ export class SupabasePlatformStore implements PlatformStore {
     );
     if (error) {
       throw new Error(`Could not update host status: ${error.message}`);
+    }
+    if (!data) {
+      return null;
+    }
+
+    return (await this.listHosts()).find((host) => host.id === id) ?? null;
+  }
+
+  async updateHost(
+    id: string,
+    input: UpdateHostInput,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<HostConfig | null> {
+    const { data, error } = await this.client.rpc("update_platform_host", {
+      p_host_id: id,
+      p_slug: input.slug,
+      p_name: input.name,
+      p_plan: input.plan,
+      p_max_tenants: input.maxTenants,
+      p_max_custom_domains: input.maxCustomDomains,
+      p_domains: input.domains,
+      p_support_contact: input.supportContact ?? null,
+      p_updated_at: updatedAt,
+      p_actor_id: auditEvent.actorId,
+      p_audit_id: auditEvent.id,
+      p_audit_action: auditEvent.action,
+      p_audit_resource_type: auditEvent.resourceType,
+      p_audit_resource_id: auditEvent.resourceId ?? null,
+      p_audit_created_at: auditEvent.createdAt,
+    });
+    if (error) {
+      if (/already exists|unique/i.test(error.message)) {
+        throw new Error("A host with this slug or domain already exists");
+      }
+      throw new Error(`Could not update host: ${error.message}`);
     }
     if (!data) {
       return null;

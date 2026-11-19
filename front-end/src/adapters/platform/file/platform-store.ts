@@ -8,6 +8,7 @@ import {
   HostConfigSchema,
   type HostConfig,
   type HostStatus,
+  type UpdateHostInput,
 } from "@/core/domain/host-config";
 import {
   HostOwnerInviteSchema,
@@ -410,6 +411,59 @@ export class FilePlatformStore implements PlatformStore {
 
       host.status = status;
       host.updatedAt = updatedAt;
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+      return host;
+    });
+  }
+
+  async updateHost(
+    id: string,
+    input: UpdateHostInput,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<HostConfig | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const host = state.hosts.find((candidate) => candidate.id === id);
+      if (!host) {
+        return null;
+      }
+
+      if (
+        state.hosts.some(
+          (candidate) => candidate.id !== id && candidate.slug === input.slug,
+        )
+      ) {
+        throw new Error("A host with this slug already exists");
+      }
+      const existingDomains = new Set([
+        ...state.hosts.flatMap((candidate) =>
+          candidate.id === id ? [] : candidate.domains,
+        ),
+        ...state.tenants.flatMap((candidate) => candidate.domains),
+        ...state.tenantDomainClaims.map((claim) => claim.domain),
+      ]);
+      if (input.domains.some((domain) => existingDomains.has(domain))) {
+        throw new Error("A host with one of these domains already exists");
+      }
+
+      const updated = HostConfigSchema.parse({
+        ...host,
+        slug: input.slug,
+        name: input.name,
+        plan: input.plan,
+        limits: {
+          ...host.limits,
+          maxTenants: input.maxTenants,
+          maxCustomDomains: input.maxCustomDomains,
+        },
+        branding: { ...host.branding, name: input.name },
+        domains: input.domains,
+        supportContact: input.supportContact,
+        updatedAt,
+      });
+      Object.assign(host, updated);
       state.auditEvents.push(auditEvent);
       await this.writeState(state);
       return host;

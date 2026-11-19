@@ -1,5 +1,9 @@
 import type { AccessScope } from "@/core/tenancy/scope";
-import type { HostConfig, HostStatus } from "@/core/domain/host-config";
+import type {
+  HostConfig,
+  HostStatus,
+  UpdateHostInput,
+} from "@/core/domain/host-config";
 import type {
   HostOwner,
   HostOwnerInvite,
@@ -95,6 +99,12 @@ export interface PlatformStore
   updateHostStatus(
     id: string,
     status: HostStatus,
+    updatedAt: string,
+    auditEvent: AuditEvent,
+  ): Promise<HostConfig | null>;
+  updateHost(
+    id: string,
+    input: UpdateHostInput,
     updatedAt: string,
     auditEvent: AuditEvent,
   ): Promise<HostConfig | null>;

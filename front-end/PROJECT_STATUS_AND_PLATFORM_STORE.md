@@ -7,7 +7,7 @@ automatically implemented just because they are listed there.
 
 ## Current status
 
-Status snapshot as of 2026-11-18:
+Status snapshot as of 2026-11-19:
 
 - The frontend platform bootstrap, Super Admin onboarding, host/tenant
   lifecycle management, scoped portal auth flows, and tenant-scoped cache
@@ -103,6 +103,8 @@ Status snapshot as of 2026-11-18:
 - [x] Super Admin sign-in page and initial protected dashboard.
 - [x] Host management first slice: create and list hosts, assign an initial
       plan and tenant/domain limits, and activate or suspend hosts.
+- [x] Super Admin host editing: update host name, slug, plan, limits, domains,
+      support contact, branding name, and audit the change.
 - [x] Host API authorization, same-origin checks, rate limits, input
       validation, duplicate slug/domain checks, and audit logging.
 - [x] Authenticated host/Super Admin mutation throttles use per-account
@@ -221,8 +223,9 @@ Status snapshot as of 2026-11-18:
       TOTP, and gives first-Host guidance. Platform-store credentials remain
       deployment configuration; email delivery intentionally remains manual.
 - [ ] **Super Admin dashboard:** host creation/status management works;
-      editing host details, deletion, invitations, staff/roles, settings, health,
-      analytics, domains, billing, and audit-log views remain.
+      editing host details works for name, slug, plan, limits, domains, and
+      support contact; deletion, staff/roles, settings, health, analytics,
+      domains, billing, and audit-log views remain.
 - [ ] **Host and tenant architecture:** basic Host Owner authentication and
       tenant metadata management and an initial Tenant Owner portal are
       implemented. Tenant-specific configuration stores, automated domain/TLS
@@ -617,7 +620,7 @@ Before deploying the app:
    `0016_tenant_storage_providers.sql`,
    `0017_order_fulfillment_tracking.sql`,
    `0018_checkout_shipping.sql`, `0019_discount_codes.sql`, and
-   `0020_checkout_tax.sql`.
+   `0020_checkout_tax.sql`, and `0021_host_updates.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or
