@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import { TenantDataBackendError } from "@/core/ports/data";
 import {
   ProductReviewInputSchema,
   ProductReviewSchema,
@@ -14,12 +16,59 @@ type ReviewRouteProps = {
   params: Promise<{ productId: string }>;
 };
 
+async function unavailableProductResponse(
+  tenantId: string,
+  hostId: string,
+  productId: string,
+): Promise<NextResponse | null> {
+  try {
+    const catalog = await createTenantCatalogAdapter(tenantId, hostId);
+    const product = await catalog.getProduct(tenantId, productId);
+    return product.status === "active"
+      ? null
+      : NextResponse.json({ error: "product_unavailable" }, { status: 404 });
+  } catch (error) {
+    if (error instanceof TenantDataBackendError && error.status === 404) {
+      return NextResponse.json(
+        { error: "product_unavailable" },
+        { status: 404 },
+      );
+    }
+    if (
+      error instanceof Error &&
+      (error.message === "Tenant REST backend is not configured" ||
+        error.message === "Tenant database provider is not configured")
+    ) {
+      return NextResponse.json(
+        { error: "connection_not_configured" },
+        { status: 409 },
+      );
+    }
+    if (error instanceof TenantDataBackendError) {
+      return NextResponse.json(
+        { error: "tenant_backend_unavailable" },
+        { status: 502 },
+      );
+    }
+    throw error;
+  }
+}
+
 export async function GET(_request: Request, { params }: ReviewRouteProps) {
   const scope = await getRequestDomainScope();
   if (scope?.kind !== "tenant") {
     return NextResponse.json({ error: "tenant_unavailable" }, { status: 404 });
   }
   const { productId } = await params;
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(productId)) {
+    return NextResponse.json({ error: "invalid_product_id" }, { status: 400 });
+  }
+  const productResponse = await unavailableProductResponse(
+    scope.tenant.id,
+    scope.host.id,
+    productId,
+  );
+  if (productResponse) return productResponse;
   const reviews = await getPlatformStore().listProductReviews(
     scope.tenant.id,
     productId,
@@ -55,6 +104,9 @@ export async function POST(request: Request, { params }: ReviewRouteProps) {
   if (parsed.data.productId !== productId) {
     return NextResponse.json({ error: "product_mismatch" }, { status: 400 });
   }
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(productId)) {
+    return NextResponse.json({ error: "invalid_product_id" }, { status: 400 });
+  }
 
   const store = getPlatformStore();
   const allowed = await store.consumeRateLimit({
@@ -66,6 +118,13 @@ export async function POST(request: Request, { params }: ReviewRouteProps) {
   if (!allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
+
+  const productResponse = await unavailableProductResponse(
+    session.scope.id,
+    session.scope.hostId,
+    productId,
+  );
+  if (productResponse) return productResponse;
 
   const customerOrders = await store.listCustomerOrders(
     session.scope.id,

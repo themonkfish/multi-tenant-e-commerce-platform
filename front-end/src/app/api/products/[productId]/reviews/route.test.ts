@@ -6,7 +6,11 @@ const requestScope = vi.hoisted(() => vi.fn());
 const store = vi.hoisted(() => vi.fn());
 const isSameOrigin = vi.hoisted(() => vi.fn());
 const createRateLimitKey = vi.hoisted(() => vi.fn());
+const createTenantCatalogAdapter = vi.hoisted(() => vi.fn());
 
+vi.mock("@/adapters/data/rest/tenant-catalog", () => ({
+  createTenantCatalogAdapter,
+}));
 vi.mock("@/lib/server/session", () => ({
   getCustomerSession: customerSession,
 }));
@@ -23,6 +27,7 @@ vi.mock("@/lib/server/http", () => ({
 
 const tenantId = "550e8400-e29b-41d4-a716-446655440002";
 const customerId = "550e8400-e29b-41d4-a716-446655440003";
+const hostId = "550e8400-e29b-41d4-a716-446655440004";
 
 function reviewRequest() {
   return new Request(
@@ -45,12 +50,16 @@ describe("product review routes", () => {
     vi.clearAllMocks();
     isSameOrigin.mockReturnValue(true);
     createRateLimitKey.mockReturnValue("test-rate-limit-key");
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue({ status: "active" }),
+    });
   });
 
   it("lists public tenant-scoped reviews", async () => {
     requestScope.mockResolvedValue({
       kind: "tenant",
-      tenant: { id: "550e8400-e29b-41d4-a716-446655440002" },
+      tenant: { id: tenantId },
+      host: { id: hostId },
     });
     store.mockReturnValue({
       listProductReviews: vi.fn().mockResolvedValue([]),
@@ -60,6 +69,29 @@ describe("product review routes", () => {
       { params: Promise.resolve({ productId: "product-1" }) },
     );
     expect(response.status).toBe(200);
+    expect(createTenantCatalogAdapter).toHaveBeenCalledWith(tenantId, hostId);
+  });
+
+  it("does not list reviews for inactive products", async () => {
+    requestScope.mockResolvedValue({
+      kind: "tenant",
+      tenant: { id: tenantId },
+      host: { id: hostId },
+    });
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue({ status: "draft" }),
+    });
+    const listProductReviews = vi.fn();
+    store.mockReturnValue({ listProductReviews });
+
+    const response = await GET(
+      new Request("https://store.example.com/api/products/product-1/reviews"),
+      { params: Promise.resolve({ productId: "product-1" }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "product_unavailable" });
+    expect(listProductReviews).not.toHaveBeenCalled();
   });
 
   it("requires Customer authentication for review submission", async () => {
@@ -74,7 +106,7 @@ describe("product review routes", () => {
     customerSession.mockResolvedValue({
       userId: customerId,
       role: "customer",
-      scope: { kind: "tenant", id: tenantId, hostId: "host-1" },
+      scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
     const listCustomerOrders = vi.fn().mockResolvedValue([
@@ -104,11 +136,39 @@ describe("product review routes", () => {
     expect(createProductReview).not.toHaveBeenCalled();
   });
 
+  it("rejects reviews for inactive products", async () => {
+    customerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    createTenantCatalogAdapter.mockResolvedValue({
+      getProduct: vi.fn().mockResolvedValue({ status: "archived" }),
+    });
+    const listCustomerOrders = vi.fn();
+    const createProductReview = vi.fn();
+    store.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listCustomerOrders,
+      createProductReview,
+    });
+
+    const response = await POST(reviewRequest(), {
+      params: Promise.resolve({ productId: "product-1" }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "product_unavailable" });
+    expect(listCustomerOrders).not.toHaveBeenCalled();
+    expect(createProductReview).not.toHaveBeenCalled();
+  });
+
   it("accepts a review when a paid tenant order contains the product", async () => {
     customerSession.mockResolvedValue({
       userId: customerId,
       role: "customer",
-      scope: { kind: "tenant", id: tenantId, hostId: "host-1" },
+      scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
     const savedReview = {
