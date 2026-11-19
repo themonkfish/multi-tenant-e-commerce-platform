@@ -271,6 +271,22 @@
     "footer": "Fondations du frontend · Le backend et les connexions tenant ne sont pas encore raccordés.",
     "storefrontUnavailable": "La boutique de ce tenant n'est pas encore disponible.",
     "hostPortal": "Gerez les espaces de travail des tenants de cet hôte.",
-    "hostPortalLink": "Ouvrir le portail hôte"
+    "hostPortalLink": "Ouvrir le portail hôte",
+    "tenantStorefront": "Vitrine de la boutique",
+    "storeLogoAlt": "Logo de {store}",
+    "accountLink": "Compte",
+    "storefrontPreview": "Aperçu de la boutique",
+    "featuredCatalog": "Sélection du catalogue",
+    "featuredCatalogDescription": "Un aperçu du catalogue est disponible pour {store}.",
+    "storefrontSetupDescription": "Le catalogue de cette boutique est en cours de préparation. Revenez bientôt.",
+    "storeIdentity": "Identité de la boutique",
+    "defaultLocale": "Langue par défaut",
+    "currency": "Devise",
+    "supportedLocales": "Langues disponibles",
+    "browseCatalog": "Parcourir le catalogue",
+    "featuredProducts": "Produits à la une",
+    "featuredItemCount": "{count, plural, one {# article} other {# articles}}",
+    "activeProduct": "Actif",
+    "viewItem": "Voir le produit"
   }
 }

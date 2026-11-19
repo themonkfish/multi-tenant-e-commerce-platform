@@ -271,6 +271,22 @@
     "footer": "Frontend foundation · Backend and tenant configuration are not connected yet.",
     "storefrontUnavailable": "This store's storefront is not available yet.",
     "hostPortal": "Manage this host's tenant workspaces.",
-    "hostPortalLink": "Open the host portal"
+    "hostPortalLink": "Open the host portal",
+    "tenantStorefront": "Tenant storefront",
+    "storeLogoAlt": "{store} logo",
+    "accountLink": "Account",
+    "storefrontPreview": "Storefront preview",
+    "featuredCatalog": "Featured catalog",
+    "featuredCatalogDescription": "A live catalog preview is available for {store}.",
+    "storefrontSetupDescription": "This store's catalog is being prepared. Please check back soon.",
+    "storeIdentity": "Store identity",
+    "defaultLocale": "Default locale",
+    "currency": "Currency",
+    "supportedLocales": "Supported locales",
+    "browseCatalog": "Browse catalog",
+    "featuredProducts": "Featured products",
+    "featuredItemCount": "{count, plural, one {# item} other {# items}}",
+    "activeProduct": "Active",
+    "viewItem": "View item"
   }
 }

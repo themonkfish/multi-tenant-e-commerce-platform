@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import { formatCurrencyAmount } from "@/core/domain/money";
 import {
   StorefrontAddToCartButton,
   StorefrontCartButton,
@@ -18,7 +19,7 @@ type HomePageProps = {
 
 export default async function HomePage({ params }: HomePageProps) {
   const { locale } = await params;
-  const t = await getTranslations("Home");
+  const t = await getTranslations({ locale, namespace: "Home" });
   const requestScope = await getRequestDomainScope();
 
   if (requestScope?.kind === "unavailable") {
@@ -90,7 +91,7 @@ export default async function HomePage({ params }: HomePageProps) {
             <div className="flex items-center gap-3">
               {settings.branding.logoUrl ? (
                 <img
-                  alt={`${settings.branding.name} logo`}
+                  alt={t("storeLogoAlt", { store: settings.branding.name })}
                   className="h-12 w-12 rounded-lg object-cover"
                   src={settings.branding.logoUrl}
                 />
@@ -104,7 +105,7 @@ export default async function HomePage({ params }: HomePageProps) {
               )}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Tenant storefront
+                  {t("tenantStorefront")}
                 </p>
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
                   {settings.branding.name}
@@ -125,7 +126,7 @@ export default async function HomePage({ params }: HomePageProps) {
                 className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
                 href={`/${locale}/account`}
               >
-                Account
+                {t("accountLink")}
               </Link>
               <StorefrontCartButton locale={locale} />
             </div>
@@ -140,18 +141,20 @@ export default async function HomePage({ params }: HomePageProps) {
                   color: settings.branding.primaryColor,
                 }}
               >
-                Storefront preview
+                {t("storefrontPreview")}
               </p>
               <h2 className="text-4xl font-semibold tracking-tight text-slate-950">
                 {catalogProducts.length > 0
-                  ? "Featured catalog"
+                  ? t("featuredCatalog")
                   : t("storefrontUnavailable")}
               </h2>
               <p className="mt-4 max-w-xl text-lg leading-8 text-slate-600">
                 {catalogProducts.length > 0
-                  ? `A live catalog preview is available for ${settings.branding.name}.`
+                  ? t("featuredCatalogDescription", {
+                      store: settings.branding.name,
+                    })
                   : settings.branding.description ||
-                    "This tenant storefront is configured and ready for future catalog, cart, and checkout flows."}
+                    t("storefrontSetupDescription")}
               </p>
             </div>
 
@@ -163,24 +166,28 @@ export default async function HomePage({ params }: HomePageProps) {
               }}
             >
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Store identity
+                {t("storeIdentity")}
               </p>
               <dl className="mt-4 space-y-4 text-sm text-slate-700">
                 <div>
-                  <dt className="font-medium text-slate-500">Default locale</dt>
+                  <dt className="font-medium text-slate-500">
+                    {t("defaultLocale")}
+                  </dt>
                   <dd className="mt-1 text-slate-900">
                     {settings.locale.defaultLocale}
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-slate-500">Currency</dt>
+                  <dt className="font-medium text-slate-500">
+                    {t("currency")}
+                  </dt>
                   <dd className="mt-1 text-slate-900">
                     {settings.locale.currency}
                   </dd>
                 </div>
                 <div>
                   <dt className="font-medium text-slate-500">
-                    Supported locales
+                    {t("supportedLocales")}
                   </dt>
                   <dd className="mt-1 text-slate-900">
                     {settings.locale.locales.join(", ")}
@@ -192,7 +199,7 @@ export default async function HomePage({ params }: HomePageProps) {
                 href={`/${locale}/products`}
                 style={{ backgroundColor: settings.branding.primaryColor }}
               >
-                Browse catalog
+                {t("browseCatalog")}
               </Link>
             </aside>
           </section>
@@ -201,10 +208,12 @@ export default async function HomePage({ params }: HomePageProps) {
             <section className="border-t border-slate-200 bg-slate-50 px-6 py-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900">
-                  Featured products
+                  {t("featuredProducts")}
                 </h3>
                 <span className="text-sm text-slate-500">
-                  {catalogProducts.length} items
+                  {t("featuredItemCount", {
+                    count: catalogProducts.length,
+                  })}
                 </span>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -256,12 +265,16 @@ export default async function HomePage({ params }: HomePageProps) {
                           color: settings.branding.accentColor,
                         }}
                       >
-                        {product.status}
+                        {t("activeProduct")}
                       </span>
                     </div>
                     <div className="mt-4 flex items-center justify-between gap-2 text-sm text-slate-700">
                       <span>
-                        {product.price.amount} {product.price.currency}
+                        {formatCurrencyAmount(
+                          product.price.amount,
+                          product.price.currency,
+                          locale,
+                        )}
                       </span>
                       {product.sku && <span>SKU: {product.sku}</span>}
                     </div>
@@ -287,7 +300,7 @@ export default async function HomePage({ params }: HomePageProps) {
                           backgroundColor: settings.branding.primaryColor,
                         }}
                       >
-                        View item
+                        {t("viewItem")}
                       </Link>
                     </div>
                   </article>

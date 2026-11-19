@@ -271,6 +271,22 @@
     "footer": "फ्रंटेंड नींव · बैकेंड और टेनेंट कॉन्फ़िगरेशन अभी जुड़े नहीं हैं।",
     "storefrontUnavailable": "इस स्टोर का स्टोरफ्रंट अभी उपलब्ध नहीं है।",
     "hostPortal": "इस होस्ट के टेनेंट वर्कस्पेस प्रबंधित करें।",
-    "hostPortalLink": "होस्ट पोर्टल खोलें"
+    "hostPortalLink": "होस्ट पोर्टल खोलें",
+    "tenantStorefront": "टेनेंट स्टोरफ्रंट",
+    "storeLogoAlt": "{store} का लोगो",
+    "accountLink": "खाता",
+    "storefrontPreview": "स्टोरफ्रंट का पूर्वावलोकन",
+    "featuredCatalog": "चुनिंदा कैटलॉग",
+    "featuredCatalogDescription": "{store} का लाइव कैटलॉग देखने के लिए उपलब्ध है।",
+    "storefrontSetupDescription": "इस स्टोर का कैटलॉग तैयार किया जा रहा है। कृपया फिर से आएँ।",
+    "storeIdentity": "स्टोर की पहचान",
+    "defaultLocale": "डिफ़ॉल्ट भाषा",
+    "currency": "मुद्रा",
+    "supportedLocales": "उपलब्ध भाषाएँ",
+    "browseCatalog": "कैटलॉग देखें",
+    "featuredProducts": "चुनिंदा उत्पाद",
+    "featuredItemCount": "{count} आइटम",
+    "activeProduct": "सक्रिय",
+    "viewItem": "उत्पाद देखें"
   }
 }
