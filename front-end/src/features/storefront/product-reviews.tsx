@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import type { ProductReview } from "@/core/domain/product-review";
 
 export function ProductReviews({ productId }: { productId: string }) {
+  const t = useTranslations("CustomerProduct");
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -54,13 +56,13 @@ export function ProductReviews({ productId }: { productId: string }) {
             body !== null &&
             "error" in body &&
             body.error === "review_exists"
-            ? "You have already reviewed this product."
+            ? t("reviewAlreadyExists")
             : typeof body === "object" &&
                 body !== null &&
                 "error" in body &&
                 body.error === "purchase_required"
-              ? "A paid order for this product is required to submit a review."
-              : "The review could not be saved.",
+              ? t("reviewPurchaseRequired")
+              : t("reviewSaveFailed"),
         );
         return;
       }
@@ -76,7 +78,7 @@ export function ProductReviews({ productId }: { productId: string }) {
       setSaved(true);
       event.currentTarget.reset();
     } catch {
-      setError("The review request could not reach the server.");
+      setError(t("reviewRequestFailed"));
     } finally {
       setBusy(false);
     }
@@ -85,13 +87,13 @@ export function ProductReviews({ productId }: { productId: string }) {
   return (
     <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6">
       <div>
-        <h3 className="text-xl font-semibold text-slate-950">Reviews</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Customers with a paid order for this product can submit one review.
-        </p>
+        <h3 className="text-xl font-semibold text-slate-950">
+          {t("reviewsTitle")}
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">{t("reviewEligibility")}</p>
       </div>
       {reviews.length === 0 ? (
-        <p className="text-sm text-slate-600">No reviews yet.</p>
+        <p className="text-sm text-slate-600">{t("reviewsEmpty")}</p>
       ) : (
         <div className="space-y-3">
           {reviews.map((review) => (
@@ -112,7 +114,7 @@ export function ProductReviews({ productId }: { productId: string }) {
         onSubmit={submit}
       >
         <label className="space-y-1 text-sm font-medium">
-          Rating
+          {t("reviewRating")}
           <select
             className="block rounded-md border border-slate-300 px-3 py-2"
             name="rating"
@@ -127,7 +129,7 @@ export function ProductReviews({ productId }: { productId: string }) {
           </select>
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Title
+          {t("reviewTitle")}
           <input
             className="block w-full rounded-md border border-slate-300 px-3 py-2"
             name="title"
@@ -136,7 +138,7 @@ export function ProductReviews({ productId }: { productId: string }) {
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Review
+          {t("reviewBody")}
           <textarea
             className="block w-full rounded-md border border-slate-300 px-3 py-2"
             name="body"
@@ -152,7 +154,7 @@ export function ProductReviews({ productId }: { productId: string }) {
         )}
         {saved && (
           <p className="text-sm text-emerald-700" role="status">
-            Review submitted.
+            {t("reviewSubmitted")}
           </p>
         )}
         <button
@@ -160,7 +162,7 @@ export function ProductReviews({ productId }: { productId: string }) {
           disabled={busy}
           type="submit"
         >
-          {busy ? "Submitting…" : "Submit review"}
+          {busy ? t("reviewSubmitting") : t("reviewSubmit")}
         </button>
       </form>
     </section>

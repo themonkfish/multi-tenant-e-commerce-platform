@@ -210,6 +210,28 @@
     "demoDescription": "Cette page locale ne débite aucune carte. Choisissez un résultat pour tester la confirmation de commande et le processus de livraison.",
     "returnToCart": "Retour au panier"
   },
+  "CustomerProduct": {
+    "detailLabel": "Fiche produit",
+    "backToCatalog": "Retour au catalogue",
+    "storeHome": "Accueil de la boutique",
+    "statusActive": "Actif",
+    "keepShopping": "Continuer vos achats",
+    "productDetailsDescription": "Les informations du produit sont fournies par cette boutique. Choisissez les options disponibles et ajoutez l’article à votre panier.",
+    "storeLogoAlt": "Logo de {store}",
+    "reviewsTitle": "Avis",
+    "reviewEligibility": "Les clients ayant commandé ce produit et payé leur commande peuvent publier un avis.",
+    "reviewsEmpty": "Aucun avis pour le moment.",
+    "reviewRating": "Note",
+    "reviewTitle": "Titre",
+    "reviewBody": "Avis",
+    "reviewSubmitted": "Avis publié.",
+    "reviewSubmitting": "Envoi en cours…",
+    "reviewSubmit": "Publier l’avis",
+    "reviewAlreadyExists": "Vous avez déjà publié un avis sur ce produit.",
+    "reviewPurchaseRequired": "Vous devez avoir payé une commande contenant ce produit pour publier un avis.",
+    "reviewSaveFailed": "Impossible d’enregistrer l’avis.",
+    "reviewRequestFailed": "Le serveur n’a pas pu recevoir la demande d’avis."
+  },
   "Home": {
     "platformName": "Espace commerce",
     "phase": "Phase 1 - Fondations",

@@ -210,6 +210,28 @@
     "demoDescription": "This local-only screen does not charge a card. Choose a result to test the order confirmation and delivery flow.",
     "returnToCart": "Return to cart"
   },
+  "CustomerProduct": {
+    "detailLabel": "Product details",
+    "backToCatalog": "Back to catalog",
+    "storeHome": "Store home",
+    "statusActive": "Active",
+    "keepShopping": "Keep shopping",
+    "productDetailsDescription": "Product information is provided by this store. Select available options and add the item to your cart.",
+    "storeLogoAlt": "{store} logo",
+    "reviewsTitle": "Reviews",
+    "reviewEligibility": "Customers with a paid order for this product can submit one review.",
+    "reviewsEmpty": "No reviews yet.",
+    "reviewRating": "Rating",
+    "reviewTitle": "Title",
+    "reviewBody": "Review",
+    "reviewSubmitted": "Review submitted.",
+    "reviewSubmitting": "Submitting…",
+    "reviewSubmit": "Submit review",
+    "reviewAlreadyExists": "You have already reviewed this product.",
+    "reviewPurchaseRequired": "A paid order for this product is required to submit a review.",
+    "reviewSaveFailed": "The review could not be saved.",
+    "reviewRequestFailed": "The review request could not reach the server."
+  },
   "Home": {
     "platformName": "Commerce Workspace",
     "phase": "Phase 1 · Foundation",

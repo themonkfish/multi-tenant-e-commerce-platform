@@ -210,6 +210,28 @@
     "demoDescription": "यह स्थानीय पेज कार्ड से शुल्क नहीं लेता। ऑर्डर की पुष्टि और डिलीवरी प्रक्रिया जाँचने के लिए परिणाम चुनें।",
     "returnToCart": "कार्ट पर लौटें"
   },
+  "CustomerProduct": {
+    "detailLabel": "उत्पाद का विवरण",
+    "backToCatalog": "कैटलॉग पर लौटें",
+    "storeHome": "स्टोर होम",
+    "statusActive": "सक्रिय",
+    "keepShopping": "खरीदारी जारी रखें",
+    "productDetailsDescription": "उत्पाद की जानकारी इस स्टोर से है। उपलब्ध विकल्प चुनें और उत्पाद को अपने कार्ट में जोड़ें।",
+    "storeLogoAlt": "{store} का लोगो",
+    "reviewsTitle": "समीक्षाएँ",
+    "reviewEligibility": "इस उत्पाद का भुगतान किया हुआ ऑर्डर करने वाले ग्राहक एक समीक्षा दे सकते हैं।",
+    "reviewsEmpty": "अभी कोई समीक्षा नहीं है।",
+    "reviewRating": "रेटिंग",
+    "reviewTitle": "शीर्षक",
+    "reviewBody": "समीक्षा",
+    "reviewSubmitted": "समीक्षा भेज दी गई।",
+    "reviewSubmitting": "भेजा जा रहा है…",
+    "reviewSubmit": "समीक्षा भेजें",
+    "reviewAlreadyExists": "आप इस उत्पाद की समीक्षा पहले ही दे चुके हैं।",
+    "reviewPurchaseRequired": "समीक्षा देने के लिए इस उत्पाद का भुगतान किया हुआ ऑर्डर आवश्यक है।",
+    "reviewSaveFailed": "समीक्षा सेव नहीं हो सकी।",
+    "reviewRequestFailed": "समीक्षा अनुरोध सर्वर तक नहीं पहुँच सका।"
+  },
   "Home": {
     "platformName": "कॉमर्स वर्कस्पेस",
     "phase": "चरण 1 · नींव",

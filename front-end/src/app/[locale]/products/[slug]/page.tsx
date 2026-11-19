@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { formatCurrencyAmount } from "@/core/domain/money";
 import {
@@ -19,6 +20,7 @@ export default async function TenantProductDetailPage({
   params,
 }: ProductDetailPageProps) {
   const { locale, slug } = await params;
+  const t = await getTranslations({ locale, namespace: "CustomerProduct" });
   const requestScope = await getRequestDomainScope();
 
   if (requestScope?.kind !== "tenant") {
@@ -88,7 +90,7 @@ export default async function TenantProductDetailPage({
         <div className="flex items-center gap-3">
           {settings.branding.logoUrl ? (
             <img
-              alt={`${settings.branding.name} logo`}
+              alt={t("storeLogoAlt", { store: settings.branding.name })}
               className="h-12 w-12 rounded-lg object-cover"
               src={settings.branding.logoUrl}
             />
@@ -102,7 +104,7 @@ export default async function TenantProductDetailPage({
           )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Product detail
+              {t("detailLabel")}
             </p>
             <h1 className="text-2xl font-semibold text-slate-950">
               {settings.branding.name}
@@ -115,13 +117,13 @@ export default async function TenantProductDetailPage({
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}/products`}
           >
-            Back to catalog
+            {t("backToCatalog")}
           </Link>
           <Link
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}`}
           >
-            Store home
+            {t("storeHome")}
           </Link>
         </div>
       </header>
@@ -161,7 +163,7 @@ export default async function TenantProductDetailPage({
                 color: settings.branding.accentColor,
               }}
             >
-              {product.status}
+              {t("statusActive")}
             </span>
           </div>
 
@@ -207,15 +209,12 @@ export default async function TenantProductDetailPage({
               className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
               href={`/${locale}/products`}
             >
-              Keep shopping
+              {t("keepShopping")}
             </Link>
           </div>
 
           <p className="max-w-2xl text-lg leading-8 text-slate-600">
-            Product details are rendered from the tenant’s connected catalog
-            backend. This preview includes a cart flow placeholder and a simple
-            checkout completion state, while full commerce runtime remains
-            future work.
+            {t("productDetailsDescription")}
           </p>
         </div>
       </article>
