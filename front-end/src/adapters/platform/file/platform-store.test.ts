@@ -471,6 +471,17 @@ describe("FilePlatformStore", () => {
       passwordHash: "argon2id-hash",
       createdAt: new Date().toISOString(),
     });
+    const review = {
+      id: "550e8400-e29b-41d4-a716-446655440042",
+      tenantId: tenant.id,
+      productId: "product-1",
+      customerId: customer.id,
+      rating: 5,
+      title: "Excellent",
+      body: "A useful product.",
+      createdAt: new Date().toISOString(),
+    };
+    await store.createProductReview(review);
 
     await expect(
       store.deleteCustomerAccount(tenant.id, customer.id),
@@ -478,6 +489,9 @@ describe("FilePlatformStore", () => {
     await expect(
       store.getCustomerAccountForTenant(tenant.id, customer.id),
     ).resolves.toBeNull();
+    await expect(
+      store.listProductReviews(tenant.id, "product-1"),
+    ).resolves.toEqual([]);
   });
 
   it("purges platform-owned tenant records when deleting a tenant", async () => {

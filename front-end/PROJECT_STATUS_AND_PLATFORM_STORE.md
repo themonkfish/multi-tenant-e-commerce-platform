@@ -454,7 +454,8 @@ Status snapshot as of 2026-11-19:
 - [x] Product reviews: authenticated Customers with a paid tenant order
       containing the product can submit one tenant-scoped review per product;
       missing or inactive products are rejected, and active storefront product
-      pages show public reviews.
+      pages show public reviews. Duplicate submissions return a conflict, and
+      Customer account deletion removes that Customer’s reviews.
 
 #### Production decisions and hardening
 

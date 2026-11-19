@@ -202,4 +202,33 @@ describe("product review routes", () => {
     expect(await response.json()).toEqual({ review: savedReview });
     expect(createProductReview).toHaveBeenCalledOnce();
   });
+
+  it("returns a conflict when the Customer already reviewed the product", async () => {
+    customerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    const createProductReview = vi
+      .fn()
+      .mockRejectedValue(new Error("A review already exists for this product"));
+    store.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listCustomerOrders: vi.fn().mockResolvedValue([
+        {
+          paymentStatus: "paid",
+          items: [{ productId: "product-1" }],
+        },
+      ]),
+      createProductReview,
+    });
+
+    const response = await POST(reviewRequest(), {
+      params: Promise.resolve({ productId: "product-1" }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "review_exists" });
+  });
 });
