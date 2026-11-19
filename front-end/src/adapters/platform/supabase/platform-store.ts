@@ -2013,6 +2013,27 @@ export class SupabasePlatformStore implements PlatformStore {
     );
   }
 
+  async deleteTenantForHost(
+    hostId: string,
+    tenantId: string,
+    auditEvent: AuditEvent,
+  ): Promise<"deleted" | "not_found"> {
+    const { data, error } = await this.client.rpc("delete_platform_tenant", {
+      p_host_id: hostId,
+      p_tenant_id: tenantId,
+      p_actor_id: auditEvent.actorId,
+      p_audit_id: auditEvent.id,
+      p_audit_action: auditEvent.action,
+      p_audit_resource_type: auditEvent.resourceType,
+      p_audit_resource_id: auditEvent.resourceId ?? null,
+      p_audit_created_at: auditEvent.createdAt,
+    });
+    if (error) {
+      throw new Error(`Could not delete tenant: ${error.message}`);
+    }
+    return data ? "deleted" : "not_found";
+  }
+
   async putSecretRecord(record: SecretRecord): Promise<void> {
     const { error } = await this.client.from("platform_secret_vault").upsert({
       ref: record.ref,

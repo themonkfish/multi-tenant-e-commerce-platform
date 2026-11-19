@@ -379,6 +379,36 @@ export function HostTenantManagement({
     }
   }
 
+  async function deleteTenant(tenant: TenantRecord) {
+    if (
+      !window.confirm(
+        `Permanently delete tenant "${tenant.name}" and its platform-owned customers, staff, orders, settings, connections, and domains?`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/host/tenants/${tenant.id}`, {
+        method: "DELETE",
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(describeTenantError(errorCode(body)));
+        return;
+      }
+      setTenants((current) => current.filter((item) => item.id !== tenant.id));
+      setDomainClaims((current) =>
+        current.filter((claim) => claim.tenantId !== tenant.id),
+      );
+    } catch {
+      setError("The request could not reach the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-10">
       <section aria-labelledby="tenant-list-heading" className="space-y-4">
@@ -463,21 +493,31 @@ export function HostTenantManagement({
                     <TenantOwnerInviteControl tenant={tenant} />
                   )}
                 </div>
-                <button
-                  className="shrink-0 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
-                  disabled={busy}
-                  onClick={() =>
-                    void updateStatus(
-                      tenant,
-                      tenant.status === "active" ? "suspended" : "active",
-                    )
-                  }
-                  type="button"
-                >
-                  {tenant.status === "active"
-                    ? "Suspend tenant"
-                    : "Activate tenant"}
-                </button>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <button
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+                    disabled={busy}
+                    onClick={() =>
+                      void updateStatus(
+                        tenant,
+                        tenant.status === "active" ? "suspended" : "active",
+                      )
+                    }
+                    type="button"
+                  >
+                    {tenant.status === "active"
+                      ? "Suspend tenant"
+                      : "Activate tenant"}
+                  </button>
+                  <button
+                    className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    disabled={busy}
+                    onClick={() => void deleteTenant(tenant)}
+                    type="button"
+                  >
+                    Delete tenant
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

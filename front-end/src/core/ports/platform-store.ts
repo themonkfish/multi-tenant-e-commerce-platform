@@ -347,6 +347,11 @@ export interface PlatformStore
     updatedAt: string;
     auditEvent: AuditEvent;
   }): Promise<TenantRecord | null>;
+  deleteTenantForHost(
+    hostId: string,
+    tenantId: string,
+    auditEvent: AuditEvent,
+  ): Promise<"deleted" | "not_found">;
   putSecretRecord(record: SecretRecord): Promise<void>;
   getSecretRecord(ref: string): Promise<SecretRecord | null>;
   deleteSecretRecord(ref: string): Promise<void>;

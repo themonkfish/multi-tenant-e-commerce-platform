@@ -367,6 +367,46 @@ describe("FilePlatformStore", () => {
     await expect(store.getHostById(tenantHost.id)).resolves.toEqual(tenantHost);
   });
 
+  it("purges platform-owned tenant records when deleting a tenant", async () => {
+    const store = await createStore();
+    const host = hostConfig({
+      status: "active",
+      domains: [],
+    });
+    await store.createHost(host, hostAudit());
+    const tenant = {
+      id: "550e8400-e29b-41d4-a716-446655440020",
+      hostId: host.id,
+      slug: "delete-me",
+      name: "Delete Me",
+      status: "active" as const,
+      plan: "starter",
+      domains: ["delete.example.com"],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await store.createTenantForHost(tenant, hostAudit("tenant.created"));
+
+    await expect(
+      store.deleteTenantForHost(
+        host.id,
+        tenant.id,
+        hostAudit("tenant.deleted"),
+      ),
+    ).resolves.toBe("deleted");
+    await expect(store.listTenantsForHost(host.id)).resolves.toEqual([]);
+    await expect(
+      store.getTenantByDomain("delete.example.com"),
+    ).resolves.toBeNull();
+    await expect(
+      store.deleteTenantForHost(
+        host.id,
+        "550e8400-e29b-41d4-a716-446655440021",
+        hostAudit("tenant.deleted"),
+      ),
+    ).resolves.toBe("not_found");
+  });
+
   it("reads existing platform store files that predate host records", async () => {
     const store = await createStore();
     await writeFile(

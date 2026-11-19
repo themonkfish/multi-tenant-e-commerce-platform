@@ -90,3 +90,52 @@ export async function PATCH(request: Request, { params }: TenantRouteProps) {
   }
   return NextResponse.json({ tenant });
 }
+
+export async function DELETE(request: Request, { params }: TenantRouteProps) {
+  const session = await getHostOwnerSession();
+  if (!session || session.scope.kind !== "host") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
+  }
+  const { tenantId } = await params;
+  if (!z.uuid().safeParse(tenantId).success) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  if (
+    !canAccessPermission(session, "tenant:write", {
+      kind: "tenant",
+      id: tenantId,
+      hostId: session.scope.id,
+    })
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const store = getPlatformStore();
+  const allowed = await store.consumeRateLimit({
+    key: createRateLimitKey(request, "host-tenant-delete", session.userId),
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+    now: Date.now(),
+  });
+  if (!allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
+  const now = new Date().toISOString();
+  const result = await store.deleteTenantForHost(session.scope.id, tenantId, {
+    id: randomUUID(),
+    actorId: session.userId,
+    scope: { kind: "host", id: session.scope.id },
+    action: "tenant.deleted",
+    resourceType: "tenant",
+    resourceId: tenantId,
+    createdAt: now,
+  });
+  if (result === "not_found") {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  return NextResponse.json({ deleted: true });
+}

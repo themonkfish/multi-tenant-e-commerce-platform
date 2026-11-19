@@ -118,6 +118,10 @@ Status snapshot as of 2026-11-19:
 - [x] Super Admin plan and usage view: host plans, tenant counts, custom-domain
       usage, configured limits, and account status are shown. Live invoicing and
       billing-provider integration remain future work.
+- [x] Host tenant deletion: Host Owners can permanently delete a tenant and
+      its platform-owned staff, customers, orders, settings, connections,
+      domains, invites, discounts, and secrets. External provider data requires
+      separate purge procedures.
 - [x] Super Admin role matrix: effective platform, host, tenant, staff, and
       customer permissions are visible in the dashboard. Host Staff accounts
       and broader Super Admin staff-account management remain future work.
@@ -429,8 +433,8 @@ Status snapshot as of 2026-11-19:
       orders consume stock when placed.
 - [ ] Add observability, CI/CD, dependency/license scanning, SBOM and third-
       party notices, backups, tenant export/deletion, and compliance workflows.
-      Tenant JSON export is implemented; destructive tenant deletion and purge
-      workflows remain pending.
+      Tenant JSON export and Host-owned platform-record purging are implemented;
+      external provider data requires separate purge procedures.
 - [ ] Decide whether tenants may move between hosts or data providers, how
       migrations work, and which compliance regions/data residency are required.
 
@@ -643,8 +647,8 @@ Before deploying the app:
    `0016_tenant_storage_providers.sql`,
    `0017_order_fulfillment_tracking.sql`,
    `0018_checkout_shipping.sql`, `0019_discount_codes.sql`, and
-   `0020_checkout_tax.sql`, `0021_host_updates.sql`, and
-   `0022_host_deletion.sql`.
+   `0020_checkout_tax.sql`, `0021_host_updates.sql`,
+   `0022_host_deletion.sql`, and `0023_tenant_deletion.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

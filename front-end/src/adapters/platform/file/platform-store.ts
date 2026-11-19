@@ -1862,6 +1862,63 @@ export class FilePlatformStore implements PlatformStore {
     });
   }
 
+  async deleteTenantForHost(
+    hostId: string,
+    tenantId: string,
+    auditEvent: AuditEvent,
+  ): Promise<"deleted" | "not_found"> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenantIndex = state.tenants.findIndex(
+        (tenant) => tenant.id === tenantId && tenant.hostId === hostId,
+      );
+      if (tenantIndex === -1) {
+        return "not_found";
+      }
+
+      state.tenants.splice(tenantIndex, 1);
+      state.tenantDomainClaims = state.tenantDomainClaims.filter(
+        (claim) => claim.tenantId !== tenantId || claim.hostId !== hostId,
+      );
+      state.tenantOwnerInvites = state.tenantOwnerInvites.filter(
+        (invite) => invite.tenantId !== tenantId || invite.hostId !== hostId,
+      );
+      state.tenantOwners = state.tenantOwners.filter(
+        (owner) => owner.tenantId !== tenantId || owner.hostId !== hostId,
+      );
+      state.tenantStaff = state.tenantStaff.filter(
+        (staff) => staff.tenantId !== tenantId || staff.hostId !== hostId,
+      );
+      state.customerAccounts = state.customerAccounts.filter(
+        (account) => account.tenantId !== tenantId,
+      );
+      state.customerOrders = state.customerOrders.filter(
+        (order) => order.tenantId !== tenantId,
+      );
+      state.tenantStoreSettings = state.tenantStoreSettings.filter(
+        (record) => record.tenantId !== tenantId || record.hostId !== hostId,
+      );
+      state.discountRedemptions = state.discountRedemptions.filter(
+        (record) => record.tenantId !== tenantId,
+      );
+      state.tenantRestConnections = state.tenantRestConnections.filter(
+        (record) => record.tenantId !== tenantId || record.hostId !== hostId,
+      );
+      state.tenantDatabaseProviders = state.tenantDatabaseProviders.filter(
+        (record) => record.tenantId !== tenantId || record.hostId !== hostId,
+      );
+      state.tenantStorageProviders = state.tenantStorageProviders.filter(
+        (record) => record.tenantId !== tenantId || record.hostId !== hostId,
+      );
+      state.secrets = state.secrets.filter(
+        (secret) => secret.tenantId !== tenantId,
+      );
+      state.auditEvents.push(auditEvent);
+      await this.writeState(state);
+      return "deleted";
+    });
+  }
+
   async putSecretRecord(record: SecretRecord): Promise<void> {
     await this.withLock(async () => {
       const state = await this.readState();
