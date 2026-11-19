@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useOrderStore } from "@/features/storefront/order-store";
 import { formatCurrencyAmount } from "@/core/domain/money";
@@ -17,6 +18,7 @@ export function StorefrontCustomerAccount({
   customer: { email: string; orders: CustomerOrder[] } | null;
 }) {
   const router = useRouter();
+  const t = useTranslations("CustomerAccount");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -31,11 +33,7 @@ export function StorefrontCustomerAccount({
   });
 
   async function deleteAccount() {
-    if (
-      !window.confirm(
-        "Permanently delete this Customer account and its order history?",
-      )
-    ) {
+    if (!window.confirm(t("deleteAccountConfirm"))) {
       return;
     }
     setBusy(true);
@@ -45,23 +43,19 @@ export function StorefrontCustomerAccount({
         method: "DELETE",
       });
       if (!response.ok) {
-        setError("The account could not be deleted. Please try again.");
+        setError(t("deleteAccountFailure"));
         return;
       }
       router.push(`/${locale}/account`);
     } catch {
-      setError("The account request could not reach the server.");
+      setError(t("accountRequestFailure"));
     } finally {
       setBusy(false);
     }
   }
 
   async function cancelOrder(orderId: string) {
-    if (
-      !window.confirm(
-        "Cancel this unpaid cash-on-delivery order? This cannot be undone.",
-      )
-    ) {
+    if (!window.confirm(t("cancelOrderConfirm"))) {
       return;
     }
     setCancellingOrderId(orderId);
@@ -79,16 +73,16 @@ export function StorefrontCustomerAccount({
             body !== null &&
             "error" in body &&
             body.error === "order_sync_pending"
-            ? "This order must sync with the store before it can be cancelled."
-            : "This order could not be cancelled. It may already be processing.",
+            ? t("cancelOrderSyncRequired")
+            : t("cancelOrderFailure"),
         );
         router.refresh();
         return;
       }
-      setNotice(`Order ${orderId} cancelled.`);
+      setNotice(t("orderCancelled", { orderId }));
       router.refresh();
     } catch {
-      setError("The cancellation request could not reach the server.");
+      setError(t("cancellationRequestFailure"));
     } finally {
       setCancellingOrderId(null);
     }
@@ -98,15 +92,17 @@ export function StorefrontCustomerAccount({
     <section className="space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Account overview
+          {t("accountOverview")}
         </p>
         <h2 className="mt-2 text-3xl font-semibold text-slate-950">
-          {customer ? `Welcome, ${customer.email}` : "Order preview"}
+          {customer
+            ? t("welcome", { email: customer.email })
+            : t("orderPreview")}
         </h2>
         <p className="mt-2 text-sm text-slate-600">
           {customer
-            ? "These orders are loaded from your private account in this store."
-            : "Preview orders are stored only in this browser. Sign in to view tenant-scoped account orders."}
+            ? t("customerOrdersDescription")
+            : t("previewOrdersDescription")}
         </p>
         {error && (
           <p className="mt-3 text-sm text-red-700" role="alert">
@@ -125,7 +121,7 @@ export function StorefrontCustomerAccount({
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
                 type="submit"
               >
-                Sign out
+                {t("signOut")}
               </button>
             </form>
             <button
@@ -134,7 +130,7 @@ export function StorefrontCustomerAccount({
               onClick={() => void deleteAccount()}
               type="button"
             >
-              {busy ? "Deleting…" : "Delete account"}
+              {busy ? t("deleting") : t("deleteAccount")}
             </button>
           </div>
         ) : (
@@ -142,7 +138,7 @@ export function StorefrontCustomerAccount({
             className="mt-4 inline-flex rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white"
             href={`/${locale}/customer/login`}
           >
-            Sign in or create account
+            {t("signIn")}
           </Link>
         )}
       </div>
@@ -150,21 +146,23 @@ export function StorefrontCustomerAccount({
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="text-xl font-semibold text-slate-900">
-            Recent orders
+            {t("recentOrders")}
           </h3>
           <Link
             className="text-sm font-medium text-slate-700 underline"
             href={`/${locale}/products`}
           >
-            Shop more
+            {t("shopMore")}
           </Link>
         </div>
 
         {orders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-            <p className="text-lg font-medium text-slate-900">No orders yet</p>
+            <p className="text-lg font-medium text-slate-900">
+              {t("noOrders")}
+            </p>
             <p className="mt-2 text-sm text-slate-600">
-              Orders you place while signed in will appear here.
+              {t("noOrdersDescription")}
             </p>
           </div>
         ) : (
@@ -180,31 +178,42 @@ export function StorefrontCustomerAccount({
                       {order.id}
                     </p>
                     <h4 className="mt-1 text-lg font-semibold text-slate-900">
-                      {order.itemCount} item{order.itemCount === 1 ? "" : "s"}
+                      {t("items", { count: order.itemCount })}
                     </h4>
                   </div>
                   <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
                     {order.status === "Cancelled"
-                      ? "Cancelled"
+                      ? t("orderStatus.cancelled")
                       : "paymentMethod" in order &&
                           order.paymentMethod === "cash_on_delivery" &&
                           order.paymentStatus === "cod_due"
-                        ? "Cash due on delivery"
+                        ? t("cashDue")
                         : "paymentMethod" in order &&
                             order.paymentMethod === "cash_on_delivery" &&
                             order.paymentStatus === "paid"
-                          ? "Cash collected"
+                          ? t("cashCollected")
                           : "paymentStatus" in order &&
                               order.paymentStatus !== "paid"
-                            ? `Payment ${order.paymentStatus}`
-                            : order.status}
+                            ? order.paymentStatus === "pending"
+                              ? t("paymentPending")
+                              : t("paymentFailed")
+                            : order.status === "Confirmed"
+                              ? t("orderStatus.confirmed")
+                              : order.status === "Processing"
+                                ? t("orderStatus.processing")
+                                : order.status === "Shipped"
+                                  ? t("orderStatus.shipped")
+                                  : t("orderStatus.delivered")}
                   </span>
                 </div>
 
                 <div className="mt-3 flex flex-col justify-between gap-2 text-sm text-slate-600 sm:flex-row">
                   <span>
-                    Ordered{" "}
-                    {orderDateFormatter.format(new Date(order.createdAt))}
+                    {t("ordered", {
+                      date: orderDateFormatter.format(
+                        new Date(order.createdAt),
+                      ),
+                    })}
                   </span>
                   <span className="font-semibold text-slate-900">
                     {customer
@@ -221,20 +230,20 @@ export function StorefrontCustomerAccount({
                   "shippingAmount" in order &&
                   (order.shippingAmount ?? 0) > 0 && (
                     <p className="mt-2 text-sm text-slate-600">
-                      Includes{" "}
-                      {formatCurrencyAmount(
-                        order.shippingAmount ?? 0,
-                        order.currency,
-                        locale,
-                      )}{" "}
-                      shipping
+                      {t("includesShipping", {
+                        amount: formatCurrencyAmount(
+                          order.shippingAmount ?? 0,
+                          order.currency,
+                          locale,
+                        ),
+                      })}
                     </p>
                   )}
                 {customer &&
                   "discountAmount" in order &&
                   (order.discountAmount ?? 0) > 0 && (
                     <p className="mt-2 text-sm text-slate-600">
-                      Discount
+                      {t("discount")}
                       {"discountCode" in order && order.discountCode
                         ? ` (${order.discountCode})`
                         : ""}
@@ -248,27 +257,30 @@ export function StorefrontCustomerAccount({
                         "taxAmount" in order &&
                         (order.taxAmount ?? 0) > 0 && (
                           <p className="mt-2 text-sm text-slate-600">
-                            Includes{" "}
-                            {formatCurrencyAmount(
-                              order.taxAmount ?? 0,
-                              order.currency,
-                              locale,
-                            )}{" "}
-                            tax
+                            {t("includesTax", {
+                              amount: formatCurrencyAmount(
+                                order.taxAmount ?? 0,
+                                order.currency,
+                                locale,
+                              ),
+                            })}
                           </p>
                         )}
                     </p>
                   )}
                 {"deliveryAddress" in order && order.deliveryAddress && (
                   <p className="mt-3 text-sm text-slate-600">
-                    Deliver to {order.deliveryAddress.fullName},{" "}
-                    {order.deliveryAddress.line1}, {order.deliveryAddress.city}
+                    {t("deliverTo", {
+                      name: order.deliveryAddress.fullName,
+                      address: order.deliveryAddress.line1,
+                      city: order.deliveryAddress.city,
+                    })}
                   </p>
                 )}
                 {"fulfillment" in order && order.fulfillment && (
                   <div className="mt-3 rounded-md border border-indigo-100 bg-indigo-50 p-3 text-sm">
                     <p className="font-medium text-slate-900">
-                      Shipment tracking
+                      {t("shipmentTracking")}
                     </p>
                     <p className="mt-1 text-slate-700">
                       {order.fulfillment.carrier
@@ -283,7 +295,7 @@ export function StorefrontCustomerAccount({
                         rel="noreferrer"
                         target="_blank"
                       >
-                        Track shipment
+                        {t("trackShipment")}
                       </a>
                     )}
                   </div>
@@ -310,10 +322,10 @@ export function StorefrontCustomerAccount({
                       type="button"
                     >
                       {cancellingOrderId === order.id
-                        ? "Cancelling…"
+                        ? t("cancelling")
                         : order.status === "Cancelled"
-                          ? "Retry cancellation"
-                          : "Cancel order"}
+                          ? t("retryCancellation")
+                          : t("cancelOrder")}
                     </button>
                   )}
               </article>

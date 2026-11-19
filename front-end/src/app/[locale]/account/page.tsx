@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { StorefrontCustomerAccount } from "@/features/storefront/customer-account";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
@@ -13,6 +14,10 @@ type AccountPageProps = {
 
 export default async function AccountPage({ params }: AccountPageProps) {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "CustomerAccount",
+  });
   const requestScope = await getRequestDomainScope();
 
   if (requestScope?.kind !== "tenant") {
@@ -56,7 +61,7 @@ export default async function AccountPage({ params }: AccountPageProps) {
         <div className="flex items-center gap-3">
           {settings.branding.logoUrl ? (
             <img
-              alt={`${settings.branding.name} logo`}
+              alt={t("logoAlt", { store: settings.branding.name })}
               className="h-12 w-12 rounded-lg object-cover"
               src={settings.branding.logoUrl}
             />
@@ -70,7 +75,7 @@ export default async function AccountPage({ params }: AccountPageProps) {
           )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Customer account
+              {t("accountTitle")}
             </p>
             <h1 className="text-2xl font-semibold text-slate-950">
               {settings.branding.name}
@@ -82,13 +87,13 @@ export default async function AccountPage({ params }: AccountPageProps) {
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}`}
           >
-            Store home
+            {t("storeHome")}
           </Link>
           <Link
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
             href={`/${locale}/products`}
           >
-            Catalog
+            {t("catalog")}
           </Link>
         </div>
       </header>

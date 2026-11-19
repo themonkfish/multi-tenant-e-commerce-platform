@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   CustomerOrderSchema,
   type CustomerOrder,
@@ -11,6 +12,7 @@ export function CustomerOrderSyncStatus({
 }: {
   initialOrder: CustomerOrder;
 }) {
+  const t = useTranslations("CustomerOrderSync");
   const [order, setOrder] = useState(initialOrder);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState("");
@@ -30,9 +32,7 @@ export function CustomerOrderSyncStatus({
             ? body.error
             : undefined;
         setRetryError(
-          code === "rate_limited"
-            ? "Too many retry attempts. Please wait a few minutes."
-            : "Could not retry delivery. Please try again.",
+          code === "rate_limited" ? t("rateLimited") : t("retryFailed"),
         );
         return;
       }
@@ -41,12 +41,12 @@ export function CustomerOrderSyncStatus({
           ? CustomerOrderSchema.safeParse(body.order)
           : null;
       if (!result?.success) {
-        setRetryError("The server returned an invalid order status.");
+        setRetryError(t("invalidStatus"));
         return;
       }
       setOrder(result.data);
     } catch {
-      setRetryError("Could not reach the server. Please try again.");
+      setRetryError(t("unreachable"));
     } finally {
       setRetrying(false);
     }
@@ -62,15 +62,13 @@ export function CustomerOrderSyncStatus({
       role="status"
     >
       {order.backendSyncStatus === "synced" ? (
-        <p>Order delivered to the connected Tenant backend.</p>
+        <p>{t("delivered")}</p>
       ) : order.backendSyncStatus === "not_configured" ? (
-        <p>Tenant backend delivery was not requested for this order.</p>
+        <p>{t("notRequested")}</p>
       ) : (
         <>
           <p className="font-medium">
-            {order.backendSyncStatus === "pending"
-              ? "Order delivery is still pending."
-              : "Order is saved, but delivery to the store backend did not complete."}
+            {order.backendSyncStatus === "pending" ? t("pending") : t("failed")}
           </p>
           {order.backendSyncError && (
             <p className="mt-1">{order.backendSyncError}</p>
@@ -86,7 +84,7 @@ export function CustomerOrderSyncStatus({
             onClick={retrySync}
             type="button"
           >
-            {retrying ? "Retrying…" : "Retry delivery"}
+            {retrying ? t("retrying") : t("retry")}
           </button>
         </>
       )}
