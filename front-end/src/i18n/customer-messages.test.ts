@@ -12,6 +12,7 @@ const localizedMessages = {
 const namespaces = [
   "CustomerAuth",
   "CustomerAccount",
+  "CustomerCart",
   "CustomerOrderProgress",
   "CustomerOrderSync",
 ] as const;

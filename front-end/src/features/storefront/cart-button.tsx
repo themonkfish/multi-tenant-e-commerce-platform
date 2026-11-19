@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ProductOption } from "@/core/ports/data";
 import type { ProductVariant, ProductVariantPricing } from "@/core/ports/data";
 import { findProductVariantPricing } from "@/core/domain/product";
@@ -13,6 +14,7 @@ import {
 } from "@/features/storefront/cart-store";
 
 export function StorefrontCartButton({ locale }: { locale: string }) {
+  const t = useTranslations("CustomerCart");
   const items = useCartStore((state) => state.items);
   const quantity = useMemo(
     () => items.reduce((total, item) => total + item.quantity, 0),
@@ -24,7 +26,7 @@ export function StorefrontCartButton({ locale }: { locale: string }) {
       className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
       href={`/${locale}/cart`}
     >
-      Cart
+      {t("cart")}
       <span className="rounded-full bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
         {quantity}
       </span>
@@ -45,6 +47,7 @@ export function StorefrontAddToCartButton({
   variantPricing?: ProductVariantPricing[];
   locale?: string;
 }) {
+  const t = useTranslations("CustomerCart");
   const addItem = useCartStore((state) => state.addItem);
   const cartItems = useCartStore((state) => state.items);
   const [selections, setSelections] = useState<Record<string, string>>({});
@@ -84,7 +87,7 @@ export function StorefrontAddToCartButton({
               }))
             }
           >
-            <option value="">Choose {option.name}</option>
+            <option value="">{t("chooseOption", { name: option.name })}</option>
             {option.values.map((value) => (
               <option key={value} value={value}>
                 {value}
@@ -112,7 +115,7 @@ export function StorefrontAddToCartButton({
         style={{ backgroundColor: "#111827" }}
         type="button"
       >
-        {outOfStock ? "Out of stock" : "Add to cart"}
+        {outOfStock ? t("outOfStock") : t("addToCart")}
         <span className="ml-2 text-xs text-slate-200">{item.currency}</span>
       </button>
       {ready && (

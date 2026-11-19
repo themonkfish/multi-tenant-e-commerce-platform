@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useMemo, useRef, useState } from "react";
 import {
   CustomerDeliveryAddressSchema,
@@ -28,6 +29,7 @@ export function StorefrontCartPage({
   currency: string;
 }) {
   const router = useRouter();
+  const t = useTranslations("CustomerCart");
   const items = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
@@ -118,14 +120,14 @@ export function StorefrontCartPage({
             : "";
         setDiscountError(
           code === "discount_expired"
-            ? "This discount code has expired."
+            ? t("errors.discountExpired")
             : code === "discount_minimum_not_met"
-              ? "Your subtotal does not meet this code's minimum."
+              ? t("errors.discountMinimumNotMet")
               : code === "discount_limit_reached"
-                ? "This discount code has reached its redemption limit."
+                ? t("errors.discountLimitReached")
                 : code === "rate_limited"
-                  ? "Too many code checks. Wait a few minutes and try again."
-                  : "This discount code is invalid or unavailable.",
+                  ? t("errors.discountRateLimited")
+                  : t("errors.discountInvalid"),
         );
         return;
       }
@@ -137,7 +139,7 @@ export function StorefrontCartPage({
         !("discountAmount" in body) ||
         typeof body.discountAmount !== "number"
       ) {
-        setDiscountError("The server returned an invalid discount response.");
+        setDiscountError(t("errors.discountInvalidResponse"));
         return;
       }
       const normalizedCode = body.code;
@@ -149,7 +151,7 @@ export function StorefrontCartPage({
       });
       idempotencyKey.current = crypto.randomUUID();
     } catch {
-      setDiscountError("The discount code could not be checked. Try again.");
+      setDiscountError(t("errors.discountUnavailable"));
     } finally {
       setApplyingDiscount(false);
     }
@@ -164,7 +166,7 @@ export function StorefrontCartPage({
     }
 
     if (!CustomerDeliveryAddressSchema.safeParse(deliveryAddress).success) {
-      setError("Enter a valid Indian delivery address and +91 mobile number.");
+      setError(t("errors.invalidDeliveryAddress"));
       return;
     }
 
@@ -191,7 +193,7 @@ export function StorefrontCartPage({
       });
       const body: unknown = await response.json();
       if (response.status === 202) {
-        setError("Payment is processing. Check your account before retrying.");
+        setError(t("errors.paymentProcessing"));
         return;
       }
       if (!response.ok) {
@@ -207,43 +209,54 @@ export function StorefrontCartPage({
         }
         setError(
           code === "discount_limit_reached"
-            ? "This discount code has reached its redemption limit. Remove it or choose another code."
+            ? t("errors.discountLimitDuringCheckout")
             : code === "discount_minimum_not_met"
-              ? "Your subtotal no longer meets this discount code's minimum."
+              ? t("errors.discountMinimumDuringCheckout")
               : code === "discount_expired"
-                ? "This discount code has expired. Remove it or choose another code."
+                ? t("errors.discountExpiredDuringCheckout")
                 : code === "discount_currency_unsupported"
-                  ? `This discount requires the default store currency (${currency}).`
+                  ? t("errors.discountCurrencyUnsupported", { currency })
                   : code === "discount_code_invalid"
-                    ? "This discount code is no longer valid."
+                    ? t("errors.discountCodeNoLongerValid")
                     : code === "cart_changed"
-                      ? "A product changed, its price was updated, or it is no longer available. Review your cart and try again."
+                      ? t("errors.cartChanged")
                       : code === "insufficient_stock"
-                        ? "One or more variants no longer have enough stock. Review your cart and try again."
+                        ? t("errors.insufficientStock")
                         : code === "connection_not_configured"
-                          ? "This store has not connected a product backend, so checkout is unavailable."
+                          ? t("errors.productBackendNotConfigured")
                           : code === "tenant_backend_unavailable"
-                            ? "The store's product backend is temporarily unavailable. Try again later."
+                            ? t("errors.productBackendUnavailable")
                             : code === "payment_not_configured"
-                              ? "Secure checkout is not configured for this store."
+                              ? t("errors.paymentNotConfigured")
                               : code === "payment_provider_unavailable"
-                                ? "Secure checkout is temporarily unavailable. Try again later."
+                                ? t("errors.paymentUnavailable")
                                 : code === "payment_method_disabled"
-                                  ? "This payment method is disabled for this store."
+                                  ? t("errors.paymentMethodDisabled")
                                   : code ===
                                       "cash_on_delivery_currency_unsupported"
-                                    ? "Cash on delivery is available only for INR orders."
+                                    ? t(
+                                        "errors.cashOnDeliveryCurrencyUnsupported",
+                                      )
                                     : code === "invalid_cart"
-                                      ? "Enter a valid Indian delivery address and mobile number."
+                                      ? t("errors.invalidDeliveryAddress")
                                       : code === "shipping_currency_unsupported"
-                                        ? `Shipping rates are configured in ${currency}. Update the store's default currency or shipping settings.`
+                                        ? t(
+                                            "errors.shippingCurrencyUnsupported",
+                                            {
+                                              currency,
+                                            },
+                                          )
                                         : code === "free_checkout_not_supported"
-                                          ? "Free orders cannot be checked out using card payment."
+                                          ? t(
+                                              "errors.freeCardCheckoutUnsupported",
+                                            )
                                           : code === "idempotency_key_conflict"
-                                            ? "This checkout attempt is already associated with a different cart. Refresh the cart and try again."
+                                            ? t("errors.idempotencyConflict")
                                             : code === "rate_limited"
-                                              ? "Too many checkout attempts. Wait a few minutes and try again."
-                                              : "The order could not be placed. Please try again.",
+                                              ? t("errors.checkoutRateLimited")
+                                              : t(
+                                                  "errors.orderPlacementFailed",
+                                                ),
         );
         return;
       }
@@ -252,7 +265,7 @@ export function StorefrontCartPage({
           ? CustomerOrderSchema.safeParse(body.order)
           : null;
       if (!order?.success) {
-        setError("The server returned an invalid checkout response.");
+        setError(t("errors.invalidCheckoutResponse"));
         return;
       }
       if (
@@ -270,7 +283,7 @@ export function StorefrontCartPage({
           ? body.checkoutUrl
           : undefined;
       if (typeof checkoutUrl !== "string") {
-        setError("The server did not return a secure payment link.");
+        setError(t("errors.paymentLinkMissing"));
         return;
       }
       const checkout = new URL(checkoutUrl);
@@ -282,12 +295,12 @@ export function StorefrontCartPage({
             `/${encodeURIComponent(locale)}/checkout/demo` &&
           checkout.searchParams.get("orderId") === order.data.id)
       )) {
-        setError("The server returned an invalid checkout link.");
+        setError(t("errors.invalidPaymentLink"));
         return;
       }
       window.location.assign(checkout.toString());
     } catch {
-      setError("Checkout could not reach the server. Please try again.");
+      setError(t("errors.checkoutUnavailable"));
     } finally {
       setCheckingOut(false);
     }
@@ -297,11 +310,9 @@ export function StorefrontCartPage({
     return (
       <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
         <h2 className="text-2xl font-semibold text-slate-900">
-          Your cart is empty
+          {t("emptyTitle")}
         </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Add active products to your cart to place an order.
-        </p>
+        <p className="mt-2 text-sm text-slate-600">{t("emptyDescription")}</p>
       </section>
     );
   }
@@ -332,7 +343,7 @@ export function StorefrontCartPage({
             </div>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm text-slate-600">
-                Qty
+                {t("quantity")}
                 <input
                   className="w-16 rounded-md border border-slate-300 px-2 py-1"
                   min={1}
@@ -360,7 +371,7 @@ export function StorefrontCartPage({
                 disabled={checkingOut}
                 type="button"
               >
-                Remove
+                {t("remove")}
               </button>
             </div>
           </article>
@@ -368,16 +379,17 @@ export function StorefrontCartPage({
       </section>
 
       <aside className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-        <h3 className="text-lg font-semibold text-slate-900">Order summary</h3>
+        <h3 className="text-lg font-semibold text-slate-900">
+          {t("orderSummary")}
+        </h3>
         {paymentFailed && (
           <p className="mt-4 text-sm text-red-700" role="alert">
-            The demo payment failed. Your order was not sent to the store; you
-            can try checkout again.
+            {t("demoPaymentFailed")}
           </p>
         )}
         <div className="mt-4 space-y-2 border-y border-slate-200 py-4">
           <label className="block text-sm font-medium text-slate-800">
-            Discount code
+            {t("discountCode")}
             <input
               className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
               value={discountCode}
@@ -388,7 +400,7 @@ export function StorefrontCartPage({
               }}
               maxLength={40}
               disabled={checkingOut || applyingDiscount}
-              placeholder="Enter code"
+              placeholder={t("enterCode")}
             />
           </label>
           <button
@@ -397,7 +409,7 @@ export function StorefrontCartPage({
             disabled={!discountCode.trim() || applyingDiscount || checkingOut}
             onClick={() => void applyDiscount()}
           >
-            {applyingDiscount ? "Checking…" : "Apply code"}
+            {applyingDiscount ? t("checking") : t("applyCode")}
           </button>
           {discountError && (
             <p className="text-sm text-red-700" role="alert">
@@ -406,13 +418,13 @@ export function StorefrontCartPage({
           )}
           {activeDiscount && (
             <p className="text-sm text-green-700" role="status">
-              {activeDiscount.code} applied.
+              {t("discountApplied", { code: activeDiscount.code })}
             </p>
           )}
         </div>
         <div className="mt-4 space-y-3 text-sm text-slate-700">
           <div className="flex items-center justify-between">
-            <span>Subtotal</span>
+            <span>{t("subtotal")}</span>
             <span>
               {formatCurrencyAmount(
                 subtotal,
@@ -423,7 +435,11 @@ export function StorefrontCartPage({
           </div>
           {discountAmount > 0 && (
             <div className="flex items-center justify-between">
-              <span>Discount ({activeDiscount?.code})</span>
+              <span>
+                {t("discountWithCode", {
+                  code: activeDiscount?.code ?? "",
+                })}
+              </span>
               <span>
                 −
                 {formatCurrencyAmount(
@@ -436,7 +452,7 @@ export function StorefrontCartPage({
           )}
           {taxAmount > 0 && (
             <div className="flex items-center justify-between">
-              <span>Tax</span>
+              <span>{t("tax")}</span>
               <span>
                 {formatCurrencyAmount(
                   taxAmount,
@@ -447,7 +463,7 @@ export function StorefrontCartPage({
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span>Shipping</span>
+            <span>{t("shipping")}</span>
             <span>
               {formatCurrencyAmount(
                 estimatedShipping,
@@ -458,7 +474,7 @@ export function StorefrontCartPage({
           </div>
           <div className="border-t border-slate-200 pt-3 text-base font-semibold text-slate-900">
             <div className="flex items-center justify-between">
-              <span>Total</span>
+              <span>{t("total")}</span>
               <span>
                 {formatCurrencyAmount(
                   shippingCurrencyMismatch
@@ -479,21 +495,19 @@ export function StorefrontCartPage({
         )}
         {shippingCurrencyMismatch && (
           <p className="mt-4 text-sm text-red-700" role="alert">
-            This store&apos;s shipping rates use {currency}, but your cart uses
-            a different currency. Contact the store before checking out.
+            {t("errors.shippingCurrencyMismatch", { currency })}
           </p>
         )}
         {!signedIn && (
           <p className="mt-4 text-sm text-slate-600">
-            Sign in to place an order. Your cart will be saved while you sign
-            in.
+            {t("signInToPlaceOrderDescription")}
           </p>
         )}
         {signedIn ? (
           <div className="mt-5 space-y-4">
             <fieldset className="space-y-2">
               <legend className="text-sm font-semibold text-slate-800">
-                Payment method
+                {t("paymentMethod")}
               </legend>
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
@@ -507,7 +521,7 @@ export function StorefrontCartPage({
                   type="radio"
                   value="stripe"
                 />
-                Card (secure checkout)
+                {t("cardPayment")}
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
@@ -521,34 +535,34 @@ export function StorefrontCartPage({
                   type="radio"
                   value="cash_on_delivery"
                 />
-                Cash on delivery
+                {t("cashOnDelivery")}
               </label>
               {!supportsCashOnDelivery && (
                 <p className="text-xs text-slate-500">
-                  Cash on delivery is available for INR orders only.
+                  {t("cashOnDeliveryInrOnly")}
                 </p>
               )}
             </fieldset>
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold text-slate-800">
-                Delivery address
+                {t("deliveryAddress")}
               </legend>
               {(
                 [
-                  ["fullName", "Full name", "text"],
-                  ["line1", "Address line 1", "text"],
-                  ["line2", "Address line 2 (optional)", "text"],
-                  ["city", "City", "text"],
-                  ["state", "State", "text"],
-                  ["postalCode", "PIN code", "text"],
-                  ["phone", "Mobile (+91)", "tel"],
+                  ["fullName", "fullName", "text"],
+                  ["line1", "addressLine1", "text"],
+                  ["line2", "addressLine2Optional", "text"],
+                  ["city", "city", "text"],
+                  ["state", "state", "text"],
+                  ["postalCode", "pinCode", "text"],
+                  ["phone", "mobileNumber", "tel"],
                 ] as const
               ).map(([field, label, type]) => (
                 <label
                   className="block space-y-1 text-xs font-medium text-slate-600"
                   key={field}
                 >
-                  {label}
+                  {t(label)}
                   <input
                     autoComplete={
                       field === "fullName"
@@ -579,9 +593,9 @@ export function StorefrontCartPage({
                 </label>
               ))}
               <p className="text-xs text-slate-500">
-                Delivery is currently available within India.
-                {paymentMethod === "cash_on_delivery" &&
-                  " Pay the store operator when your order is delivered."}
+                {paymentMethod === "cash_on_delivery"
+                  ? t("deliveryIndiaCod")
+                  : t("deliveryIndia")}
               </p>
             </fieldset>
             <button
@@ -596,10 +610,10 @@ export function StorefrontCartPage({
               type="button"
             >
               {checkingOut
-                ? "Placing order…"
+                ? t("placingOrder")
                 : paymentMethod === "cash_on_delivery"
-                  ? "Place cash-on-delivery order"
-                  : "Continue to secure payment"}
+                  ? t("placeCashOnDeliveryOrder")
+                  : t("continueToSecurePayment")}
             </button>
           </div>
         ) : (
@@ -607,7 +621,7 @@ export function StorefrontCartPage({
             className="mt-6 inline-flex w-full justify-center rounded-md bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800"
             href={`/${locale}/customer/login?returnTo=${encodeURIComponent(`/${locale}/cart`)}`}
           >
-            Sign in to place order
+            {t("signInToPlaceOrder")}
           </Link>
         )}
       </aside>
