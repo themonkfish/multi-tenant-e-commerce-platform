@@ -20,6 +20,7 @@ const namespaces = [
   "TenantAuth",
   "CustomerOrderProgress",
   "CustomerOrderSync",
+  "TenantSettings",
 ] as const;
 
 function flattenMessages(
@@ -50,6 +51,12 @@ function placeholders(message: string): string[] {
   ].sort();
 }
 
+function richTags(message: string): string[] {
+  return Array.from(message.matchAll(/<\/?[a-z][a-z0-9]*>/gi), (match) =>
+    match[0].toLowerCase(),
+  ).sort();
+}
+
 describe("localized message catalogs", () => {
   it.each(namespaces)(
     "keeps %s keys and interpolation variables aligned across locales",
@@ -66,6 +73,7 @@ describe("localized message catalogs", () => {
           expect(placeholders(translated[key])).toEqual(
             placeholders(english[key]),
           );
+          expect(richTags(translated[key])).toEqual(richTags(english[key]));
         }
       }
     },

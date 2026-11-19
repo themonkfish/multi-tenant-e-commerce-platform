@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-settings-form";
 import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-connection-form";
 import { TenantDatabaseProviderForm } from "@/features/tenant-auth/tenant-database-provider-form";
@@ -24,6 +25,7 @@ export default async function TenantDashboardPage({
 }: TenantDashboardPageProps) {
   await connection();
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "TenantSettings" });
   const session = await getTenantOwnerSession();
   if (!session) {
     redirect(`/${locale}/tenant/login`);
@@ -133,11 +135,8 @@ export default async function TenantDashboardPage({
       </section>
 
       <section className="space-y-4 pb-10">
-        <h2 className="text-xl font-semibold">Brand and localization</h2>
-        <p className="text-sm text-slate-600">
-          Configure your store identity and supported display locales. These
-          settings are saved within your tenant scope.
-        </p>
+        <h2 className="text-xl font-semibold">{t("sectionTitle")}</h2>
+        <p className="text-sm text-slate-600">{t("sectionDescription")}</p>
         <TenantStoreSettingsForm initialSettings={settings} />
         <h2 className="pt-4 text-xl font-semibold">Team access</h2>
         <TenantStaffManagement initialStaff={staff} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   TenantStoreSettingsSchema,
   type TenantStoreSettings,
@@ -61,6 +62,7 @@ export function TenantStoreSettingsForm({
 }: {
   initialSettings: TenantStoreSettings;
 }) {
+  const t = useTranslations("TenantSettings");
   const [settings, setSettings] = useState(initialSettings);
   const [taxRate, setTaxRate] = useState(
     (initialSettings.tax.rateBasisPoints / 100)
@@ -95,12 +97,12 @@ export function TenantStoreSettingsForm({
       (freeShippingThreshold !== undefined &&
         (Number.isNaN(freeShippingThreshold) || freeShippingThreshold <= 0))
     ) {
-      setError("Enter valid shipping amounts in the default store currency.");
+      setError(t("invalidShippingAmounts"));
       setNotice("");
       return;
     }
     if (rateBasisPoints === undefined) {
-      setError("Enter a tax rate from 0 to 100 with up to 2 decimal places.");
+      setError(t("invalidTaxRate"));
       setNotice("");
       return;
     }
@@ -108,7 +110,7 @@ export function TenantStoreSettingsForm({
     try {
       discounts = JSON.parse(discountsText);
     } catch {
-      setError("Discount codes must be valid JSON.");
+      setError(t("invalidDiscountJson"));
       setNotice("");
       return;
     }
@@ -145,9 +147,7 @@ export function TenantStoreSettingsForm({
     };
     const validated = TenantStoreSettingsSchema.safeParse(rawSettings);
     if (!validated.success) {
-      setError(
-        "Check the brand, locale, shipping amounts, tax rate, URL, and ISO currency values.",
-      );
+      setError(t("invalidSettings"));
       setNotice("");
       return;
     }
@@ -168,9 +168,7 @@ export function TenantStoreSettingsForm({
             ? body.error
             : undefined;
         setError(
-          code === "rate_limited"
-            ? "Too many updates. Wait before trying again."
-            : "Settings could not be saved. Verify the values and try again.",
+          code === "rate_limited" ? t("tooManyUpdates") : t("saveFailed"),
         );
         return;
       }
@@ -179,7 +177,7 @@ export function TenantStoreSettingsForm({
           ? TenantStoreSettingsSchema.safeParse(body.settings)
           : null;
       if (!responseSettings?.success) {
-        setError("The server returned invalid settings.");
+        setError(t("invalidSettingsResponse"));
         return;
       }
       setSettings(responseSettings.data);
@@ -191,9 +189,9 @@ export function TenantStoreSettingsForm({
       setDiscountsText(
         JSON.stringify(responseSettings.data.discounts, null, 2),
       );
-      setNotice("Store settings saved.");
+      setNotice(t("settingsSaved"));
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -205,7 +203,7 @@ export function TenantStoreSettingsForm({
       onSubmit={submit}
     >
       <label className="space-y-1 text-sm font-medium">
-        Store display name
+        {t("storeDisplayName")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="brandName"
@@ -215,15 +213,13 @@ export function TenantStoreSettingsForm({
         />
       </label>
       <fieldset className="space-y-3 rounded-md border border-slate-200 p-4 sm:col-span-2">
-        <legend className="px-1 text-sm font-semibold">Shipping rates</legend>
-        <p className="text-xs text-slate-600">
-          Rates use the default store currency and are applied to verified
-          server-side product prices. Leave the free-shipping threshold blank to
-          always charge the flat rate.
-        </p>
+        <legend className="px-1 text-sm font-semibold">
+          {t("shippingRates")}
+        </legend>
+        <p className="text-xs text-slate-600">{t("shippingDescription")}</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1 text-sm font-medium">
-            Flat shipping fee ({settings.locale.currency})
+            {t("flatShippingFee", { currency: settings.locale.currency })}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="shippingFlatRate"
@@ -236,7 +232,9 @@ export function TenantStoreSettingsForm({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Free shipping at subtotal ({settings.locale.currency})
+            {t("freeShippingThreshold", {
+              currency: settings.locale.currency,
+            })}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="freeShippingThreshold"
@@ -249,20 +247,16 @@ export function TenantStoreSettingsForm({
                       settings.locale.currency,
                     )
               }
-              placeholder="Optional"
+              placeholder={t("optional")}
             />
           </label>
         </div>
       </fieldset>
       <fieldset className="space-y-3 rounded-md border border-slate-200 p-4 sm:col-span-2">
-        <legend className="px-1 text-sm font-semibold">Sales tax</legend>
-        <p className="text-xs text-slate-600">
-          Tax is added to prices at checkout and calculated on the merchandise
-          subtotal after discounts, before shipping. Verify the applicable rate
-          and tax obligations for your business.
-        </p>
+        <legend className="px-1 text-sm font-semibold">{t("salesTax")}</legend>
+        <p className="text-xs text-slate-600">{t("salesTaxDescription")}</p>
         <label className="block max-w-xs space-y-1 text-sm font-medium">
-          Tax rate (%)
+          {t("taxRate")}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             name="taxRate"
@@ -278,11 +272,11 @@ export function TenantStoreSettingsForm({
         </label>
       </fieldset>
       <fieldset className="space-y-3 rounded-md border border-slate-200 p-4 sm:col-span-2">
-        <legend className="px-1 text-sm font-semibold">Payment methods</legend>
+        <legend className="px-1 text-sm font-semibold">
+          {t("paymentMethods")}
+        </legend>
         <p className="text-xs text-slate-600">
-          Stripe Checkout uses the platform&apos;s test-mode configuration.
-          Tenant-specific Stripe Connect and production provider onboarding are
-          not available yet.
+          {t("paymentMethodsDescription")}
         </p>
         <label className="flex items-start gap-2 text-sm font-medium">
           <input
@@ -292,9 +286,9 @@ export function TenantStoreSettingsForm({
             defaultChecked={settings.payments.stripe}
           />
           <span>
-            Stripe Checkout
+            {t("stripeCheckout")}
             <span className="block font-normal text-slate-600">
-              Show card checkout when Stripe test-mode keys are configured.
+              {t("stripeCheckoutDescription")}
             </span>
           </span>
         </label>
@@ -306,15 +300,15 @@ export function TenantStoreSettingsForm({
             defaultChecked={settings.payments.cashOnDelivery}
           />
           <span>
-            Cash on delivery
+            {t("cashOnDelivery")}
             <span className="block font-normal text-slate-600">
-              Available only for INR orders and Indian delivery addresses.
+              {t("cashOnDeliveryDescription")}
             </span>
           </span>
         </label>
       </fieldset>
       <label className="space-y-2 text-sm font-medium sm:col-span-2">
-        Discount codes (JSON)
+        {t("discountCodesJson")}
         <textarea
           className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs font-normal"
           name="discounts"
@@ -324,26 +318,24 @@ export function TenantStoreSettingsForm({
           spellCheck={false}
         />
         <span className="block font-normal text-slate-600">
-          Up to 100 unique codes. Use type <code>percentage</code> with value
-          1–99, or <code>fixed_amount</code> with a value in minor currency
-          units. Optional fields are <code>minimumSubtotal</code> (minor units),
-          ISO <code>expiresAt</code>, and <code>redemptionLimit</code>. Example:{" "}
-          <code>{'[{"code":"SAVE10","type":"percentage","value":10}]'}</code>{" "}
-          Fixed amounts and minimums use the default store currency.
+          {t.rich("discountHelp", {
+            code: (chunks) => <code>{chunks}</code>,
+            example: '[{"code":"SAVE10","type":"percentage","value":10}]',
+          })}
         </span>
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Logo URL (HTTPS)
+        {t("logoUrl")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="logoUrl"
           type="url"
           defaultValue={settings.branding.logoUrl ?? ""}
-          placeholder="https://cdn.example.com/logo.png"
+          placeholder={t("logoUrlPlaceholder")}
         />
       </label>
       <label className="space-y-1 text-sm font-medium sm:col-span-2">
-        Store description
+        {t("storeDescription")}
         <textarea
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="description"
@@ -353,7 +345,7 @@ export function TenantStoreSettingsForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Primary color
+        {t("primaryColor")}
         <input
           className="h-11 w-full rounded-md border border-slate-300 p-1"
           name="primaryColor"
@@ -363,7 +355,7 @@ export function TenantStoreSettingsForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Accent color
+        {t("accentColor")}
         <input
           className="h-11 w-full rounded-md border border-slate-300 p-1"
           name="accentColor"
@@ -373,27 +365,27 @@ export function TenantStoreSettingsForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Default locale
+        {t("defaultLocale")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="defaultLocale"
           defaultValue={settings.locale.defaultLocale}
-          placeholder="en or en-US"
+          placeholder={t("defaultLocalePlaceholder")}
           required
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Supported locales (comma-separated)
+        {t("supportedLocales")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="locales"
           defaultValue={settings.locale.locales.join(", ")}
-          placeholder="en, fr-CA"
+          placeholder={t("supportedLocalesPlaceholder")}
           required
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Default currency (ISO 4217)
+        {t("defaultCurrency")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
           name="currency"
@@ -403,12 +395,12 @@ export function TenantStoreSettingsForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Supported currencies (comma-separated)
+        {t("supportedCurrencies")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
           name="currencies"
           defaultValue={settings.locale.currencies.join(", ")}
-          placeholder="USD, EUR"
+          placeholder={t("supportedCurrenciesPlaceholder")}
           required
         />
       </label>
@@ -426,7 +418,7 @@ export function TenantStoreSettingsForm({
           disabled={busy}
           type="submit"
         >
-          {busy ? "Saving…" : "Save store settings"}
+          {busy ? t("saving") : t("saveSettings")}
         </button>
       </div>
     </form>
