@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 export function SuperAdminLoginForm() {
   const router = useRouter();
+  const t = useTranslations("SuperAdminAuth");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -25,15 +27,13 @@ export function SuperAdminLoginForm() {
       });
       if (!response.ok) {
         setError(
-          response.status === 429
-            ? "Too many attempts. Wait before trying again."
-            : "Email, password, or authenticator code is incorrect.",
+          response.status === 429 ? t("tooManyAttempts") : t("invalidLogin"),
         );
         return;
       }
       router.push("/super-admin");
     } catch {
-      setError("Sign-in could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -42,7 +42,7 @@ export function SuperAdminLoginForm() {
   return (
     <form className="space-y-5" onSubmit={submit}>
       <label className="block space-y-2 text-sm font-medium" htmlFor="email">
-        Email
+        {t("email")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="email"
@@ -53,7 +53,7 @@ export function SuperAdminLoginForm() {
         />
       </label>
       <label className="block space-y-2 text-sm font-medium" htmlFor="password">
-        Password
+        {t("password")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="password"
@@ -64,7 +64,7 @@ export function SuperAdminLoginForm() {
         />
       </label>
       <label className="block space-y-2 text-sm font-medium" htmlFor="code">
-        Authenticator or recovery code
+        {t("authCode")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="code"
@@ -86,7 +86,7 @@ export function SuperAdminLoginForm() {
         type="submit"
         disabled={busy}
       >
-        {busy ? "Signing in…" : "Sign in"}
+        {busy ? t("signingIn") : t("signIn")}
       </button>
     </form>
   );

@@ -671,6 +671,23 @@
     "acceptingInvitation": "निमंत्रण स्वीकार हो रहा है…",
     "acceptInvitation": "निमंत्रण स्वीकार करें"
   },
+  "SuperAdminAuth": {
+    "platformAdministration": "प्लेटफ़ॉर्म प्रशासन",
+    "loginTitle": "सुपर एडमिन साइन इन",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "authCode": "ऑथेंटिकेटर या रिकवरी कोड",
+    "signingIn": "साइन इन हो रहा है…",
+    "signIn": "साइन इन करें",
+    "tooManyAttempts": "बहुत अधिक प्रयास हुए। फिर से प्रयास करने से पहले प्रतीक्षा करें।",
+    "invalidLogin": "ईमेल, पासवर्ड या ऑथेंटिकेटर कोड गलत है।",
+    "requestUnavailable": "साइन-इन सर्वर तक नहीं पहुँच सका। कृपया फिर से प्रयास करें।"
+  },
+  "SuperAdminPortal": {
+    "platformAdministration": "प्लेटफ़ॉर्म प्रशासन",
+    "superAdmin": "सुपर एडमिन",
+    "signOut": "साइन आउट"
+  },
   "Home": {
     "platformName": "कॉमर्स वर्कस्पेस",
     "phase": "चरण 1 · नींव",

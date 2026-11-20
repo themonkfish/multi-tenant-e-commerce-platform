@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { HostManagement } from "@/features/hosts/host-management";
 import { PlatformAuditLog } from "@/features/auth/platform-audit-log";
 import { PlatformSettingsForm } from "@/features/auth/platform-settings-form";
@@ -20,6 +21,7 @@ export default async function SuperAdminDashboardPage({
 }: DashboardPageProps) {
   await connection();
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "SuperAdminPortal" });
   const session = await getSuperAdminSession();
   if (!session) {
     redirect(`/${locale}/super-admin/login`);
@@ -51,16 +53,16 @@ export default async function SuperAdminDashboardPage({
       <header className="flex items-center justify-between border-b border-slate-200 pb-5">
         <div>
           <p className="text-sm font-semibold text-indigo-700">
-            Platform administration
+            {t("platformAdministration")}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold">Super Admin</h1>
+          <h1 className="mt-1 text-2xl font-semibold">{t("superAdmin")}</h1>
         </div>
         <form action="/api/auth/super-admin/logout" method="post">
           <button
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
             type="submit"
           >
-            Sign out
+            {t("signOut")}
           </button>
         </form>
       </header>

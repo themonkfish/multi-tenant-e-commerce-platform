@@ -671,6 +671,23 @@
     "acceptingInvitation": "Acceptation de l’invitation…",
     "acceptInvitation": "Accepter l’invitation"
   },
+  "SuperAdminAuth": {
+    "platformAdministration": "Administration de la plateforme",
+    "loginTitle": "Connexion Super Admin",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "authCode": "Code d’authentification ou de récupération",
+    "signingIn": "Connexion…",
+    "signIn": "Se connecter",
+    "tooManyAttempts": "Trop de tentatives. Attendez avant de réessayer.",
+    "invalidLogin": "L’e-mail, le mot de passe ou le code d’authentification est incorrect.",
+    "requestUnavailable": "Impossible de joindre le serveur pour la connexion. Veuillez réessayer."
+  },
+  "SuperAdminPortal": {
+    "platformAdministration": "Administration de la plateforme",
+    "superAdmin": "Super Admin",
+    "signOut": "Se déconnecter"
+  },
   "Home": {
     "platformName": "Espace commerce",
     "phase": "Phase 1 - Fondations",

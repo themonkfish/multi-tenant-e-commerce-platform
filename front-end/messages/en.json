@@ -671,6 +671,23 @@
     "acceptingInvitation": "Accepting invitation…",
     "acceptInvitation": "Accept invitation"
   },
+  "SuperAdminAuth": {
+    "platformAdministration": "Platform administration",
+    "loginTitle": "Super Admin sign in",
+    "email": "Email",
+    "password": "Password",
+    "authCode": "Authenticator or recovery code",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in",
+    "tooManyAttempts": "Too many attempts. Wait before trying again.",
+    "invalidLogin": "Email, password, or authenticator code is incorrect.",
+    "requestUnavailable": "Sign-in could not reach the server. Please try again."
+  },
+  "SuperAdminPortal": {
+    "platformAdministration": "Platform administration",
+    "superAdmin": "Super Admin",
+    "signOut": "Sign out"
+  },
   "Home": {
     "platformName": "Commerce Workspace",
     "phase": "Phase 1 · Foundation",
