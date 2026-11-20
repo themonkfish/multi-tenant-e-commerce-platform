@@ -188,6 +188,10 @@ Status snapshot as of 2026-11-19:
       and platform CNAME records resolve.
 - [x] Host Owners can check verified domains for public HTTPS reachability and
       a valid, unexpired TLS certificate without provider-specific credentials.
+- [x] Custom-domain/SSL strategy: exact-domain ownership uses TXT/CNAME
+      verification and provider-neutral public HTTPS/TLS readiness checks; hosting
+      attachment and certificate issuance remain the registrar/provider's
+      responsibility.
 - [x] Tenant storefront cart: persisted cart state, add-to-cart actions, and a
       focused cart page are wired to the storefront.
 - [x] Authenticated server-side order creation revalidates active catalog
