@@ -13,6 +13,7 @@ const ServerEnvSchema = z.object({
   SESSION_SECRET: z.string().min(32).optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  CARRIER_WEBHOOK_SECRET: z.string().min(16).optional(),
   RESEND_API_KEY: z
     .string()
     .optional()

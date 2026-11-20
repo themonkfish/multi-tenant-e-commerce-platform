@@ -324,7 +324,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [x] **i18n:** English, French, and Hindi routing is configured with a locale
-      switcher and 294 frontend tests. Customer sign-in/registration, cart and
+      switcher and 299 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -509,8 +509,10 @@ Status snapshot as of 2026-11-19:
       retry when already Delivered.
 - [x] Carrier tracking links: Tenant shipment details support FedEx, UPS, DHL,
       USPS, Delhivery, and BlueDart HTTPS tracking-link generation. Custom
-      carriers retain an operator-entered HTTPS tracking URL; live carrier
-      event ingestion remains future work.
+      carriers retain an operator-entered HTTPS tracking URL. A signed generic
+      carrier webhook now normalizes in-transit, out-for-delivery, and delivered
+      events, rejects invalid signatures and transitions, and provides idempotent
+      repeat-event handling.
 - [x] Show Customers an accessible order-progress timeline from confirmation
       through delivery in English, French, and Hindi; cancelled orders are
       displayed as a separately localized terminal state.
@@ -603,6 +605,7 @@ implemented by selecting a platform-store option.
 | `NEXT_PUBLIC_PLATFORM_DOMAIN`   | Optional                                             | Public platform hostname setting. It is not a tenant-domain resolver; the current setup flow persists the platform domain that is entered during bootstrap. |
 | `RESEND_API_KEY`                | Optional for invitation email                        | Server-only API key used to deliver Host/Tenant invitations through Resend.                                                                                 |
 | `INVITATION_EMAIL_FROM`         | With `RESEND_API_KEY`                                | Verified sender address/name, such as `Platform <noreply@example.com>`. Leave both values blank for manual invitation links.                                |
+| `CARRIER_WEBHOOK_SECRET`        | Optional for live carrier events                     | HMAC-SHA256 signing secret for `POST /api/webhooks/carrier`; use `sha256=<hex>` or raw hex in `x-carrier-signature`.                                        |
 | `NODE_ENV`                      | Set by Next.js                                       | Use the standard `development`, `test`, or `production` values.                                                                                             |
 
 Do not put tenant-specific backend, storage, or payment secrets in this file;
@@ -774,6 +777,8 @@ NEXT_PUBLIC_PLATFORM_DOMAIN=<your-platform-hostname>
 # Optional; both are required for automated invitations via Resend.
 RESEND_API_KEY=<server-only-resend-api-key>
 INVITATION_EMAIL_FROM=Platform <noreply@example.com>
+# Optional HMAC secret for signed carrier tracking events.
+CARRIER_WEBHOOK_SECRET=<at-least-16-random-characters>
 ```
 
 Generate secrets on a trusted machine; for example, PowerShell commands in the
