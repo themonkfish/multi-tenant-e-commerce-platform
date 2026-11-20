@@ -121,4 +121,29 @@ describe("PUT /api/tenant/storage", () => {
     expect(await response.json()).toEqual({ error: "unsafe_storage_url" });
     expect(getPlatformStore).not.toHaveBeenCalled();
   });
+
+  it("rejects partial credential rotation", async () => {
+    getTenantOwnerSession.mockResolvedValue({
+      userId: ownerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["tenant:read", "tenant:write"],
+    });
+    resolvePublicAddress.mockResolvedValue({
+      address: "203.0.113.1",
+      family: 4,
+    });
+
+    const response = await PUT(
+      saveRequest({
+        secretAccessKey: undefined,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({ error: "invalid_input" }),
+    );
+    expect(getPlatformStore).not.toHaveBeenCalled();
+  });
 });
