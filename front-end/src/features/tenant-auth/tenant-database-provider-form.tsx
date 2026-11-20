@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import type { TenantDatabaseConnectionViewSchema } from "@/core/domain/tenant-config";
 import { TENANT_CATALOG_SCHEMA_VERSION } from "@/adapters/data/database/tenant-database-adapter";
 import type { z } from "zod";
@@ -24,6 +25,7 @@ export function TenantDatabaseProviderForm({
 }: {
   initialConnection: ConnectionView | null;
 }) {
+  const t = useTranslations("TenantDatabase");
   const [connection, setConnection] = useState(initialConnection);
   const [provider, setProvider] = useState<"supabase" | "mongodb">(
     initialConnection?.type === "mongodb" ? "mongodb" : "supabase",
@@ -67,7 +69,7 @@ export function TenantDatabaseProviderForm({
         warning?: string;
       };
       if (!response.ok || !result.connection) {
-        setError(result.error ?? "Could not save the database connection.");
+        setError(t("saveFailed"));
         return;
       }
       setConnection(result.connection);
@@ -75,11 +77,11 @@ export function TenantDatabaseProviderForm({
       setConnectionString("");
       setNotice(
         result.warning === "previous_credential_cleanup_failed"
-          ? "Database settings saved, but the previous credential could not be removed. Contact a platform administrator."
-          : "Database connection settings saved. Credentials are write-only.",
+          ? t("credentialCleanupWarning")
+          : t("connectionSaved"),
       );
     } catch {
-      setError("Could not save the database connection.");
+      setError(t("saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -100,19 +102,19 @@ export function TenantDatabaseProviderForm({
         error?: string;
       };
       if (!payload.result) {
-        setError(payload.error ?? "Database connection test failed.");
+        setError(t("testFailed"));
         return;
       }
       setTestResult(payload.result);
       if (payload.result.status === "unhealthy") {
         setError(
           connection?.type === "supabase"
-            ? "Connection failed. Apply the Supabase reference SQL to the tenant project, then test again."
-            : "Could not connect to MongoDB Atlas. Check the URI, database user, and Atlas network access list.",
+            ? t("supabaseTestUnhealthy")
+            : t("mongodbTestUnhealthy"),
         );
       }
     } catch {
-      setError("Database connection test failed.");
+      setError(t("testFailed"));
     } finally {
       setBusy(false);
     }
@@ -136,10 +138,10 @@ export function TenantDatabaseProviderForm({
       if (!response.ok) {
         setError(
           payload.error === "schema_upgrade_required"
-            ? "The database schema is newer than this platform supports."
+            ? t("schemaTooNew")
             : connection?.type === "supabase"
-              ? "Initialization failed. Apply the Supabase reference SQL to the tenant project first."
-              : "MongoDB schema initialization failed. Verify the URI permissions and Atlas network access list.",
+              ? t("supabaseInitializeFailed")
+              : t("mongodbInitializeFailed"),
         );
         return;
       }
@@ -150,10 +152,12 @@ export function TenantDatabaseProviderForm({
         schemaStatus: "current",
       });
       setNotice(
-        `Tenant catalog schema initialized (version ${payload.schemaVersion ?? "unknown"}).`,
+        t("schemaInitialized", {
+          version: payload.schemaVersion ?? t("unknownVersion"),
+        }),
       );
     } catch {
-      setError("Database schema initialization failed.");
+      setError(t("initializeFailed"));
     } finally {
       setBusy(false);
     }
@@ -172,18 +176,18 @@ export function TenantDatabaseProviderForm({
         warning?: string;
       };
       if (!response.ok) {
-        setError(payload.error ?? "Could not remove the database connection.");
+        setError(t("removeFailed"));
         return;
       }
       setConnection(null);
       setTestResult(null);
       setNotice(
         payload.warning === "credential_cleanup_failed"
-          ? "Database provider removed, but its stored credential could not be deleted. Contact a platform administrator."
-          : "Database provider removed. The configured REST backend can be used again.",
+          ? t("removeCredentialWarning")
+          : t("providerRemoved"),
       );
     } catch {
-      setError("Could not remove the database connection.");
+      setError(t("removeFailed"));
     } finally {
       setBusy(false);
     }
@@ -193,7 +197,7 @@ export function TenantDatabaseProviderForm({
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
       <form className="grid gap-4 sm:grid-cols-2" onSubmit={save}>
         <label className="space-y-1 text-sm font-medium">
-          Database provider
+          {t("databaseProvider")}
           <select
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             value={provider}
@@ -207,14 +211,14 @@ export function TenantDatabaseProviderForm({
               setTestResult(null);
             }}
           >
-            <option value="supabase">Supabase</option>
-            <option value="mongodb">MongoDB Atlas</option>
+            <option value="supabase">{t("supabase")}</option>
+            <option value="mongodb">{t("mongodb")}</option>
           </select>
         </label>
         {provider === "supabase" ? (
           <>
             <label className="space-y-1 text-sm font-medium sm:col-span-2">
-              Tenant Supabase project URL
+              {t("supabaseProjectUrl")}
               <input
                 autoComplete="url"
                 className="w-full rounded-md border border-slate-300 px-3 py-2"
@@ -225,15 +229,15 @@ export function TenantDatabaseProviderForm({
               />
             </label>
             <label className="space-y-1 text-sm font-medium sm:col-span-2">
-              Service-role key
+              {t("serviceRoleKey")}
               <input
                 autoComplete="new-password"
                 className="w-full rounded-md border border-slate-300 px-3 py-2"
                 onChange={(event) => setServiceKey(event.target.value)}
                 placeholder={
                   connection?.type === "supabase"
-                    ? "Leave blank to keep the saved credential"
-                    : "Enter the tenant project service-role key"
+                    ? t("keepCredential")
+                    : t("enterServiceRoleKey")
                 }
                 type="password"
                 value={serviceKey}
@@ -243,7 +247,7 @@ export function TenantDatabaseProviderForm({
         ) : (
           <>
             <label className="space-y-1 text-sm font-medium">
-              Database name
+              {t("databaseName")}
               <input
                 autoComplete="off"
                 className="w-full rounded-md border border-slate-300 px-3 py-2"
@@ -253,14 +257,14 @@ export function TenantDatabaseProviderForm({
               />
             </label>
             <label className="space-y-1 text-sm font-medium sm:col-span-2">
-              MongoDB Atlas SRV connection string
+              {t("mongodbConnectionString")}
               <input
                 autoComplete="new-password"
                 className="w-full rounded-md border border-slate-300 px-3 py-2"
                 onChange={(event) => setConnectionString(event.target.value)}
                 placeholder={
                   connection?.type === "mongodb"
-                    ? "Leave blank to keep the saved credential"
+                    ? t("keepCredential")
                     : "mongodb+srv://..."
                 }
                 type="password"
@@ -275,7 +279,7 @@ export function TenantDatabaseProviderForm({
             disabled={busy}
             type="submit"
           >
-            Save database connection
+            {t("saveConnection")}
           </button>
           <button
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
@@ -283,7 +287,7 @@ export function TenantDatabaseProviderForm({
             onClick={testConnection}
             type="button"
           >
-            Test connection
+            {t("testConnection")}
           </button>
           <button
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
@@ -291,7 +295,7 @@ export function TenantDatabaseProviderForm({
             onClick={initializeSchema}
             type="button"
           >
-            Initialize schema
+            {t("initializeSchema")}
           </button>
           <button
             className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-800 hover:bg-rose-50 disabled:opacity-50"
@@ -299,44 +303,34 @@ export function TenantDatabaseProviderForm({
             onClick={disconnect}
             type="button"
           >
-            Remove database provider
+            {t("removeProvider")}
           </button>
         </div>
       </form>
       {connection ? (
         <p className="text-sm text-slate-600">
-          Active database provider:{" "}
-          <span className="font-medium">{connection.type}</span>. Database
-          credentials are encrypted and are never returned to the browser.
+          {t("activeProvider", { provider: connection.type })}
         </p>
       ) : (
-        <p className="text-sm text-slate-600">
-          No database provider is configured. If a REST backend is configured,
-          it remains active.
-        </p>
+        <p className="text-sm text-slate-600">{t("noProvider")}</p>
       )}
       {provider === "supabase" ? (
-        <p className="text-sm text-slate-600">
-          Supabase requires the tenant project service-role key and the SQL
-          reference schema applied in that tenant project before initialization.
-          Never use the platform project credentials here.
-        </p>
+        <p className="text-sm text-slate-600">{t("supabaseHelp")}</p>
       ) : (
-        <p className="text-sm text-slate-600">
-          MongoDB connections are limited to TLS-protected MongoDB Atlas SRV
-          endpoints. Allow this application&apos;s outbound IP in the Atlas
-          network access list.
-        </p>
+        <p className="text-sm text-slate-600">{t("mongodbHelp")}</p>
       )}
       {testResult ? (
         <p className="text-sm text-slate-700">
-          Test status: {testResult.status}; schema: {testResult.schemaStatus}
+          {t("testStatus", {
+            status: testResult.status,
+            schemaStatus: testResult.schemaStatus,
+          })}
           {testResult.schemaVersion === null
             ? ""
-            : ` (version ${testResult.schemaVersion})`}
+            : ` ${t("version", { version: testResult.schemaVersion })}`}
           {testResult.schemaStatus === "upgrade_available" ||
           testResult.schemaStatus === "upgrade_required"
-            ? " — a schema upgrade is required."
+            ? ` — ${t("upgradeRequired")}`
             : ""}
         </p>
       ) : null}

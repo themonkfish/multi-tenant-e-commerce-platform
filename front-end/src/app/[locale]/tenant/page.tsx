@@ -157,12 +157,9 @@ export default async function TenantDashboardPage({
           />
         </div>
         <div>
-          <h3 className="mb-2 font-semibold">Supabase or MongoDB connection</h3>
+          <h3 className="mb-2 font-semibold">{setupT("databaseConnection")}</h3>
           <p className="mb-4 text-sm text-slate-600">
-            Configure a dedicated tenant Supabase project or MongoDB Atlas
-            database. Database credentials are stored in the encrypted vault.
-            When configured, the database provider is used for catalog access
-            instead of the REST backend.
+            {setupT("databaseConnectionDescription")}
           </p>
           <TenantDatabaseProviderForm initialConnection={databaseConnection} />
         </div>
