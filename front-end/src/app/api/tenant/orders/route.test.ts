@@ -1,16 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { getTenantPortalSession, getPlatformStore, createTenantOrderAdapter } =
-  vi.hoisted(() => ({
-    getTenantPortalSession: vi.fn(),
-    getPlatformStore: vi.fn(),
-    createTenantOrderAdapter: vi.fn(),
-  }));
+const {
+  getTenantPortalSession,
+  getPlatformStore,
+  createTenantOrderAdapter,
+  cancelCustomerCodOrder,
+} = vi.hoisted(() => ({
+  getTenantPortalSession: vi.fn(),
+  getPlatformStore: vi.fn(),
+  createTenantOrderAdapter: vi.fn(),
+  cancelCustomerCodOrder: vi.fn(),
+}));
 
 vi.mock("@/lib/server/session", () => ({ getTenantPortalSession }));
 vi.mock("@/lib/server/platform", () => ({ getPlatformStore }));
 vi.mock("@/adapters/data/rest/tenant-orders", () => ({
   createTenantOrderAdapter,
+}));
+vi.mock("@/lib/server/cancel-customer-cod-order", () => ({
+  cancelCustomerCodOrder,
 }));
 
 import { PATCH } from "./route";
@@ -23,6 +31,82 @@ const customerId = "550e8400-e29b-41d4-a716-446655440002";
 describe("PATCH /api/tenant/orders recovery", () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("requires write permission before COD cancellation", async () => {
+    getTenantPortalSession.mockResolvedValue({
+      userId: customerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["orders:read"],
+    });
+
+    const response = await PATCH(
+      new Request("http://store.localhost:3000/api/tenant/orders", {
+        method: "PATCH",
+        headers: {
+          host: "store.localhost:3000",
+          origin: "http://store.localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ orderId, status: "Cancelled" }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "forbidden" });
+  });
+
+  it("hands COD cancellation to the cleanup helper and returns the cancelled order", async () => {
+    getTenantPortalSession.mockResolvedValue({
+      userId: customerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["orders:read", "orders:write"],
+    });
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listTenantOrders: vi.fn().mockResolvedValue([
+        {
+          id: orderId,
+          tenantId,
+          customerId,
+          status: "Confirmed",
+          paymentMethod: "cash_on_delivery",
+          paymentStatus: "cod_due",
+        },
+      ]),
+    });
+    cancelCustomerCodOrder.mockResolvedValue({
+      order: { id: orderId, tenantId, customerId, status: "Cancelled" },
+      alreadyCancelled: false,
+    });
+
+    const response = await PATCH(
+      new Request("http://store.localhost:3000/api/tenant/orders", {
+        method: "PATCH",
+        headers: {
+          host: "store.localhost:3000",
+          origin: "http://store.localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ orderId, status: "Cancelled" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      order: { id: orderId, status: "Cancelled" },
+    });
+    expect(cancelCustomerCodOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId,
+        hostId,
+        customerId,
+        orderId,
+        auditAction: "tenant.order.cod_cancelled",
+      }),
+    );
   });
 
   it("retries an idempotent backend status after platform history reconciliation fails", async () => {
