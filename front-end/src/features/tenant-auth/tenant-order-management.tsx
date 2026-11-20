@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   CustomerOrderSchema,
   TenantOrderSchema,
@@ -19,26 +20,26 @@ const OrderPageSchema = z.object({
   }),
 });
 
-function errorMessage(body: unknown): string {
+function errorMessage(body: unknown, t: (key: string) => string): string {
   if (typeof body !== "object" || body === null || !("error" in body)) {
-    return "Could not load tenant orders.";
+    return t("loadFailed");
   }
   switch (body.error) {
     case "invalid_input":
-      return "Enter a tracking number and a valid HTTPS tracking URL.";
+      return t("invalidTracking");
     case "connection_not_configured":
-      return "Connect the Tenant REST backend in store setup to manage orders.";
+      return t("connectionRequired");
     case "order_not_cancellable":
-      return "Only confirmed, unpaid cash-on-delivery orders can be cancelled.";
+      return t("notCancellable");
     case "order_sync_pending":
-      return "Sync this order with the Tenant backend before cancelling it.";
+      return t("syncPending");
     case "tenant_backend_error":
     case "tenant_backend_unavailable":
-      return "The Tenant backend is unavailable. Try again later.";
+      return t("backendUnavailable");
     case "rate_limited":
-      return "Too many requests. Please wait and try again.";
+      return t("tooManyRequests");
     default:
-      return "Could not load tenant orders.";
+      return t("loadFailed");
   }
 }
 
@@ -49,6 +50,7 @@ export function TenantOrderManagement({
   canManage: boolean;
   locale: string;
 }) {
+  const t = useTranslations("TenantOrders");
   const [orders, setOrders] = useState<TenantOrder[]>([]);
   const [cashOrders, setCashOrders] = useState<CustomerOrder[]>([]);
   const [cashPage, setCashPage] = useState(1);
@@ -77,12 +79,12 @@ export function TenantOrderManagement({
         );
         const body: unknown = await response.json();
         if (!response.ok) {
-          setError(errorMessage(body));
+          setError(errorMessage(body, t));
           return;
         }
         const parsed = OrderPageSchema.safeParse(body);
         if (!parsed.success) {
-          setError("The Tenant backend returned an invalid order list.");
+          setError(t("invalidOrderList"));
           return;
         }
         setOrders(parsed.data.data);
@@ -95,47 +97,50 @@ export function TenantOrderManagement({
             : null,
         );
       } catch {
-        setError("Could not reach the Tenant backend.");
+        setError(t("backendReachFailed"));
       } finally {
         setLoading(false);
       }
     },
-    [limit],
+    [limit, t],
   );
 
-  const loadCashOrders = useCallback(async (pageNumber: number) => {
-    setCashError("");
-    try {
-      const response = await fetch(
-        `/api/tenant/cash-on-delivery?page=${pageNumber}&limit=20`,
-        { cache: "no-store" },
-      );
-      const body: unknown = await response.json();
-      if (!response.ok) {
-        setCashError("Could not load pending cash-on-delivery orders.");
-        return;
+  const loadCashOrders = useCallback(
+    async (pageNumber: number) => {
+      setCashError("");
+      try {
+        const response = await fetch(
+          `/api/tenant/cash-on-delivery?page=${pageNumber}&limit=20`,
+          { cache: "no-store" },
+        );
+        const body: unknown = await response.json();
+        if (!response.ok) {
+          setCashError(t("cashLoadFailed"));
+          return;
+        }
+        const parsed = z
+          .object({
+            data: z.array(CustomerOrderSchema),
+            meta: z.object({
+              page: z.number().int().positive(),
+              limit: z.number().int().positive(),
+              total: z.number().int().nonnegative(),
+            }),
+          })
+          .safeParse(body);
+        if (!parsed.success) {
+          setCashError(t("invalidCashList"));
+          return;
+        }
+        setCashOrders(parsed.data.data);
+        setCashPage(parsed.data.meta.page);
+        setCashTotal(parsed.data.meta.total);
+      } catch {
+        setCashError(t("cashReachFailed"));
       }
-      const parsed = z
-        .object({
-          data: z.array(CustomerOrderSchema),
-          meta: z.object({
-            page: z.number().int().positive(),
-            limit: z.number().int().positive(),
-            total: z.number().int().nonnegative(),
-          }),
-        })
-        .safeParse(body);
-      if (!parsed.success) {
-        setCashError("The platform returned an invalid cash-on-delivery list.");
-        return;
-      }
-      setCashOrders(parsed.data.data);
-      setCashPage(parsed.data.meta.page);
-      setCashTotal(parsed.data.meta.total);
-    } catch {
-      setCashError("Could not reach pending cash-on-delivery orders.");
-    }
-  }, []);
+    },
+    [t],
+  );
 
   useEffect(() => {
     let current = true;
@@ -176,7 +181,7 @@ export function TenantOrderManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(errorMessage(body));
+        setError(errorMessage(body, t));
         return;
       }
       const parsed =
@@ -184,7 +189,7 @@ export function TenantOrderManagement({
           ? TenantOrderSchema.safeParse(body.order)
           : null;
       if (!parsed?.success) {
-        setError("The Tenant backend returned an invalid order.");
+        setError(t("invalidOrder"));
         return;
       }
       setSelected(parsed.data);
@@ -196,14 +201,14 @@ export function TenantOrderManagement({
       setTrackingUrl(parsed.data.fulfillment?.trackingUrl ?? "");
       setNotice(
         nextStatus === "Delivered"
-          ? "Order marked as delivered."
+          ? t("orderDelivered")
           : parsed.data.fulfillment
-            ? "Order shipped and tracking details saved."
-            : `Order status updated to ${parsed.data.status}.`,
+            ? t("orderShipped")
+            : t("statusUpdated", { status: parsed.data.status }),
       );
       await loadOrders(page);
     } catch {
-      setError("Could not reach the Tenant backend.");
+      setError(t("backendReachFailed"));
     } finally {
       setBusy(false);
     }
@@ -226,8 +231,8 @@ export function TenantOrderManagement({
             body !== null &&
             "error" in body &&
             body.error === "cod_order_not_due"
-            ? "This order has already been collected or is no longer due."
-            : "Cash collection could not be confirmed. Try again.",
+            ? t("codAlreadyCollected")
+            : t("collectionFailed"),
         );
         return;
       }
@@ -236,7 +241,7 @@ export function TenantOrderManagement({
           ? CustomerOrderSchema.safeParse(body.order)
           : null;
       if (!parsed?.success || parsed.data.paymentStatus !== "paid") {
-        setCashError("The platform returned an invalid collection result.");
+        setCashError(t("invalidCollectionResult"));
         return;
       }
       setCashOrders((current) =>
@@ -248,20 +253,16 @@ export function TenantOrderManagement({
       } else {
         await loadCashOrders(cashPage);
       }
-      setNotice(`Cash collection confirmed for ${parsed.data.id}.`);
+      setNotice(t("collectionConfirmed", { id: parsed.data.id }));
     } catch {
-      setCashError("Could not reach the platform to confirm collection.");
+      setCashError(t("collectionReachFailed"));
     } finally {
       setBusy(false);
     }
   }
 
   async function cancelCashOrder(order: CustomerOrder) {
-    if (
-      !window.confirm(
-        "Cancel this unpaid cash-on-delivery order? This cannot be undone.",
-      )
-    ) {
+    if (!window.confirm(t("cancelCodConfirm"))) {
       return;
     }
     setBusy(true);
@@ -275,7 +276,7 @@ export function TenantOrderManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setCashError(errorMessage(body));
+        setCashError(errorMessage(body, t));
         return;
       }
       const parsed =
@@ -283,17 +284,17 @@ export function TenantOrderManagement({
           ? CustomerOrderSchema.safeParse(body.order)
           : null;
       if (!parsed?.success || parsed.data.status !== "Cancelled") {
-        setCashError("The platform returned an invalid cancellation result.");
+        setCashError(t("invalidCancellationResult"));
         return;
       }
       setCashOrders((current) =>
         current.filter((candidate) => candidate.id !== parsed.data.id),
       );
       setCashTotal((current) => Math.max(0, current - 1));
-      setNotice(`Order ${parsed.data.id} cancelled.`);
+      setNotice(t("orderCancelled", { id: parsed.data.id }));
       await Promise.all([loadOrders(page), loadCashOrders(cashPage)]);
     } catch {
-      setCashError("Could not reach the platform to cancel this order.");
+      setCashError(t("cancellationReachFailed"));
     } finally {
       setBusy(false);
     }
@@ -310,7 +311,7 @@ export function TenantOrderManagement({
       );
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(errorMessage(body));
+        setError(errorMessage(body, t));
         return;
       }
       const parsed =
@@ -318,12 +319,12 @@ export function TenantOrderManagement({
           ? TenantOrderSchema.safeParse(body.order)
           : null;
       if (!parsed?.success) {
-        setError("The Tenant backend returned an invalid order.");
+        setError(t("invalidOrder"));
         return;
       }
       setSelected(parsed.data);
     } catch {
-      setError("Could not reach the Tenant backend.");
+      setError(t("backendReachFailed"));
     } finally {
       setBusy(false);
     }
@@ -358,16 +359,12 @@ export function TenantOrderManagement({
       <section className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-5">
         <div>
           <h2 className="text-lg font-semibold text-amber-950">
-            Cash on delivery
+            {t("cashOnDelivery")}
           </h2>
-          <p className="text-sm text-amber-900">
-            Orders remain unpaid until a store operator receives the cash.
-          </p>
+          <p className="text-sm text-amber-900">{t("codDescription")}</p>
         </div>
         {cashOrders.length === 0 ? (
-          <p className="text-sm text-slate-600">
-            No pending cash-on-delivery orders.
-          </p>
+          <p className="text-sm text-slate-600">{t("noPendingCod")}</p>
         ) : (
           <>
             <div className="space-y-3">
@@ -380,7 +377,7 @@ export function TenantOrderManagement({
                     <div>
                       <p className="font-semibold text-slate-900">{order.id}</p>
                       <p className="text-sm text-slate-600">
-                        {order.itemCount} items ·{" "}
+                        {t("itemsCount", { count: order.itemCount })} ·{" "}
                         {formatCurrencyAmount(
                           order.total,
                           order.currency,
@@ -396,7 +393,7 @@ export function TenantOrderManagement({
                           onClick={() => void markCashCollected(order)}
                           type="button"
                         >
-                          {busy ? "Confirming…" : "Mark cash collected"}
+                          {busy ? t("confirming") : t("markCashCollected")}
                         </button>
                         <button
                           className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
@@ -404,7 +401,7 @@ export function TenantOrderManagement({
                           onClick={() => void cancelCashOrder(order)}
                           type="button"
                         >
-                          Cancel order
+                          {t("cancelOrder")}
                         </button>
                       </div>
                     )}
@@ -422,7 +419,7 @@ export function TenantOrderManagement({
                       <br />
                       {order.deliveryAddress.city},{" "}
                       {order.deliveryAddress.state}{" "}
-                      {order.deliveryAddress.postalCode}, India
+                      {order.deliveryAddress.postalCode} , {t("india")}
                       <br />
                       {order.deliveryAddress.phone}
                     </address>
@@ -433,7 +430,7 @@ export function TenantOrderManagement({
             {cashTotal > 20 && (
               <div className="flex items-center justify-between text-sm">
                 <span>
-                  Page {cashPage} · {cashTotal} pending
+                  {t("cashPage", { page: cashPage, total: cashTotal })}
                 </span>
                 <div className="flex gap-2">
                   <button
@@ -442,7 +439,7 @@ export function TenantOrderManagement({
                     onClick={() => setCashPage((current) => current - 1)}
                     type="button"
                   >
-                    Previous
+                    {t("previous")}
                   </button>
                   <button
                     className="rounded border px-3 py-1 disabled:opacity-50"
@@ -450,7 +447,7 @@ export function TenantOrderManagement({
                     onClick={() => setCashPage((current) => current + 1)}
                     type="button"
                   >
-                    Next
+                    {t("next")}
                   </button>
                 </div>
               </div>
@@ -459,10 +456,10 @@ export function TenantOrderManagement({
         )}
       </section>
       {loading ? (
-        <p className="text-sm text-slate-600">Loading orders…</p>
+        <p className="text-sm text-slate-600">{t("loadingOrders")}</p>
       ) : orders.length === 0 ? (
         <p className="rounded-lg border border-dashed p-8 text-center text-slate-600">
-          No orders have been delivered to this Tenant backend.
+          {t("noOrders")}
         </p>
       ) : (
         <>
@@ -470,12 +467,12 @@ export function TenantOrderManagement({
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
-                  <th className="px-4 py-3">Order</th>
-                  <th className="px-4 py-3">Placed</th>
-                  <th className="px-4 py-3">Items</th>
-                  <th className="px-4 py-3">Total</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Details</th>
+                  <th className="px-4 py-3">{t("orderColumn")}</th>
+                  <th className="px-4 py-3">{t("placedColumn")}</th>
+                  <th className="px-4 py-3">{t("itemsColumn")}</th>
+                  <th className="px-4 py-3">{t("totalColumn")}</th>
+                  <th className="px-4 py-3">{t("statusColumn")}</th>
+                  <th className="px-4 py-3">{t("detailsColumn")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -493,7 +490,7 @@ export function TenantOrderManagement({
                         locale,
                       )}
                     </td>
-                    <td className="px-4 py-3">{order.status}</td>
+                    <td className="px-4 py-3">{t(order.status)}</td>
                     <td className="px-4 py-3">
                       <button
                         className="font-medium text-indigo-700 underline"
@@ -501,7 +498,7 @@ export function TenantOrderManagement({
                         onClick={() => void viewOrder(order.id)}
                         type="button"
                       >
-                        View
+                        {t("view")}
                       </button>
                     </td>
                   </tr>
@@ -511,8 +508,11 @@ export function TenantOrderManagement({
           </div>
           <div className="flex items-center justify-between text-sm">
             <span>
-              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)}{" "}
-              of {total}
+              {t("showing", {
+                from: (page - 1) * limit + 1,
+                to: Math.min(page * limit, total),
+                total,
+              })}
             </span>
             <div className="flex gap-2">
               <button
@@ -521,7 +521,7 @@ export function TenantOrderManagement({
                 onClick={() => setPage((current) => current - 1)}
                 type="button"
               >
-                Previous
+                {t("previous")}
               </button>
               <button
                 className="rounded border px-3 py-1 disabled:opacity-50"
@@ -529,7 +529,7 @@ export function TenantOrderManagement({
                 onClick={() => setPage((current) => current + 1)}
                 type="button"
               >
-                Next
+                {t("next")}
               </button>
             </div>
           </div>
@@ -540,7 +540,7 @@ export function TenantOrderManagement({
         <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-slate-500">Order details</p>
+              <p className="text-sm text-slate-500">{t("orderDetails")}</p>
               <h2 className="text-lg font-semibold">{selected.id}</h2>
             </div>
             <button
@@ -548,29 +548,29 @@ export function TenantOrderManagement({
               onClick={() => setSelected(null)}
               type="button"
             >
-              Close
+              {t("close")}
             </button>
           </div>
           <dl className="grid gap-3 text-sm sm:grid-cols-3">
             <div>
-              <dt className="text-slate-500">Customer ID</dt>
+              <dt className="text-slate-500">{t("customerId")}</dt>
               <dd className="break-all font-medium">{selected.customerId}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Placed</dt>
+              <dt className="text-slate-500">{t("placed")}</dt>
               <dd className="font-medium">
                 {dateFormatter.format(new Date(selected.createdAt))}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Status</dt>
-              <dd className="font-medium">{selected.status}</dd>
+              <dt className="text-slate-500">{t("status")}</dt>
+              <dd className="font-medium">{t(selected.status)}</dd>
             </div>
           </dl>
           {selected.fulfillment && (
             <div className="rounded-md border border-indigo-100 bg-indigo-50 p-4 text-sm">
               <h3 className="font-semibold text-slate-900">
-                Shipment tracking
+                {t("shipmentTracking")}
               </h3>
               <p className="mt-1 text-slate-700">
                 {selected.fulfillment.carrier
@@ -585,7 +585,7 @@ export function TenantOrderManagement({
                   rel="noreferrer"
                   target="_blank"
                 >
-                  Track shipment
+                  {t("trackShipment")}
                 </a>
               )}
             </div>
@@ -621,7 +621,7 @@ export function TenantOrderManagement({
               </li>
             ))}
             <li className="flex justify-between p-3 text-sm text-slate-600">
-              <span>Subtotal</span>
+              <span>{t("subtotal")}</span>
               <span>
                 {formatCurrencyAmount(
                   selected.subtotal ??
@@ -637,7 +637,7 @@ export function TenantOrderManagement({
             {(selected.discountAmount ?? 0) > 0 && (
               <li className="flex justify-between p-3 text-sm text-slate-600">
                 <span>
-                  Discount
+                  {t("discount")}
                   {selected.discountCode ? ` (${selected.discountCode})` : ""}
                 </span>
                 <span>
@@ -652,7 +652,7 @@ export function TenantOrderManagement({
             )}
             {(selected.taxAmount ?? 0) > 0 && (
               <li className="flex justify-between p-3 text-sm text-slate-600">
-                <span>Tax</span>
+                <span>{t("tax")}</span>
                 <span>
                   {formatCurrencyAmount(
                     selected.taxAmount ?? 0,
@@ -663,7 +663,7 @@ export function TenantOrderManagement({
               </li>
             )}
             <li className="flex justify-between p-3 text-sm text-slate-600">
-              <span>Shipping</span>
+              <span>{t("shipping")}</span>
               <span>
                 {formatCurrencyAmount(
                   selected.shippingAmount ?? 0,
@@ -673,7 +673,7 @@ export function TenantOrderManagement({
               </span>
             </li>
             <li className="flex justify-between p-3 font-semibold">
-              <span>Total</span>
+              <span>{t("total")}</span>
               <span>
                 {formatCurrencyAmount(
                   selected.total,
@@ -690,17 +690,17 @@ export function TenantOrderManagement({
               onClick={() => void updateStatus(selected)}
               type="button"
             >
-              {busy ? "Updating…" : "Mark as processing"}
+              {busy ? t("updating") : t("markProcessing")}
             </button>
           )}
           {canManageShipment && (
             <div className="space-y-3 rounded-md border border-slate-200 p-4">
               <h3 className="font-medium text-slate-900">
-                Shipment details (optional)
+                {t("shipmentDetails")}
               </h3>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="space-y-1 text-sm">
-                  <span className="block font-medium">Carrier</span>
+                  <span className="block font-medium">{t("carrier")}</span>
                   <input
                     className="w-full rounded border px-3 py-2"
                     maxLength={80}
@@ -709,7 +709,9 @@ export function TenantOrderManagement({
                   />
                 </label>
                 <label className="space-y-1 text-sm">
-                  <span className="block font-medium">Tracking number</span>
+                  <span className="block font-medium">
+                    {t("trackingNumber")}
+                  </span>
                   <input
                     className="w-full rounded border px-3 py-2"
                     maxLength={120}
@@ -718,9 +720,7 @@ export function TenantOrderManagement({
                   />
                 </label>
                 <label className="space-y-1 text-sm">
-                  <span className="block font-medium">
-                    Tracking URL (HTTPS)
-                  </span>
+                  <span className="block font-medium">{t("trackingUrl")}</span>
                   <input
                     className="w-full rounded border px-3 py-2"
                     maxLength={2048}
@@ -740,9 +740,7 @@ export function TenantOrderManagement({
                     trackingNumber.trim() ||
                     trackingUrl.trim();
                   if (hasTrackingDetails && !trackingNumber.trim()) {
-                    setError(
-                      "Enter a tracking number to save shipment details.",
-                    );
+                    setError(t("trackingNumberRequired"));
                     return;
                   }
                   void updateStatus(
@@ -763,10 +761,10 @@ export function TenantOrderManagement({
                 type="button"
               >
                 {busy
-                  ? "Updating…"
+                  ? t("updating")
                   : selected.status === "Shipped"
-                    ? "Save tracking details"
-                    : "Mark as shipped"}
+                    ? t("saveTracking")
+                    : t("markShipped")}
               </button>
               {selected.status === "Shipped" && (
                 <button
@@ -777,15 +775,12 @@ export function TenantOrderManagement({
                   }
                   type="button"
                 >
-                  {busy ? "Updating…" : "Mark as delivered"}
+                  {busy ? t("updating") : t("markDelivered")}
                 </button>
               )}
             </div>
           )}
-          <p className="text-xs text-slate-500">
-            Status updates are operational labels only; no payment or shipping
-            action is triggered.
-          </p>
+          <p className="text-xs text-slate-500">{t("statusUpdateNotice")}</p>
         </section>
       )}
     </div>

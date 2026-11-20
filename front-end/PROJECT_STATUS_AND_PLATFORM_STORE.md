@@ -320,7 +320,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [ ] **i18n:** English, French, and Hindi routing is now configured with a locale
-      switcher and 266 frontend tests. Customer sign-in/registration, cart and
+      switcher and 267 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -335,7 +335,9 @@ Status snapshot as of 2026-11-19:
       manager links, future-work notice, assigned domains, and secret-free data
       export are localized. Tenant catalog management, product forms, variant
       inventory/pricing, image upload controls, status labels, and CRUD feedback
-      are localized. Catalog checks cover missing keys and interpolation variables.
+      are localized. Tenant order management, COD collection/cancellation,
+      shipment tracking, status updates, order details, and pagination are
+      localized. Catalog checks cover missing keys and interpolation variables.
       Tenant-authored product and branding content remains as supplied; other
       portal management UI remains to be translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
