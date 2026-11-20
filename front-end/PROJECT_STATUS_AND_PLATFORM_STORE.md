@@ -320,7 +320,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [x] **i18n:** English, French, and Hindi routing is configured with a locale
-      switcher and 280 frontend tests. Customer sign-in/registration, cart and
+      switcher and 286 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -467,6 +467,9 @@ Status snapshot as of 2026-11-19:
       pairs are rejected and write-only secrets are cleaned up after successful
       replacement. S3 storage connection testing is covered through its bucket
       health route. Additional provider connection-testing implementations remain.
+      Supabase/MongoDB database test and schema-initialize routes now have
+      route-level coverage for healthy/unhealthy results, upgrade-required
+      initialization, and rate limits.
 - [x] Add Stripe test-mode Checkout, signature verification, idempotent payment
       state updates, retryable order delivery, and Customer payment states.
       Checkout tests verify the separate shipping line item, zero-shipping
