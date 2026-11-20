@@ -137,7 +137,9 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ received: true });
     }
-    await catalog.commitInventory(`${order.id}-${order.paymentAttempt}`);
+    if (order.paymentStatus !== "paid") {
+      await catalog.commitInventory(`${order.id}-${order.paymentAttempt}`);
+    }
   }
   if (updated.paymentStatus !== "paid") {
     if (order.discountCode) {
@@ -145,7 +147,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ received: true });
   }
-  if (order.discountCode) {
+  if (order.discountCode && order.paymentStatus !== "paid") {
     await store.commitDiscountRedemption(order.tenantId, order.id);
   }
   if (updated.backendSyncStatus === "synced") {

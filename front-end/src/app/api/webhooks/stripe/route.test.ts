@@ -72,7 +72,14 @@ describe("Stripe payment webhook", () => {
       customerId,
       status: "Confirmed",
       createdAt: "2026-10-22T12:00:00.000Z",
-      items: [],
+      items: [
+        {
+          productId: "product-1",
+          quantity: 1,
+          inventoryTracked: true,
+          variantSelections: { Size: "M" },
+        },
+      ],
       total: 2500,
       currency: "USD",
       itemCount: 1,
@@ -94,6 +101,8 @@ describe("Stripe payment webhook", () => {
         .fn()
         .mockResolvedValue([{ id: tenantId, hostId, status: "active" }]),
     };
+    const commitInventory = vi.fn().mockResolvedValue(undefined);
+    createTenantCatalogAdapter.mockResolvedValue({ commitInventory });
     getPlatformStore.mockReturnValue(store);
     verifyStripeWebhookEvent.mockReturnValue(checkoutEvent());
     syncCustomerOrderToTenant.mockResolvedValue({
@@ -119,6 +128,7 @@ describe("Stripe payment webhook", () => {
       hostId,
       order: expect.objectContaining({ paymentStatus: "paid" }),
     });
+    expect(commitInventory).toHaveBeenCalledWith(`${orderId}-1`);
   });
 
   it("rejects stale sessions and does not downgrade a paid order", async () => {
@@ -228,7 +238,14 @@ describe("Stripe payment webhook", () => {
       customerId,
       status: "Confirmed",
       createdAt: "2026-10-22T12:00:00.000Z",
-      items: [],
+      items: [
+        {
+          productId: "product-1",
+          quantity: 1,
+          inventoryTracked: true,
+          variantSelections: { Size: "M" },
+        },
+      ],
       total: 2500,
       currency: "USD",
       itemCount: 1,
@@ -246,6 +263,8 @@ describe("Stripe payment webhook", () => {
         .fn()
         .mockResolvedValue([{ id: tenantId, hostId, status: "active" }]),
     };
+    const commitInventory = vi.fn().mockResolvedValue(undefined);
+    createTenantCatalogAdapter.mockResolvedValue({ commitInventory });
     getPlatformStore.mockReturnValue(store);
     verifyStripeWebhookEvent.mockReturnValue(checkoutEvent());
     syncCustomerOrderToTenant
@@ -262,5 +281,6 @@ describe("Stripe payment webhook", () => {
     expect(retryResponse.status).toBe(200);
     expect(store.updateCustomerOrderPayment).not.toHaveBeenCalled();
     expect(syncCustomerOrderToTenant).toHaveBeenCalledTimes(2);
+    expect(commitInventory).not.toHaveBeenCalled();
   });
 });

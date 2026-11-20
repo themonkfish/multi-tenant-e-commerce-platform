@@ -475,7 +475,8 @@ Status snapshot as of 2026-11-19:
       Checkout tests verify the separate shipping line item, zero-shipping
       behavior, and consistency with the saved order total. Stripe webhook
       replay avoids duplicate paid-payment writes and returns a retryable 503
-      while Tenant order delivery remains pending.
+      while Tenant order delivery remains pending. Replay also avoids duplicate
+      inventory and discount commits after a payment is already paid.
 - [x] Add a local-only simulated checkout for testing success, failure, and
       Tenant order delivery without payment-provider credentials.
 - [ ] Add production Stripe Connect after provider-specific onboarding,
