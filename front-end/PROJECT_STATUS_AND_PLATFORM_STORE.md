@@ -521,7 +521,8 @@ Status snapshot as of 2026-11-19:
       reserved/committed redemption limits.
 - [x] Tenant-configured tax-exclusive percentage rates with server-side tax
       calculation on discounted merchandise, order snapshots, payment totals,
-      and customer/Tenant order summaries.
+      and customer/Tenant order summaries. Checkout route coverage also verifies
+      COD tax, shipping, and final-total snapshots.
 - [ ] Complete orders, customer, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order

@@ -751,6 +751,12 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       ],
       paymentMethod: "cash_on_delivery",
       paymentStatus: "cod_due",
+      subtotal: 2500,
+      discountAmount: 0,
+      taxRateBasisPoints: 825,
+      taxAmount: 206,
+      shippingAmount: 200,
+      total: 2906,
       deliveryAddress: {
         fullName: "Test Customer",
         line1: "1 Market Road",
@@ -774,7 +780,9 @@ describe("POST /api/customer/orders Stripe checkout", () => {
       scope: { kind: "tenant", id: tenantId, hostId },
       permissions: ["customer:orders:read"],
     });
-    getPlatformStore.mockReturnValue(withShippingSettings(store, "INR"));
+    getPlatformStore.mockReturnValue(
+      withShippingSettings(store, "INR", { flatRate: 200 }, [], 825),
+    );
     createTenantCatalogAdapter.mockResolvedValue({
       getProduct: vi.fn().mockResolvedValue(codProduct),
     });
@@ -789,10 +797,25 @@ describe("POST /api/customer/orders Stripe checkout", () => {
         paymentMethod: "cash_on_delivery",
         paymentStatus: "cod_due",
         currency: "INR",
+        subtotal: 2500,
+        taxRateBasisPoints: 825,
+        taxAmount: 206,
+        shippingAmount: 200,
+        total: 2906,
         deliveryAddress: { country: "IN", phone: "+919876543210" },
       },
       cashOnDelivery: true,
     });
+    expect(store.createCustomerOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentMethod: "cash_on_delivery",
+        subtotal: 2500,
+        taxRateBasisPoints: 825,
+        taxAmount: 206,
+        shippingAmount: 200,
+        total: 2906,
+      }),
+    );
     expect(syncCustomerOrderToTenant).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId,
