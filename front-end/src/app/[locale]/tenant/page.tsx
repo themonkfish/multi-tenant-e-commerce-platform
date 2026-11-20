@@ -27,6 +27,7 @@ export default async function TenantDashboardPage({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "TenantSettings" });
   const staffT = await getTranslations({ locale, namespace: "TenantStaff" });
+  const setupT = await getTranslations({ locale, namespace: "TenantSetup" });
   const session = await getTenantOwnerSession();
   if (!session) {
     redirect(`/${locale}/tenant/login`);
@@ -141,13 +142,11 @@ export default async function TenantDashboardPage({
         <TenantStoreSettingsForm initialSettings={settings} />
         <h2 className="pt-4 text-xl font-semibold">{staffT("teamAccess")}</h2>
         <TenantStaffManagement initialStaff={staff} />
-        <h2 className="pt-4 text-xl font-semibold">Store setup</h2>
+        <h2 className="pt-4 text-xl font-semibold">{setupT("storeSetup")}</h2>
         <div>
-          <h3 className="mb-2 font-semibold">REST backend connection</h3>
+          <h3 className="mb-2 font-semibold">{setupT("restConnection")}</h3>
           <p className="mb-4 text-sm text-slate-600">
-            Connect an HTTPS API that implements the platform REST contract.
-            Connection tests are rate-limited and block private or internal IP
-            addresses.
+            {setupT("restConnectionDescription")}
           </p>
           <TenantRestConnectionForm
             initialConnection={{

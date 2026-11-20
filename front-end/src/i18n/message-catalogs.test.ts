@@ -22,6 +22,7 @@ const namespaces = [
   "CustomerOrderSync",
   "TenantSettings",
   "TenantStaff",
+  "TenantSetup",
 ] as const;
 
 function flattenMessages(

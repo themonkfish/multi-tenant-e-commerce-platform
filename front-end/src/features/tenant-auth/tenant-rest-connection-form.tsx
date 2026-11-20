@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   RestHealthCheckResultSchema,
   TenantRestConnectionInputSchema,
@@ -17,6 +18,7 @@ export function TenantRestConnectionForm({
     apiKeyConfigured: boolean;
   };
 }) {
+  const t = useTranslations("TenantSetup");
   const [baseUrl, setBaseUrl] = useState(initialConnection.baseUrl);
   const [apiVersion, setApiVersion] = useState(initialConnection.apiVersion);
   const [apiKey, setApiKey] = useState("");
@@ -36,7 +38,7 @@ export function TenantRestConnectionForm({
       ...(apiKey ? { apiKey } : {}),
     });
     if (!input.success) {
-      setError("Enter a valid backend URL, API version, and API key.");
+      setError(t("invalidConnectionInput"));
       setNotice("");
       return;
     }
@@ -59,12 +61,12 @@ export function TenantRestConnectionForm({
             : undefined;
         setError(
           code === "rate_limited"
-            ? "Too many changes. Wait before trying again."
+            ? t("tooManyChanges")
             : code === "unsafe_url"
-              ? "Use an HTTPS public hostname or the enabled local demo URL."
+              ? t("unsafeUrl")
               : code === "api_key_required"
-                ? "Enter an API key to configure the connection."
-                : "Connection settings could not be saved.",
+                ? t("apiKeyRequired")
+                : t("connectionSaveFailed"),
         );
         return;
       }
@@ -73,7 +75,7 @@ export function TenantRestConnectionForm({
           ? TenantRestConnectionViewSchema.safeParse(body.connection)
           : null;
       if (!connection?.success) {
-        setError("The server returned invalid connection settings.");
+        setError(t("invalidConnectionResponse"));
         return;
       }
       setBaseUrl(connection.data.baseUrl);
@@ -85,11 +87,11 @@ export function TenantRestConnectionForm({
           body !== null &&
           "warning" in body &&
           body.warning === "previous_credential_cleanup_failed"
-          ? "Settings were saved, but the previous encrypted API key could not be removed."
-          : "REST connection settings saved. The API key is stored securely and cannot be viewed here.",
+          ? t("credentialCleanupWarning")
+          : t("connectionSaved"),
       );
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -114,10 +116,10 @@ export function TenantRestConnectionForm({
             : undefined;
         setError(
           code === "rate_limited"
-            ? "Too many connection tests. Wait before trying again."
+            ? t("tooManyTests")
             : code === "connection_not_configured"
-              ? "Save the backend URL and API key before testing."
-              : "The backend connection test could not be completed.",
+              ? t("saveBeforeTest")
+              : t("connectionTestFailed"),
         );
         return;
       }
@@ -126,12 +128,12 @@ export function TenantRestConnectionForm({
           ? RestHealthCheckResultSchema.safeParse(body.result)
           : null;
       if (!result?.success) {
-        setError("The server returned an invalid health-check result.");
+        setError(t("invalidHealthResponse"));
         return;
       }
       setHealth(result.data);
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -141,7 +143,7 @@ export function TenantRestConnectionForm({
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
       <form className="grid gap-5 sm:grid-cols-2" onSubmit={save}>
         <label className="space-y-1 text-sm font-medium sm:col-span-2">
-          Backend base URL
+          {t("backendBaseUrl")}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             name="baseUrl"
@@ -153,7 +155,7 @@ export function TenantRestConnectionForm({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          API version
+          {t("apiVersion")}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             name="apiVersion"
@@ -165,7 +167,8 @@ export function TenantRestConnectionForm({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          API key {apiKeyConfigured ? "(leave blank to keep current key)" : ""}
+          {t("apiKey")}
+          {apiKeyConfigured ? ` ${t("apiKeyKeepCurrent")}` : ""}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             name="apiKey"
@@ -178,10 +181,9 @@ export function TenantRestConnectionForm({
           />
         </label>
         <p className="text-sm text-slate-600 sm:col-span-2">
-          Authentication uses the <code>X-API-Key</code> request header. Only
-          Public backends must use HTTPS on the standard port. HTTP is permitted
-          only for the explicitly enabled loopback demo in development. The key
-          is write-only and encrypted at rest.
+          {t.rich("restSecurityHelp", {
+            code: (chunks) => <code>{chunks}</code>,
+          })}
         </p>
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           <button
@@ -189,7 +191,7 @@ export function TenantRestConnectionForm({
             disabled={busy}
             type="submit"
           >
-            {busy ? "Saving…" : "Save backend connection"}
+            {busy ? t("saving") : t("saveConnection")}
           </button>
           <button
             className="rounded-md border border-slate-300 px-4 py-2 font-medium hover:bg-slate-50 disabled:opacity-60"
@@ -197,7 +199,7 @@ export function TenantRestConnectionForm({
             onClick={testConnection}
             type="button"
           >
-            {busy ? "Checking…" : "Test saved connection"}
+            {busy ? t("checking") : t("testConnection")}
           </button>
         </div>
       </form>
@@ -215,19 +217,28 @@ export function TenantRestConnectionForm({
           role="status"
         >
           <p className="font-semibold">
-            Backend {health.status} in {health.latencyMs} ms
+            {t("healthStatus", {
+              status: health.status,
+              latencyMs: health.latencyMs,
+            })}
           </p>
           {health.schemaVersion && (
-            <p className="mt-1">Schema version: {health.schemaVersion}</p>
+            <p className="mt-1">
+              {t("schemaVersion", { version: health.schemaVersion })}
+            </p>
           )}
           {health.missing.length > 0 && (
             <p className="mt-1">
-              Components to check: {health.missing.join(", ")}
+              {t("componentsToCheck", {
+                components: health.missing.join(", "),
+              })}
             </p>
           )}
           {health.error && (
             <p className="mt-1">
-              Check result: {health.error.replaceAll("_", " ")}
+              {t("checkResult", {
+                result: health.error.replaceAll("_", " "),
+              })}
             </p>
           )}
         </div>
