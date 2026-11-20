@@ -28,6 +28,7 @@ export default async function TenantDashboardPage({
   const t = await getTranslations({ locale, namespace: "TenantSettings" });
   const staffT = await getTranslations({ locale, namespace: "TenantStaff" });
   const setupT = await getTranslations({ locale, namespace: "TenantSetup" });
+  const portalT = await getTranslations({ locale, namespace: "TenantPortal" });
   const session = await getTenantOwnerSession();
   if (!session) {
     redirect(`/${locale}/tenant/login`);
@@ -93,12 +94,14 @@ export default async function TenantDashboardPage({
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-indigo-700">Store portal</p>
+          <p className="text-sm font-semibold text-indigo-700">
+            {portalT("storePortal")}
+          </p>
           <h1 className="mt-1 text-2xl font-semibold">
             {settings.branding.name}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Signed in as {session.userId}
+            {portalT("signedInAs", { userId: session.userId })}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -107,7 +110,7 @@ export default async function TenantDashboardPage({
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
               type="submit"
             >
-              Export tenant data
+              {portalT("exportTenantData")}
             </button>
           </form>
           <form action="/api/tenant/auth/logout" method="post">
@@ -115,7 +118,7 @@ export default async function TenantDashboardPage({
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
               type="submit"
             >
-              Sign out
+              {portalT("signOut")}
             </button>
           </form>
         </div>
@@ -123,15 +126,15 @@ export default async function TenantDashboardPage({
 
       <section className="grid gap-4 py-8 sm:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Store status</p>
+          <p className="text-sm text-slate-500">{portalT("storeStatus")}</p>
           <p className="mt-1 font-semibold capitalize">{tenant.status}</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Plan</p>
+          <p className="text-sm text-slate-500">{portalT("plan")}</p>
           <p className="mt-1 font-semibold">{tenant.plan}</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Managing host</p>
+          <p className="text-sm text-slate-500">{portalT("managingHost")}</p>
           <p className="mt-1 font-semibold">{hostRecord.name}</p>
         </div>
       </section>
@@ -171,42 +174,37 @@ export default async function TenantDashboardPage({
           <TenantStorageProviderForm initialConnection={storageConnection} />
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h3 className="mb-2 font-semibold">Catalog management</h3>
+          <h3 className="mb-2 font-semibold">{portalT("catalogManagement")}</h3>
           <p className="mb-4 text-sm text-slate-600">
-            Use the product catalog to create and maintain the catalog in the
-            active tenant data provider.
+            {portalT("catalogManagementDescription")}
           </p>
           <a
             className="inline-flex rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-800"
             href={`/${locale}/tenant/products`}
           >
-            Open product manager
+            {portalT("openProductManager")}
           </a>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h3 className="mb-2 font-semibold">Order management</h3>
+          <h3 className="mb-2 font-semibold">{portalT("orderManagement")}</h3>
           <p className="mb-4 text-sm text-slate-600">
-            Review orders received by the connected backend and update basic
-            processing status.
+            {portalT("orderManagementDescription")}
           </p>
           <a
             className="inline-flex rounded-md bg-indigo-700 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-800"
             href={`/${locale}/tenant/orders`}
           >
-            Open order manager
+            {portalT("openOrderManager")}
           </a>
         </div>
         <TenantDataExport />
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <p className="text-sm leading-6 text-amber-900">
-            Storefront payment processing and custom-domain routing remain
-            future work. The tenant portal already includes product image
-            uploads, catalog management, staff permissions, storage
-            configuration, and tenant settings management.
+            {portalT("futureWorkNotice")}
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
-          <h3 className="font-medium">Assigned domains</h3>
+          <h3 className="font-medium">{portalT("assignedDomains")}</h3>
           {tenant.domains.length > 0 ? (
             <ul className="mt-2 list-inside list-disc text-sm text-slate-600">
               {tenant.domains.map((domain) => (
@@ -217,7 +215,7 @@ export default async function TenantDashboardPage({
             </ul>
           ) : (
             <p className="mt-2 text-sm text-slate-500">
-              No custom domains have been assigned by your host yet.
+              {portalT("noAssignedDomains")}
             </p>
           )}
         </div>

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 export function TenantDataExport() {
+  const t = useTranslations("TenantPortal");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -13,9 +15,7 @@ export function TenantDataExport() {
       const response = await fetch("/api/tenant/export", { method: "POST" });
       if (!response.ok) {
         setError(
-          response.status === 429
-            ? "Too many export requests. Wait before trying again."
-            : "The tenant export could not be created.",
+          response.status === 429 ? t("tooManyExports") : t("exportFailed"),
         );
         return;
       }
@@ -32,7 +32,7 @@ export function TenantDataExport() {
       link.remove();
       URL.revokeObjectURL(downloadUrl);
     } catch {
-      setError("The tenant export request could not reach the server.");
+      setError(t("exportRequestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -40,11 +40,8 @@ export function TenantDataExport() {
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <h3 className="mb-2 font-semibold">Export tenant data</h3>
-      <p className="mb-4 text-sm text-slate-600">
-        Download a secret-free JSON snapshot of tenant metadata, settings,
-        staff, connection metadata, orders, and scoped audit events.
-      </p>
+      <h3 className="mb-2 font-semibold">{t("exportTitle")}</h3>
+      <p className="mb-4 text-sm text-slate-600">{t("exportDescription")}</p>
       {error && (
         <p className="mb-3 text-sm text-red-700" role="alert">
           {error}
@@ -56,7 +53,7 @@ export function TenantDataExport() {
         onClick={() => void exportData()}
         type="button"
       >
-        {busy ? "Preparing export…" : "Download JSON export"}
+        {busy ? t("preparingExport") : t("downloadJson")}
       </button>
     </div>
   );
