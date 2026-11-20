@@ -320,7 +320,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [x] **i18n:** English, French, and Hindi routing is configured with a locale
-      switcher and 289 frontend tests. Customer sign-in/registration, cart and
+      switcher and 291 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -487,7 +487,9 @@ Status snapshot as of 2026-11-19:
       processing. The platform records cancellation before synchronizing the
       Tenant backend, restoring tracked inventory, and releasing discount
       redemptions; cleanup can be retried after partial failure. Paid Stripe
-      orders remain non-cancellable until refunds are supported. Tenant order
+      orders remain non-cancellable until refund API and webhook reconciliation
+      are implemented. The Customer cancellation route has regression coverage
+      for paid rejection and COD success. Tenant order
       routes have regression coverage for write permissions and COD cleanup
       handoff.
 - [x] Let authorized Tenant operators manually mark Shipped orders Delivered.
