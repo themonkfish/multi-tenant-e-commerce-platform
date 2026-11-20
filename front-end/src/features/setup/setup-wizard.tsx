@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 
 const BootstrapResponseSchema = z.object({
   email: z.email(),
@@ -39,6 +40,7 @@ type WizardState =
     };
 
 export function SetupWizard() {
+  const t = useTranslations("PlatformSetup");
   const [wizard, setWizard] = useState<WizardState>({ step: "bootstrap" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,17 +61,17 @@ export function SetupWizard() {
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeError(body));
+        setError(describeError(body, t));
         return;
       }
       const result = PreflightResponseSchema.safeParse(body);
       if (!result.success) {
-        setError("The server returned an invalid readiness result.");
+        setError(t("invalidReadiness"));
         return;
       }
       setPreflight(result.data);
     } catch {
-      setError("The readiness check could not reach the server. Try again.");
+      setError(t("readinessRequestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -79,7 +81,7 @@ export function SetupWizard() {
     event.preventDefault();
     const formElement = event.currentTarget;
     if (!preflight) {
-      setError("Run the server readiness check before continuing.");
+      setError(t("runReadiness"));
       return;
     }
     const form = new FormData(formElement);
@@ -114,13 +116,13 @@ export function SetupWizard() {
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeError(body));
+        setError(describeError(body, t));
         return;
       }
 
       const result = BootstrapResponseSchema.safeParse(body);
       if (!result.success) {
-        setError("The setup response was invalid. Please retry.");
+        setError(t("invalidSetupResponse"));
         return;
       }
       setWizard({
@@ -131,7 +133,7 @@ export function SetupWizard() {
         platformDomain: String(form.get("platformDomain")),
       });
     } catch {
-      setError("Setup could not reach the server. Please try again.");
+      setError(t("setupRequestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -157,13 +159,13 @@ export function SetupWizard() {
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeError(body));
+        setError(describeError(body, t));
         return;
       }
 
       const result = CompleteResponseSchema.safeParse(body);
       if (!result.success) {
-        setError("The setup response was invalid. Please retry.");
+        setError(t("invalidSetupResponse"));
         return;
       }
       setWizard({
@@ -173,7 +175,7 @@ export function SetupWizard() {
         platformDomain: wizard.platformDomain,
       });
     } catch {
-      setError("Setup could not reach the server. Please try again.");
+      setError(t("setupRequestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -183,11 +185,10 @@ export function SetupWizard() {
     return (
       <section className="space-y-5" aria-labelledby="recovery-heading">
         <h2 id="recovery-heading" className="text-xl font-semibold">
-          Save your recovery codes
+          {t("saveRecoveryCodes")}
         </h2>
         <p className="text-sm leading-6 text-slate-600">
-          Each code is shown once and can be used for one sign-in instead of
-          your authenticator. Store them somewhere secure.
+          {t("recoveryDescription")}
         </p>
         <ul className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-4 font-mono text-sm">
           {wizard.codes.map((code) => (
@@ -195,34 +196,32 @@ export function SetupWizard() {
           ))}
         </ul>
         <div className="space-y-2 rounded-lg border border-slate-200 p-4 text-sm leading-6">
-          <h3 className="font-semibold">Next: create your first Host</h3>
+          <h3 className="font-semibold">{t("nextCreateHost")}</h3>
           <ol className="list-decimal space-y-1 pl-5 text-slate-600">
-            <li>Remove SETUP_TOKEN from the deployment environment.</li>
+            <li>{t("removeSetupToken")}</li>
             <li>
-              Sign in to {wizard.platformName} at{" "}
+              {t("signInAt", { platformName: wizard.platformName })}{" "}
               <Link
                 className="font-medium text-indigo-700 underline"
                 href="/en/super-admin/login"
               >
-                Super Admin sign-in
+                {t("superAdminSignIn")}
               </Link>
               .
             </li>
             <li>
-              Create and activate a Host for {wizard.platformDomain}, then
-              invite its owner.
+              {t("createActivateHost", {
+                platformDomain: wizard.platformDomain,
+              })}
             </li>
-            <li>
-              Invitations are emailed when configured; otherwise, share the
-              one-time link manually.
-            </li>
+            <li>{t("invitationDelivery")}</li>
           </ol>
         </div>
         <Link
           className="inline-flex rounded-md bg-indigo-700 px-4 py-2 font-medium text-white hover:bg-indigo-800"
           href="/en/super-admin/login"
         >
-          Continue to sign in
+          {t("continueSignIn")}
         </Link>
       </section>
     );
@@ -232,10 +231,9 @@ export function SetupWizard() {
     return (
       <form className="space-y-5" onSubmit={completeSetup}>
         <div>
-          <h2 className="text-xl font-semibold">Enroll an authenticator</h2>
+          <h2 className="text-xl font-semibold">{t("enrollAuthenticator")}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Scan the QR code with an authenticator app, then enter its current
-            six-digit code to finish setup.
+            {t("totpDescription")}
           </p>
         </div>
         {/* This one-time enrollment QR intentionally contains the new admin's TOTP secret. */}
@@ -243,13 +241,13 @@ export function SetupWizard() {
         <img
           className="h-48 w-48 rounded-lg border border-slate-200"
           src={wizard.qrCodeDataUrl}
-          alt="One-time authenticator enrollment QR code"
+          alt={t("qrAlt")}
         />
         <p className="break-all rounded-md bg-slate-100 p-3 font-mono text-sm">
-          Manual setup key: {wizard.secret}
+          {t("manualSetupKey", { secret: wizard.secret })}
         </p>
         <label className="block space-y-2 text-sm font-medium" htmlFor="code">
-          Authenticator code
+          {t("authenticatorCode")}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             id="code"
@@ -267,7 +265,7 @@ export function SetupWizard() {
           disabled={busy}
           type="submit"
         >
-          {busy ? "Verifying…" : "Verify and finish setup"}
+          {busy ? t("verifying") : t("verifyFinish")}
         </button>
         {error && (
           <p className="text-sm text-red-700" role="alert">
@@ -281,13 +279,12 @@ export function SetupWizard() {
   return (
     <form className="space-y-5" onSubmit={beginSetup}>
       <div>
-        <h2 className="text-xl font-semibold">Create the first admin</h2>
+        <h2 className="text-xl font-semibold">{t("createFirstAdmin")}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Bootstrap is available once and requires the token configured by the
-          deployment operator.
+          {t("bootstrapDescription")}
         </p>
       </div>
-      <Field id="setupToken" label="One-time setup token">
+      <Field id="setupToken" label={t("setupToken")}>
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="setupToken"
@@ -299,7 +296,7 @@ export function SetupWizard() {
           required
         />
       </Field>
-      <Field id="email" label="Super Admin email">
+      <Field id="email" label={t("superAdminEmail")}>
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="email"
@@ -309,7 +306,7 @@ export function SetupWizard() {
           required
         />
       </Field>
-      <Field id="password" label="Password (at least 14 characters)">
+      <Field id="password" label={t("passwordLabel")}>
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="password"
@@ -321,7 +318,7 @@ export function SetupWizard() {
           required
         />
       </Field>
-      <Field id="platformDomain" label="Platform domain">
+      <Field id="platformDomain" label={t("platformDomain")}>
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="platformDomain"
@@ -331,7 +328,7 @@ export function SetupWizard() {
           required
         />
       </Field>
-      <Field id="reservedSubdomains" label="Reserved subdomains">
+      <Field id="reservedSubdomains" label={t("reservedSubdomains")}>
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="reservedSubdomains"
@@ -342,14 +339,13 @@ export function SetupWizard() {
         />
       </Field>
       <p className="text-sm leading-6 text-slate-600">
-        Use a comma-separated list of host labels to reserve, such as admin,
-        www, and api.
+        {t("reservedSubdomainsHelp")}
       </p>
       <fieldset className="space-y-4 rounded-lg border border-slate-200 p-4">
         <legend className="px-1 text-sm font-semibold">
-          Platform theme and legal links
+          {t("themeAndLegal")}
         </legend>
-        <Field id="platformName" label="Platform name">
+        <Field id="platformName" label={t("platformName")}>
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             id="platformName"
@@ -360,7 +356,7 @@ export function SetupWizard() {
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="primaryColor" label="Primary brand color">
+          <Field id="primaryColor" label={t("primaryBrandColor")}>
             <input
               className="h-10 w-full rounded-md border border-slate-300 p-1"
               id="primaryColor"
@@ -370,7 +366,7 @@ export function SetupWizard() {
               required
             />
           </Field>
-          <Field id="accentColor" label="Accent brand color">
+          <Field id="accentColor" label={t("accentBrandColor")}>
             <input
               className="h-10 w-full rounded-md border border-slate-300 p-1"
               id="accentColor"
@@ -381,7 +377,7 @@ export function SetupWizard() {
             />
           </Field>
         </div>
-        <Field id="termsUrl" label="Terms of service URL (optional)">
+        <Field id="termsUrl" label={t("termsUrl")}>
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             id="termsUrl"
@@ -391,7 +387,7 @@ export function SetupWizard() {
             placeholder="https://platform.example.com/terms"
           />
         </Field>
-        <Field id="privacyUrl" label="Privacy policy URL (optional)">
+        <Field id="privacyUrl" label={t("privacyUrl")}>
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             id="privacyUrl"
@@ -402,17 +398,12 @@ export function SetupWizard() {
           />
         </Field>
         <p className="text-xs leading-5 text-slate-600">
-          These settings brand the platform shell and expose legal links; they
-          do not replace tenant storefront settings.
+          {t("themeLegalHelp")}
         </p>
       </fieldset>
       <div className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
-        <h3 className="font-semibold">Invitation delivery</h3>
-        <p className="text-slate-600">
-          Configure RESEND_API_KEY and INVITATION_EMAIL_FROM in the server
-          environment to email Host and Tenant invitations. One-time links
-          remain available as a fallback.
-        </p>
+        <h3 className="font-semibold">{t("invitationDeliveryTitle")}</h3>
+        <p className="text-slate-600">{t("invitationDeliveryHelp")}</p>
       </div>
       <button
         className="rounded-md border border-indigo-300 px-4 py-2 font-medium text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"
@@ -423,17 +414,16 @@ export function SetupWizard() {
         }}
         type="button"
       >
-        {busy ? "Checking…" : "Verify server configuration and store"}
+        {busy ? t("checking") : t("verifyServer")}
       </button>
       {preflight && (
         <p className="text-sm text-green-800" role="status">
-          {preflight.platformStore} platform store is reachable; required
-          security configuration is present.{" "}
+          {t("preflightReady", { platformStore: preflight.platformStore })}{" "}
           {preflight.invitations === "email"
-            ? "Invitation email delivery is configured."
+            ? t("emailConfigured")
             : preflight.invitations === "misconfigured"
-              ? "Invitation email settings are incomplete; invitations can still be shared manually."
-              : "Invitation emails are not configured; invitations can be shared manually."}
+              ? t("emailMisconfigured")
+              : t("emailNotConfigured")}
         </p>
       )}
       {error && (
@@ -447,10 +437,10 @@ export function SetupWizard() {
         type="submit"
       >
         {busy
-          ? "Starting setup…"
+          ? t("startingSetup")
           : preflight
-            ? "Continue to two-factor setup"
-            : "Check readiness to continue"}
+            ? t("continueTwoFactor")
+            : t("checkReadiness")}
       </button>
     </form>
   );
@@ -473,7 +463,7 @@ function Field({
   );
 }
 
-function describeError(body: unknown): string {
+function describeError(body: unknown, t: (key: string) => string): string {
   if (
     typeof body === "object" &&
     body !== null &&
@@ -481,27 +471,19 @@ function describeError(body: unknown): string {
     typeof body.error === "string"
   ) {
     const messages: Record<string, string> = {
-      setup_token_not_configured:
-        "The deployment operator has not configured SETUP_TOKEN.",
-      server_configuration_invalid:
-        "Required security settings are missing or invalid. Check PLATFORM_SECRET_KEY, SESSION_SECRET, and platform-store configuration.",
-      platform_store_unavailable:
-        "The platform store is unavailable. Check its URL, credentials, and migrations, then retry the readiness check.",
-      invalid_setup_token: "The setup token is incorrect.",
-      invalid_totp_code: "That authenticator code is not valid. Try again.",
-      invalid_platform_domain:
-        "Use a valid hostname such as platform.example.com without a path, port, or scheme.",
-      invalid_reserved_subdomain:
-        "Reserved subdomains must be simple host labels, such as admin or api, and cannot match the platform domain.",
-      rate_limited: "Too many attempts. Wait before trying again.",
-      not_found: "Platform setup has already been completed.",
-      setup_not_available: "The setup session is no longer available.",
-      bootstrap_already_started:
-        "Setup was already started for another password. Use the original password.",
+      setup_token_not_configured: t("setupTokenNotConfigured"),
+      server_configuration_invalid: t("serverConfigurationInvalid"),
+      platform_store_unavailable: t("platformStoreUnavailable"),
+      invalid_setup_token: t("invalidSetupToken"),
+      invalid_totp_code: t("invalidTotpCode"),
+      invalid_platform_domain: t("invalidPlatformDomain"),
+      invalid_reserved_subdomain: t("invalidReservedSubdomain"),
+      rate_limited: t("tooManyAttempts"),
+      not_found: t("setupAlreadyCompleted"),
+      setup_not_available: t("setupSessionUnavailable"),
+      bootstrap_already_started: t("bootstrapAlreadyStarted"),
     };
-    return (
-      messages[body.error] ?? "Setup could not be completed. Please retry."
-    );
+    return messages[body.error] ?? t("setupCouldNotComplete");
   }
-  return "Setup could not be completed. Please retry.";
+  return t("setupCouldNotComplete");
 }

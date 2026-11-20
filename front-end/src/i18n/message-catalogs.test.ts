@@ -36,6 +36,7 @@ const namespaces = [
   "HostTenants",
   "SuperAdminSettings",
   "SuperAdminOperations",
+  "PlatformSetup",
 ] as const;
 
 function flattenMessages(
