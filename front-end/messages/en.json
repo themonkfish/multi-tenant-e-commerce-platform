@@ -350,7 +350,17 @@
     "accountExists": "That email already has an account for this store.",
     "staffCreateFailed": "The staff account could not be created.",
     "accountCreated": "Staff account created. Share its initial password securely.",
-    "accountDeleted": "Staff account deleted."
+    "accountDeleted": "Staff account deleted.",
+    "staffPortal": "Staff portal",
+    "loginTitle": "Tenant staff sign in",
+    "loginDescription": "Staff access is limited to catalog and order permissions granted by the store owner.",
+    "loginEmail": "Email",
+    "loginPassword": "Password",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in",
+    "tooManyLoginAttempts": "Too many attempts. Wait before trying again.",
+    "invalidLogin": "Email or password is incorrect, or this store is unavailable.",
+    "loginRequestUnavailable": "Sign-in could not reach the server. Please try again."
   },
   "Home": {
     "platformName": "Commerce Workspace",

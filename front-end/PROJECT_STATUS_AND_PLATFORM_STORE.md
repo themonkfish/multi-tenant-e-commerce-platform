@@ -326,9 +326,10 @@ Status snapshot as of 2026-11-19:
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
       are localized in all three languages. The Tenant Owner brand/localization
       section, store settings form, and Staff account management are also
-      localized, with catalog checks for missing keys and interpolation
-      variables. Tenant-authored product and branding content remains as
-      supplied; other portal management UI remains to be translated.
+      localized, and the Tenant Staff sign-in flow is localized for Email,
+      password, status, and error handling. Catalog checks cover missing keys
+      and interpolation variables. Tenant-authored product and branding content
+      remains as supplied; other portal management UI remains to be translated.
 - [ ] **Security/operations:** authentication and mutation protections exist
       for current flows. Rate limits use the configured PlatformStore and
       mutation limits are per-account. Structured logging and request

@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 export function TenantStaffLoginForm() {
   const router = useRouter();
+  const t = useTranslations("TenantStaff");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -25,8 +27,8 @@ export function TenantStaffLoginForm() {
       if (!response.ok) {
         setError(
           response.status === 429
-            ? "Too many attempts. Wait before trying again."
-            : "Email or password is incorrect, or this store is unavailable.",
+            ? t("tooManyLoginAttempts")
+            : t("invalidLogin"),
         );
         return;
       }
@@ -45,7 +47,7 @@ export function TenantStaffLoginForm() {
       );
       router.refresh();
     } catch {
-      setError("Sign-in could not reach the server. Please try again.");
+      setError(t("loginRequestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -57,7 +59,7 @@ export function TenantStaffLoginForm() {
         className="block space-y-2 text-sm font-medium"
         htmlFor="staff-email"
       >
-        Email
+        {t("loginEmail")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="staff-email"
@@ -71,7 +73,7 @@ export function TenantStaffLoginForm() {
         className="block space-y-2 text-sm font-medium"
         htmlFor="staff-password"
       >
-        Password
+        {t("loginPassword")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="staff-password"
@@ -91,7 +93,7 @@ export function TenantStaffLoginForm() {
         disabled={busy}
         type="submit"
       >
-        {busy ? "Signing in…" : "Sign in"}
+        {busy ? t("signingIn") : t("signIn")}
       </button>
     </form>
   );

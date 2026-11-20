@@ -350,7 +350,17 @@
     "accountExists": "Cette adresse e-mail possède déjà un compte pour cette boutique.",
     "staffCreateFailed": "Impossible de créer le compte du personnel.",
     "accountCreated": "Compte du personnel créé. Partagez son mot de passe initial de façon sécurisée.",
-    "accountDeleted": "Compte du personnel supprimé."
+    "accountDeleted": "Compte du personnel supprimé.",
+    "staffPortal": "Portail du personnel",
+    "loginTitle": "Connexion du personnel du tenant",
+    "loginDescription": "L’accès du personnel est limité aux autorisations du catalogue et des commandes accordées par le propriétaire de la boutique.",
+    "loginEmail": "E-mail",
+    "loginPassword": "Mot de passe",
+    "signingIn": "Connexion…",
+    "signIn": "Se connecter",
+    "tooManyLoginAttempts": "Trop de tentatives. Veuillez attendre avant de réessayer.",
+    "invalidLogin": "L’e-mail ou le mot de passe est incorrect, ou cette boutique est indisponible.",
+    "loginRequestUnavailable": "Impossible de joindre le serveur pour la connexion. Veuillez réessayer."
   },
   "Home": {
     "platformName": "Espace commerce",
