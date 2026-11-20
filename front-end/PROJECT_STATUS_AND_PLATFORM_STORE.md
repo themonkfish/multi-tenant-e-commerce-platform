@@ -346,7 +346,8 @@ Status snapshot as of 2026-11-19:
       tenant management is localized across creation, activation, suspension,
       invitations, custom-domain verification/readiness, deletion, limits, and
       errors. Super Admin platform settings, health, analytics, audit log, and
-      domain inventory panels are localized.
+      domain inventory panels are localized. Super Admin billing/usage and role
+      permission matrix panels are localized.
       Catalog checks cover missing keys and interpolation variables.
       Tenant-authored product and branding content remains as supplied; other
       portal management UI remains to be translated.

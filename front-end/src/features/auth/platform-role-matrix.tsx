@@ -3,18 +3,11 @@ import {
   PrincipalRoleSchema,
   ROLE_PERMISSIONS,
   type Permission,
-  type PrincipalRole,
 } from "@/core/tenancy/scope";
-
-const ROLE_LABELS: Record<PrincipalRole, string> = {
-  super_admin: "Super Admin",
-  host_owner: "Host Owner",
-  tenant_owner: "Tenant Owner",
-  tenant_staff: "Tenant Staff",
-  customer: "Customer",
-};
+import { useTranslations } from "next-intl";
 
 export function PlatformRoleMatrix() {
+  const t = useTranslations("SuperAdminOperations");
   const roles = PrincipalRoleSchema.options;
   const permissions = PermissionSchema.options;
 
@@ -22,11 +15,10 @@ export function PlatformRoleMatrix() {
     <section aria-labelledby="platform-roles-heading" className="space-y-4">
       <div>
         <h2 id="platform-roles-heading" className="text-xl font-semibold">
-          Staff and role permissions
+          {t("roleMatrixTitle")}
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Effective role-to-permission matrix enforced by server scope checks.
-          Tenant Staff accounts are managed inside each tenant portal.
+          {t("roleMatrixDescription")}
         </p>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -34,11 +26,11 @@ export function PlatformRoleMatrix() {
           <thead className="bg-slate-50">
             <tr>
               <th className="px-4 py-3 font-medium" scope="col">
-                Permission
+                {t("permission")}
               </th>
               {roles.map((role) => (
                 <th className="px-4 py-3 font-medium" key={role} scope="col">
-                  {ROLE_LABELS[role]}
+                  {t(`role_${role}`)}
                 </th>
               ))}
             </tr>
@@ -55,14 +47,20 @@ export function PlatformRoleMatrix() {
                       permission,
                     ) ? (
                       <span
-                        aria-label={`${ROLE_LABELS[role]} can ${permission}`}
+                        aria-label={t("roleCanPermission", {
+                          role: t(`role_${role}`),
+                          permission,
+                        })}
                         className="text-emerald-700"
                       >
-                        Allowed
+                        {t("allowed")}
                       </span>
                     ) : (
                       <span
-                        aria-label={`${ROLE_LABELS[role]} cannot ${permission}`}
+                        aria-label={t("roleCannotPermission", {
+                          role: t(`role_${role}`),
+                          permission,
+                        })}
                         className="text-slate-400"
                       >
                         -
