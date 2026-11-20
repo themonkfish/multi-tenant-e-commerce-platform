@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   TenantStorageConnectionViewSchema,
   type TenantStorageConnectionInputSchema,
@@ -14,6 +15,7 @@ export function TenantStorageProviderForm({
 }: {
   initialConnection: StorageConnection | null;
 }) {
+  const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
   const [endpoint, setEndpoint] = useState(initialConnection?.endpoint ?? "");
   const [region, setRegion] = useState(initialConnection?.region ?? "");
@@ -60,12 +62,12 @@ export function TenantStorageProviderForm({
             : undefined;
         setError(
           code === "unsafe_storage_url"
-            ? "Storage URLs must resolve to publicly reachable HTTPS hosts."
+            ? t("unsafeUrl")
             : code === "storage_credentials_required"
-              ? "Enter an access key ID and secret access key."
+              ? t("credentialsRequired")
               : code === "rate_limited"
-                ? "Too many changes. Wait and try again."
-                : "Storage settings could not be saved.",
+                ? t("tooManyChanges")
+                : t("saveFailed"),
         );
         return;
       }
@@ -74,16 +76,16 @@ export function TenantStorageProviderForm({
           ? TenantStorageConnectionViewSchema.safeParse(result.connection)
           : null;
       if (!parsed?.success) {
-        setError("The platform returned invalid storage settings.");
+        setError(t("invalidSettings"));
         return;
       }
       setConnection(parsed.data);
       setAccessKeyId("");
       setSecretAccessKey("");
       setSessionToken("");
-      setNotice("S3-compatible storage settings saved.");
+      setNotice(t("settingsSaved"));
     } catch {
-      setError("Could not reach the platform storage settings.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -99,7 +101,7 @@ export function TenantStorageProviderForm({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError("Storage connection test could not be completed.");
+        setError(t("testFailed"));
         return;
       }
       if (
@@ -108,16 +110,14 @@ export function TenantStorageProviderForm({
         !("status" in body) ||
         (body.status !== "healthy" && body.status !== "unhealthy")
       ) {
-        setError("The platform returned an invalid storage test result.");
+        setError(t("invalidTestResult"));
         return;
       }
       setNotice(
-        body.status === "healthy"
-          ? "Storage bucket connection is healthy."
-          : "The storage bucket could not be reached. Check the endpoint, bucket, and credentials.",
+        body.status === "healthy" ? t("bucketHealthy") : t("bucketUnhealthy"),
       );
     } catch {
-      setError("Could not reach the platform storage test.");
+      setError(t("testRequestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -130,7 +130,7 @@ export function TenantStorageProviderForm({
     try {
       const response = await fetch("/api/tenant/storage", { method: "DELETE" });
       if (!response.ok) {
-        setError("Storage settings could not be removed.");
+        setError(t("removeFailed"));
         return;
       }
       setConnection(null);
@@ -139,9 +139,9 @@ export function TenantStorageProviderForm({
       setBucket("");
       setPublicBaseUrl("");
       setPathStyle(false);
-      setNotice("Storage settings removed.");
+      setNotice(t("settingsRemoved"));
     } catch {
-      setError("Could not reach the platform storage settings.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -161,41 +161,39 @@ export function TenantStorageProviderForm({
       )}
       {connection && (
         <p className="text-sm text-slate-600">
-          Configured bucket <strong>{connection.bucket}</strong> in{" "}
-          <strong>{connection.region}</strong>. Credentials are stored in the
-          encrypted vault and are never displayed.
+          {t.rich("configuredBucket", {
+            bucket: connection.bucket,
+            region: connection.region,
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </p>
       )}
-      <p className="text-sm text-slate-600">
-        Configure bucket or CDN public-read access at your storage provider. The
-        application does not change bucket policies or make private objects
-        public.
-      </p>
+      <p className="text-sm text-slate-600">{t("publicAccessHelp")}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {[
           {
-            label: "S3 endpoint (optional; leave blank for AWS S3)",
+            label: t("endpointLabel"),
             value: endpoint,
             set: setEndpoint,
             placeholder: "https://s3.example.com",
             type: "url",
           },
           {
-            label: "Region",
+            label: t("regionLabel"),
             value: region,
             set: setRegion,
             placeholder: "ap-south-1",
             type: "text",
           },
           {
-            label: "Bucket",
+            label: t("bucketLabel"),
             value: bucket,
             set: setBucket,
             placeholder: "tenant-assets",
             type: "text",
           },
           {
-            label: "Public asset base URL",
+            label: t("publicBaseUrlLabel"),
             value: publicBaseUrl,
             set: setPublicBaseUrl,
             placeholder: "https://cdn.example.com",
@@ -225,11 +223,12 @@ export function TenantStorageProviderForm({
           onChange={(event) => setPathStyle(event.target.checked)}
           type="checkbox"
         />
-        Use path-style requests (often required by S3-compatible services)
+        {t("pathStyleLabel")}
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm font-medium text-slate-700">
-          Access key ID {connection ? "(optional to keep current key)" : ""}
+          {t("accessKeyIdLabel")}
+          {connection ? ` ${t("keepKeyHint")}` : ""}
           <input
             autoComplete="off"
             className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
@@ -240,7 +239,8 @@ export function TenantStorageProviderForm({
           />
         </label>
         <label className="space-y-1 text-sm font-medium text-slate-700">
-          Secret access key {connection ? "(optional to keep current key)" : ""}
+          {t("secretAccessKeyLabel")}
+          {connection ? ` ${t("keepKeyHint")}` : ""}
           <input
             autoComplete="new-password"
             className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
@@ -252,7 +252,7 @@ export function TenantStorageProviderForm({
         </label>
       </div>
       <label className="block space-y-1 text-sm font-medium text-slate-700">
-        Session token (optional)
+        {t("sessionTokenLabel")}
         <input
           autoComplete="off"
           className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
@@ -269,7 +269,7 @@ export function TenantStorageProviderForm({
           onClick={() => void save()}
           type="button"
         >
-          Save storage settings
+          {t("saveSettings")}
         </button>
         {connection && (
           <>
@@ -279,7 +279,7 @@ export function TenantStorageProviderForm({
               onClick={() => void testConnection()}
               type="button"
             >
-              Test connection
+              {t("testConnection")}
             </button>
             <button
               className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
@@ -287,7 +287,7 @@ export function TenantStorageProviderForm({
               onClick={() => void remove()}
               type="button"
             >
-              Remove storage
+              {t("removeStorage")}
             </button>
           </>
         )}

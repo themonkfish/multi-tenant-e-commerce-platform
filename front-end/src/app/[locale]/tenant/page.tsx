@@ -164,12 +164,9 @@ export default async function TenantDashboardPage({
           <TenantDatabaseProviderForm initialConnection={databaseConnection} />
         </div>
         <div>
-          <h3 className="mb-2 font-semibold">S3-compatible storage</h3>
+          <h3 className="mb-2 font-semibold">{setupT("storageConnection")}</h3>
           <p className="mb-4 text-sm text-slate-600">
-            Configure AWS S3 or an S3-compatible service for tenant assets.
-            Credentials are encrypted. Image uploads are limited to verified
-            JPEG, PNG, and WebP content up to 10 MB and receive tenant-scoped
-            object keys.
+            {setupT("storageConnectionDescription")}
           </p>
           <TenantStorageProviderForm initialConnection={storageConnection} />
         </div>
