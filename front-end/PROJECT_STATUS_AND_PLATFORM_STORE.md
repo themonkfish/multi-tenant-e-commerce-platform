@@ -320,7 +320,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [x] **i18n:** English, French, and Hindi routing is configured with a locale
-      switcher and 291 frontend tests. Customer sign-in/registration, cart and
+      switcher and 292 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -473,7 +473,9 @@ Status snapshot as of 2026-11-19:
 - [x] Add Stripe test-mode Checkout, signature verification, idempotent payment
       state updates, retryable order delivery, and Customer payment states.
       Checkout tests verify the separate shipping line item, zero-shipping
-      behavior, and consistency with the saved order total.
+      behavior, and consistency with the saved order total. Stripe webhook
+      replay avoids duplicate paid-payment writes and returns a retryable 503
+      while Tenant order delivery remains pending.
 - [x] Add a local-only simulated checkout for testing success, failure, and
       Tenant order delivery without payment-provider credentials.
 - [ ] Add production Stripe Connect after provider-specific onboarding,

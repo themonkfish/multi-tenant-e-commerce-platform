@@ -220,4 +220,47 @@ describe("Stripe payment webhook", () => {
     expect(retryResponse.status).toBe(200);
     expect(releaseInventory).toHaveBeenCalledTimes(2);
   });
+
+  it("retries Tenant delivery after a paid webhook was already reconciled", async () => {
+    const order = {
+      id: orderId,
+      tenantId,
+      customerId,
+      status: "Confirmed",
+      createdAt: "2026-10-22T12:00:00.000Z",
+      items: [],
+      total: 2500,
+      currency: "USD",
+      itemCount: 1,
+      paymentStatus: "paid",
+      paymentIntentId: "pi_test_payment_1",
+      paymentAttempt: 1,
+      paymentSessionId: sessionId,
+      backendSyncStatus: "failed",
+    };
+    const store = {
+      getCustomerOrder: vi.fn().mockResolvedValue(order),
+      updateCustomerOrderPayment: vi.fn(),
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId, status: "active" }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId, status: "active" }]),
+    };
+    getPlatformStore.mockReturnValue(store);
+    verifyStripeWebhookEvent.mockReturnValue(checkoutEvent());
+    syncCustomerOrderToTenant
+      .mockRejectedValueOnce(new Error("Tenant sync unavailable"))
+      .mockResolvedValueOnce({
+        ...order,
+        backendSyncStatus: "synced",
+      });
+
+    const firstResponse = await POST(webhookRequest());
+    expect(firstResponse.status).toBe(503);
+
+    const retryResponse = await POST(webhookRequest());
+    expect(retryResponse.status).toBe(200);
+    expect(store.updateCustomerOrderPayment).not.toHaveBeenCalled();
+    expect(syncCustomerOrderToTenant).toHaveBeenCalledTimes(2);
+  });
 });

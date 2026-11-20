@@ -110,14 +110,17 @@ export async function POST(request: Request) {
         ? checkout.payment_intent
         : (checkout.payment_intent?.id ?? undefined)
       : undefined;
-  const updated = await store.updateCustomerOrderPayment({
-    tenantId,
-    customerId,
-    orderId,
-    sessionId: checkout.id,
-    status: isPaid ? "paid" : "failed",
-    ...(paymentIntentId ? { paymentIntentId } : {}),
-  });
+  const updated =
+    isPaid && order.paymentStatus === "paid"
+      ? order
+      : await store.updateCustomerOrderPayment({
+          tenantId,
+          customerId,
+          orderId,
+          sessionId: checkout.id,
+          status: isPaid ? "paid" : "failed",
+          ...(paymentIntentId ? { paymentIntentId } : {}),
+        });
   if (!updated) {
     return NextResponse.json(
       { error: "payment_update_conflict" },
@@ -149,12 +152,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  const syncedOrder = await syncCustomerOrderToTenant({
-    store,
-    tenantId,
-    hostId,
-    order: updated,
-  });
+  let syncedOrder;
+  try {
+    syncedOrder = await syncCustomerOrderToTenant({
+      store,
+      tenantId,
+      hostId,
+      order: updated,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "order_sync_failed", paymentStatus: "paid" },
+      { status: 503 },
+    );
+  }
   if (syncedOrder.backendSyncStatus !== "synced") {
     return NextResponse.json(
       { error: "order_sync_failed", paymentStatus: "paid" },
