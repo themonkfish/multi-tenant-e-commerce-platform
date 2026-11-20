@@ -26,6 +26,7 @@ const namespaces = [
   "TenantDatabase",
   "TenantStorage",
   "TenantPortal",
+  "TenantCatalog",
 ] as const;
 
 function flattenMessages(

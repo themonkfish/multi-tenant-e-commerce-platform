@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import {
   useCallback,
   useEffect,
@@ -88,6 +89,7 @@ export function TenantProductManagement({
 }: {
   canWrite?: boolean;
 }) {
+  const t = useTranslations("TenantCatalog");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -119,7 +121,7 @@ export function TenantProductManagement({
         const message =
           typeof body === "object" && body !== null && "error" in body
             ? String(body.error)
-            : "The image could not be uploaded.";
+            : t("imageUploadFailed");
         throw new Error(message);
       }
       const storedFile =
@@ -134,14 +136,12 @@ export function TenantProductManagement({
           ? storedFile.url
           : null;
       if (!imageUrl || new URL(imageUrl).protocol !== "https:") {
-        throw new Error("The upload returned an invalid image URL.");
+        throw new Error(t("invalidUploadedImage"));
       }
       setDraft((current) => ({ ...current, imageUrl }));
-      setNotice("Image uploaded. Save the product to publish it.");
+      setNotice(t("imageUploaded"));
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "The image could not be uploaded.",
-      );
+      setError(err instanceof Error ? err.message : t("imageUploadFailed"));
     } finally {
       setUploadingImage(false);
     }
@@ -159,7 +159,7 @@ export function TenantProductManagement({
         const message =
           typeof body === "object" && body !== null && "error" in body
             ? String(body.error)
-            : "Could not load products.";
+            : t("loadFailed");
         throw new Error(message);
       }
       const payload = typeof body === "object" && body !== null ? body : null;
@@ -174,11 +174,11 @@ export function TenantProductManagement({
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load products.");
+      setError(err instanceof Error ? err.message : t("loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -302,24 +302,24 @@ export function TenantProductManagement({
     };
 
     if (!payload.title || !payload.slug || !payload.price.currency) {
-      setError("Title, slug, and currency are required.");
+      setError(t("titleSlugCurrencyRequired"));
       setSaving(false);
       return;
     }
 
     if (!Number.isInteger(payload.price.amount) || payload.price.amount < 0) {
-      setError("Price must be a non-negative whole number.");
+      setError(t("priceWholeNumber"));
       setSaving(false);
       return;
     }
 
     if (!/^[A-Z]{3}$/.test(payload.price.currency)) {
-      setError("Currency must be a valid three-letter code such as USD.");
+      setError(t("currencyInvalid"));
       setSaving(false);
       return;
     }
     if (!ProductOptionsSchema.safeParse(payload.options).success) {
-      setError("Use up to 3 unique options, each with 1–20 unique values.");
+      setError(t("optionsInvalid"));
       setSaving(false);
       return;
     }
@@ -327,14 +327,14 @@ export function TenantProductManagement({
       payload.variants &&
       !ProductVariantsSchema.safeParse(payload.variants).success
     ) {
-      setError("Enter a valid non-negative stock quantity for every variant.");
+      setError(t("stockInvalid"));
       setSaving(false);
       return;
     }
     if (
       !ProductVariantPricingListSchema.safeParse(payload.variantPricing).success
     ) {
-      setError("Enter a valid variant price and/or SKU for each combination.");
+      setError(t("variantInvalid"));
       setSaving(false);
       return;
     }
@@ -355,7 +355,7 @@ export function TenantProductManagement({
         const message =
           typeof body === "object" && body !== null && "error" in body
             ? String(body.error)
-            : "The product could not be saved.";
+            : t("saveFailed");
         throw new Error(message);
       }
 
@@ -380,23 +380,17 @@ export function TenantProductManagement({
 
       setDraft(EMPTY_DRAFT);
       setEditingId(null);
-      setNotice(
-        editingId
-          ? "Product updated successfully."
-          : "Product created successfully.",
-      );
+      setNotice(editingId ? t("productUpdated") : t("productCreated"));
       await loadProducts();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "The product could not be saved.",
-      );
+      setError(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(productId: string) {
-    const confirmed = window.confirm("Delete this product?");
+    const confirmed = window.confirm(t("deleteConfirm"));
     if (!confirmed) {
       return;
     }
@@ -415,7 +409,7 @@ export function TenantProductManagement({
         const message =
           typeof body === "object" && body !== null && "error" in body
             ? String(body.error)
-            : "Could not delete product.";
+            : t("deleteFailed");
         throw new Error(message);
       }
       setProducts((current) =>
@@ -425,11 +419,9 @@ export function TenantProductManagement({
         setEditingId(null);
         setDraft(EMPTY_DRAFT);
       }
-      setNotice("Product deleted.");
+      setNotice(t("productDeleted"));
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not delete product.",
-      );
+      setError(err instanceof Error ? err.message : t("deleteFailed"));
     }
   }
 
@@ -438,12 +430,12 @@ export function TenantProductManagement({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">
-            Product catalog
+            {t("catalogTitle")}
           </h2>
           <p className="text-sm text-slate-600">
             {loading
-              ? "Loading products…"
-              : `${totalCount} product${totalCount === 1 ? "" : "s"} available`}
+              ? t("loadingProducts")
+              : t("productsAvailable", { count: totalCount })}
           </p>
         </div>
         {canWrite && (
@@ -457,7 +449,7 @@ export function TenantProductManagement({
             }}
             type="button"
           >
-            New product
+            {t("newProduct")}
           </button>
         )}
       </div>
@@ -468,7 +460,7 @@ export function TenantProductManagement({
           onSubmit={handleSubmit}
         >
           <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            Product title
+            {t("productTitle")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               value={draft.title}
@@ -484,7 +476,7 @@ export function TenantProductManagement({
           </label>
 
           <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            Variant stock (optional)
+            {t("variantStock")}
             <textarea
               className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm font-normal"
               rows={4}
@@ -498,15 +490,12 @@ export function TenantProductManagement({
               placeholder={"Size=S, Color=Blue: 10\nSize=M, Color=Blue: 4"}
             />
             <span className="block font-normal text-slate-600">
-              Optional: enter one combination per line as Option=Value, ...:
-              quantity. Configure every combination to track stock. Leave blank
-              for untracked stock. Maximum 200 variants; stock is capped at
-              1,000,000 per variant.
+              {t("variantStockHelp")}
             </span>
           </label>
 
           <label className="space-y-1 text-sm font-medium">
-            Slug
+            {t("slug")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               value={draft.slug}
@@ -522,7 +511,7 @@ export function TenantProductManagement({
           </label>
 
           <label className="space-y-1 text-sm font-medium">
-            Status
+            {t("status")}
             <select
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               value={draft.status}
@@ -533,14 +522,14 @@ export function TenantProductManagement({
                 }))
               }
             >
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="archived">Archived</option>
+              <option value="draft">{t("draft")}</option>
+              <option value="active">{t("active")}</option>
+              <option value="archived">{t("archived")}</option>
             </select>
           </label>
 
           <label className="space-y-1 text-sm font-medium">
-            Price amount
+            {t("priceAmount")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               min={0}
@@ -561,7 +550,7 @@ export function TenantProductManagement({
           </label>
 
           <label className="space-y-1 text-sm font-medium">
-            Currency
+            {t("currency")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
               maxLength={3}
@@ -581,7 +570,7 @@ export function TenantProductManagement({
           </label>
 
           <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            SKU (optional)
+            {t("skuOptional")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               value={draft.sku}
@@ -593,7 +582,7 @@ export function TenantProductManagement({
           </label>
 
           <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            Category (optional)
+            {t("categoryOptional")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               maxLength={80}
@@ -609,7 +598,7 @@ export function TenantProductManagement({
           </label>
 
           <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            Options (optional)
+            {t("optionsOptional")}
             <textarea
               className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
               rows={3}
@@ -623,12 +612,12 @@ export function TenantProductManagement({
               placeholder={"Size: S, M, L\nColor: Black, Blue"}
             />
             <span className="block font-normal text-slate-600">
-              Enter one option per line as Name: value, value.
+              {t("optionsHelp")}
             </span>
           </label>
 
           <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            Variant prices and SKUs (optional)
+            {t("variantPricingOptional")}
             <textarea
               className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm font-normal"
               rows={4}
@@ -644,17 +633,15 @@ export function TenantProductManagement({
               }
             />
             <span className="block font-normal text-slate-600">
-              Add one optional override per combination. Amounts use the product
-              currency&apos;s minor units (for example, 1299 means ₹12.99 when
-              using INR). Omitted price or SKU uses the product default.
+              {t("variantPricingHelp")}
             </span>
           </label>
 
           <div className="space-y-2 text-sm font-medium sm:col-span-2">
-            <span>Product image</span>
+            <span>{t("productImage")}</span>
             {draft.imageUrl ? (
               <Image
-                alt="Product image preview"
+                alt={t("imagePreviewAlt")}
                 className="h-40 w-40 rounded-md border border-slate-200 object-cover"
                 src={draft.imageUrl}
                 width={320}
@@ -663,7 +650,7 @@ export function TenantProductManagement({
               />
             ) : (
               <p className="text-sm font-normal text-slate-600">
-                Upload a JPEG, PNG, or WebP image (maximum 10 MiB).
+                {t("imageUploadHelp")}
               </p>
             )}
             <div className="flex flex-wrap items-center gap-3">
@@ -683,12 +670,12 @@ export function TenantProductManagement({
                   }
                   type="button"
                 >
-                  Remove image
+                  {t("removeImage")}
                 </button>
               )}
               {uploadingImage && (
                 <span className="text-sm font-normal text-slate-600">
-                  Uploading…
+                  {t("uploading")}
                 </span>
               )}
             </div>
@@ -701,10 +688,10 @@ export function TenantProductManagement({
               type="submit"
             >
               {saving
-                ? "Saving…"
+                ? t("saving")
                 : editingId
-                  ? "Save changes"
-                  : "Create product"}
+                  ? t("saveChanges")
+                  : t("createProduct")}
             </button>
             {editingId && (
               <button
@@ -716,7 +703,7 @@ export function TenantProductManagement({
                 }}
                 type="button"
               >
-                Cancel edit
+                {t("cancelEdit")}
               </button>
             )}
           </div>
@@ -734,23 +721,27 @@ export function TenantProductManagement({
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         {loading ? (
-          <div className="p-5 text-sm text-slate-600">Loading products…</div>
-        ) : products.length === 0 ? (
           <div className="p-5 text-sm text-slate-600">
-            No products yet. Create the first catalog item from the form above.
+            {t("loadingProducts")}
           </div>
+        ) : products.length === 0 ? (
+          <div className="p-5 text-sm text-slate-600">{t("noProducts")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-slate-100 text-slate-700">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Title</th>
-                  <th className="px-4 py-3 font-medium">Slug</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Price</th>
+                  <th className="px-4 py-3 font-medium">{t("titleColumn")}</th>
+                  <th className="px-4 py-3 font-medium">{t("slugColumn")}</th>
+                  <th className="px-4 py-3 font-medium">{t("statusColumn")}</th>
+                  <th className="px-4 py-3 font-medium">
+                    {t("categoryColumn")}
+                  </th>
+                  <th className="px-4 py-3 font-medium">{t("priceColumn")}</th>
                   {canWrite && (
-                    <th className="px-4 py-3 font-medium">Actions</th>
+                    <th className="px-4 py-3 font-medium">
+                      {t("actionsColumn")}
+                    </th>
                   )}
                 </tr>
               </thead>
@@ -770,7 +761,7 @@ export function TenantProductManagement({
                     <td className="px-4 py-3 text-slate-600">{product.slug}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-700">
-                        {product.status}
+                        {t(product.status)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
@@ -792,14 +783,14 @@ export function TenantProductManagement({
                             }}
                             type="button"
                           >
-                            Edit
+                            {t("edit")}
                           </button>
                           <button
                             className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
                             onClick={() => void handleDelete(product.id)}
                             type="button"
                           >
-                            Delete
+                            {t("delete")}
                           </button>
                         </div>
                       </td>
