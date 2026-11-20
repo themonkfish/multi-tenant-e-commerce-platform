@@ -32,6 +32,7 @@ const namespaces = [
   "HostAuth",
   "SuperAdminAuth",
   "SuperAdminPortal",
+  "SuperAdminHosts",
 ] as const;
 
 function flattenMessages(

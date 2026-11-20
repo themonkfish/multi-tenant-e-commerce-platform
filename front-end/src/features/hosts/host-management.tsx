@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   HostConfigSchema,
   type HostConfig,
@@ -14,26 +15,26 @@ const InviteResponseSchema = z.object({
   deliveryStatus: z.enum(["sent", "not_configured", "failed"]),
 });
 
-function describeHostError(error: unknown): string {
+function describeHostError(error: unknown, t: (key: string) => string): string {
   if (error === "reserved_host_slug") {
-    return "That slug is reserved by the platform.";
+    return t("reservedSlug");
   }
   if (
     error === "host_domain_in_use" ||
     error === "host_slug_or_domain_in_use"
   ) {
-    return "That host slug or domain is already in use.";
+    return t("slugOrDomainInUse");
   }
   if (error === "invalid_host_domain") {
-    return "Enter host domains as names only, such as shop.example.com.";
+    return t("invalidDomains");
   }
   if (error === "host_domain_limit_exceeded") {
-    return "The number of domains exceeds this host's configured limit.";
+    return t("domainLimitExceeded");
   }
   if (error === "rate_limited") {
-    return "Too many changes. Wait a few minutes and try again.";
+    return t("tooManyChanges");
   }
-  return "The request could not be completed. Please try again.";
+  return t("requestFailed");
 }
 
 function getErrorCode(body: unknown): unknown {
@@ -43,6 +44,7 @@ function getErrorCode(body: unknown): unknown {
 }
 
 function HostOwnerInviteForm({ host }: { host: HostConfig }) {
+  const t = useTranslations("SuperAdminHosts");
   const [inviteUrl, setInviteUrl] = useState("");
   const [deliveryStatus, setDeliveryStatus] = useState<
     "sent" | "not_configured" | "failed" | ""
@@ -71,23 +73,23 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
         const code = getErrorCode(body);
         setError(
           code === "host_owner_already_exists"
-            ? "This email already has a host-owner account."
+            ? t("ownerAlreadyExists")
             : code === "host_must_be_active"
-              ? "Activate this host before inviting its owner."
-              : describeHostError(code),
+              ? t("activateBeforeInvite")
+              : describeHostError(code, t),
         );
         return;
       }
       const parsed = InviteResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid invitation.");
+        setError(t("invalidInvitation"));
         return;
       }
       setInviteUrl(parsed.data.inviteUrl);
       setDeliveryStatus(parsed.data.deliveryStatus);
       formElement.reset();
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -99,7 +101,7 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
       setCopied(true);
       setError("");
     } catch {
-      setError("Copy was blocked. Select the link and copy it manually.");
+      setError(t("copyBlocked"));
     }
   }
 
@@ -107,7 +109,7 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
     <div className="mt-3 space-y-2">
       <form className="flex flex-wrap gap-2" onSubmit={createInvite}>
         <label className="sr-only" htmlFor={`owner-email-${host.id}`}>
-          Host owner email
+          {t("ownerEmail")}
         </label>
         <input
           className="min-w-48 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -123,7 +125,7 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
           disabled={busy}
           type="submit"
         >
-          {busy ? "Creating invite…" : "Invite owner"}
+          {busy ? t("creatingInvite") : t("inviteOwner")}
         </button>
       </form>
       {error && (
@@ -135,13 +137,13 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
         <div className="space-y-1 rounded-md bg-indigo-50 p-3">
           <p className="text-sm font-medium text-indigo-950">
             {deliveryStatus === "sent"
-              ? "Invitation email sent. This one-time fallback link expires in 24 hours."
+              ? t("inviteSent")
               : deliveryStatus === "failed"
-                ? "Email delivery failed. Share this one-time link securely; it expires in 24 hours."
-                : "Email is not configured. Share this one-time link securely; it expires in 24 hours."}
+                ? t("inviteFailed")
+                : t("emailNotConfigured")}
           </p>
           <input
-            aria-label="One-time host owner invitation link"
+            aria-label={t("inviteLinkLabel")}
             className="w-full rounded border border-indigo-200 bg-white px-2 py-1 font-mono text-xs"
             readOnly
             value={inviteUrl}
@@ -152,7 +154,7 @@ function HostOwnerInviteForm({ host }: { host: HostConfig }) {
             onClick={() => void copyInviteUrl()}
             type="button"
           >
-            {copied ? "Copied" : "Copy invite link"}
+            {copied ? t("copied") : t("copyInviteLink")}
           </button>
         </div>
       )}
@@ -167,6 +169,7 @@ function HostEditForm({
   host: HostConfig;
   onUpdated: (host: HostConfig) => void;
 }) {
+  const t = useTranslations("SuperAdminHosts");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -197,18 +200,18 @@ function HostEditForm({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeHostError(getErrorCode(body)));
+        setError(describeHostError(getErrorCode(body), t));
         return;
       }
       const parsed = HostResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid host record.");
+        setError(t("invalidHostRecord"));
         return;
       }
       onUpdated(parsed.data.host);
       setEditing(false);
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -221,7 +224,7 @@ function HostEditForm({
         onClick={() => setEditing(true)}
         type="button"
       >
-        Edit host
+        {t("editHost")}
       </button>
     );
   }
@@ -232,7 +235,7 @@ function HostEditForm({
       onSubmit={updateHost}
     >
       <label className="space-y-1 text-sm font-medium">
-        Host name
+        {t("hostName")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="name"
@@ -242,7 +245,7 @@ function HostEditForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Host slug
+        {t("hostSlug")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="slug"
@@ -253,7 +256,7 @@ function HostEditForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Plan
+        {t("plan")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="plan"
@@ -263,7 +266,7 @@ function HostEditForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Maximum tenants
+        {t("maximumTenants")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="maxTenants"
@@ -275,7 +278,7 @@ function HostEditForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Maximum custom domains
+        {t("maximumCustomDomains")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="maxCustomDomains"
@@ -287,7 +290,7 @@ function HostEditForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Support email
+        {t("supportEmail")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="supportContact"
@@ -296,7 +299,7 @@ function HostEditForm({
         />
       </label>
       <label className="space-y-1 text-sm font-medium sm:col-span-2">
-        Domains
+        {t("domains")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           name="domains"
@@ -314,7 +317,7 @@ function HostEditForm({
           disabled={busy}
           type="submit"
         >
-          {busy ? "Saving…" : "Save changes"}
+          {busy ? t("saving") : t("saveChanges")}
         </button>
         <button
           className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
@@ -322,7 +325,7 @@ function HostEditForm({
           onClick={() => setEditing(false)}
           type="button"
         >
-          Cancel
+          {t("cancel")}
         </button>
       </div>
     </form>
@@ -334,6 +337,7 @@ export function HostManagement({
 }: {
   initialHosts: HostConfig[];
 }) {
+  const t = useTranslations("SuperAdminHosts");
   const [hosts, setHosts] = useState(initialHosts);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -365,12 +369,12 @@ export function HostManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeHostError(getErrorCode(body)));
+        setError(describeHostError(getErrorCode(body), t));
         return;
       }
       const parsed = HostResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid host record.");
+        setError(t("invalidHostRecord"));
         return;
       }
       setHosts((current) =>
@@ -380,7 +384,7 @@ export function HostManagement({
       );
       formElement.reset();
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -397,12 +401,12 @@ export function HostManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeHostError(getErrorCode(body)));
+        setError(describeHostError(getErrorCode(body), t));
         return;
       }
       const parsed = HostResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid host record.");
+        setError(t("invalidHostRecord"));
         return;
       }
       setHosts((current) =>
@@ -411,18 +415,14 @@ export function HostManagement({
         ),
       );
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
   }
 
   async function deleteHost(host: HostConfig) {
-    if (
-      !window.confirm(
-        `Delete host "${host.name}"? This is only allowed when the host has no tenants.`,
-      )
-    ) {
+    if (!window.confirm(t("deleteConfirm", { name: host.name }))) {
       return;
     }
     setBusy(true);
@@ -436,14 +436,14 @@ export function HostManagement({
         const code = getErrorCode(body);
         setError(
           code === "host_has_tenants"
-            ? "A host cannot be deleted while it has tenants."
-            : describeHostError(code),
+            ? t("hostHasTenants")
+            : describeHostError(code, t),
         );
         return;
       }
       setHosts((current) => current.filter((item) => item.id !== host.id));
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -454,16 +454,13 @@ export function HostManagement({
       <section aria-labelledby="hosts-heading" className="space-y-4">
         <div>
           <h2 id="hosts-heading" className="text-xl font-semibold">
-            Hosts
+            {t("hosts")}
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Create host workspaces, configure their initial limits, and activate
-            or suspend access.
-          </p>
+          <p className="mt-1 text-sm text-slate-600">{t("hostsDescription")}</p>
         </div>
         {hosts.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-600">
-            No hosts yet. Create the first host below.
+            {t("noHosts")}
           </p>
         ) : (
           <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
@@ -476,12 +473,15 @@ export function HostManagement({
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold">{host.name}</h3>
                     <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-700">
-                      {host.status}
+                      {t(host.status)}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-600">
-                    {host.slug} · {host.plan} · up to {host.limits.maxTenants}{" "}
-                    tenants · {host.limits.maxCustomDomains} custom domains
+                    {host.slug} · {host.plan} ·{" "}
+                    {t("hostLimits", {
+                      tenants: host.limits.maxTenants,
+                      domains: host.limits.maxCustomDomains,
+                    })}
                   </p>
                   {host.domains.length > 0 && (
                     <p className="mt-1 break-all text-sm text-slate-500">
@@ -513,7 +513,9 @@ export function HostManagement({
                   }
                   type="button"
                 >
-                  {host.status === "active" ? "Suspend host" : "Activate host"}
+                  {host.status === "active"
+                    ? t("suspendHost")
+                    : t("activateHost")}
                 </button>
                 <button
                   className="shrink-0 rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
@@ -521,7 +523,7 @@ export function HostManagement({
                   onClick={() => void deleteHost(host)}
                   type="button"
                 >
-                  Delete host
+                  {t("deleteHost")}
                 </button>
               </li>
             ))}
@@ -531,14 +533,14 @@ export function HostManagement({
 
       <section aria-labelledby="create-host-heading">
         <h2 id="create-host-heading" className="text-xl font-semibold">
-          Create a host
+          {t("createHost")}
         </h2>
         <form
           className="mt-4 grid gap-4 rounded-lg border border-slate-200 bg-white p-5 sm:grid-cols-2"
           onSubmit={createHost}
         >
           <label className="space-y-1 text-sm font-medium">
-            Host name
+            {t("hostName")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="name"
@@ -547,7 +549,7 @@ export function HostManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Host slug
+            {t("hostSlug")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="slug"
@@ -557,7 +559,7 @@ export function HostManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Plan
+            {t("plan")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="plan"
@@ -567,7 +569,7 @@ export function HostManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Maximum tenants
+            {t("maximumTenants")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="maxTenants"
@@ -579,7 +581,7 @@ export function HostManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Maximum custom domains
+            {t("maximumCustomDomains")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="maxCustomDomains"
@@ -591,7 +593,7 @@ export function HostManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Support email (optional)
+            {t("supportEmailOptional")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="supportContact"
@@ -600,7 +602,7 @@ export function HostManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium sm:col-span-2">
-            Domains (optional, comma-separated)
+            {t("domainsOptional")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="domains"
@@ -618,7 +620,7 @@ export function HostManagement({
               disabled={busy}
               type="submit"
             >
-              {busy ? "Saving…" : "Create host"}
+              {busy ? t("saving") : t("createHost")}
             </button>
           </div>
         </form>
