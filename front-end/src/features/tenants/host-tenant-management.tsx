@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { z } from "zod";
 import {
   TenantDomainClaimSchema,
@@ -52,50 +53,54 @@ function errorCode(body: unknown): unknown {
     : undefined;
 }
 
-function describeTenantError(code: unknown): string {
+function describeTenantError(
+  code: unknown,
+  t: (key: string) => string,
+): string {
   if (code === "tenant_owner_already_exists") {
-    return "This email already owns a tenant account.";
+    return t("ownerAlreadyExists");
   }
   if (code === "tenant_must_be_active") {
-    return "Activate this tenant before inviting its owner.";
+    return t("activateBeforeInvite");
   }
   if (code === "tenant_limit_reached") {
-    return "Your host has reached its tenant limit.";
+    return t("tenantLimitReached");
   }
   if (code === "custom_domain_limit_reached") {
-    return "Your host has reached its custom-domain limit.";
+    return t("domainLimitReached");
   }
   if (code === "tenant_slug_or_domain_in_use") {
-    return "That tenant slug or domain is already in use.";
+    return t("slugOrDomainInUse");
   }
   if (code === "tenant_unavailable" || code === "not_found") {
-    return "That tenant is unavailable. Refresh the page and try again.";
+    return t("tenantUnavailable");
   }
   if (code === "invalid_tenant_domain") {
-    return "Enter domains as hostnames only, such as store.example.com.";
+    return t("invalidDomains");
   }
   if (code === "platform_domain_unavailable") {
-    return "The platform domain is not configured, so custom domains cannot be provisioned yet.";
+    return t("platformDomainUnavailable");
   }
   if (code === "domain_dns_not_ready") {
-    return "The required DNS records were not found yet. DNS changes may take time to propagate.";
+    return t("domainDnsNotReady");
   }
   if (code === "dns_lookup_failed") {
-    return "DNS could not be checked right now. Please try again shortly.";
+    return t("dnsLookupFailed");
   }
   if (code === "domain_claim_not_found") {
-    return "That domain verification is no longer pending. Refresh the page and try again.";
+    return t("claimNotFound");
   }
   if (code === "verified_domain_not_found") {
-    return "That domain is not verified for this tenant.";
+    return t("verifiedDomainNotFound");
   }
   if (code === "rate_limited") {
-    return "Too many changes. Wait a few minutes and try again.";
+    return t("tooManyChanges");
   }
-  return "The request could not be completed. Please try again.";
+  return t("requestFailed");
 }
 
 function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
+  const t = useTranslations("HostTenants");
   const [inviteUrl, setInviteUrl] = useState("");
   const [deliveryStatus, setDeliveryStatus] = useState<
     "sent" | "not_configured" | "failed" | ""
@@ -124,21 +129,21 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
       if (!response.ok) {
         setError(
           code === "rate_limited"
-            ? "Too many invitations. Wait before trying again."
-            : describeTenantError(code),
+            ? t("tooManyInvites")
+            : describeTenantError(code, t),
         );
         return;
       }
       const parsed = InviteResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid invitation.");
+        setError(t("invalidInvitation"));
         return;
       }
       setInviteUrl(parsed.data.inviteUrl);
       setDeliveryStatus(parsed.data.deliveryStatus);
       formElement.reset();
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -150,7 +155,7 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
       setCopied(true);
       setError("");
     } catch {
-      setError("Copy was blocked. Select the link and copy it manually.");
+      setError(t("copyBlocked"));
     }
   }
 
@@ -158,7 +163,7 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
     <div className="mt-3 space-y-2">
       <form className="flex flex-wrap gap-2" onSubmit={createInvite}>
         <label className="sr-only" htmlFor={`owner-email-${tenant.id}`}>
-          Tenant owner email
+          {t("tenantOwnerEmail")}
         </label>
         <input
           className="min-w-48 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -174,7 +179,7 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
           disabled={busy}
           type="submit"
         >
-          {busy ? "Creating invite…" : "Invite tenant owner"}
+          {busy ? t("creatingInvite") : t("inviteOwner")}
         </button>
       </form>
       {error && (
@@ -186,13 +191,13 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
         <div className="space-y-2 rounded-md bg-indigo-50 p-3">
           <p className="text-sm text-indigo-950">
             {deliveryStatus === "sent"
-              ? "Invitation email sent. This one-time fallback link expires in 24 hours."
+              ? t("inviteSent")
               : deliveryStatus === "failed"
-                ? "Email delivery failed. Share this one-time link securely; it expires in 24 hours."
-                : "Email is not configured. Share this one-time link securely; it expires in 24 hours."}
+                ? t("inviteFailed")
+                : t("emailNotConfigured")}
           </p>
           <input
-            aria-label="One-time tenant owner invitation link"
+            aria-label={t("inviteLinkLabel")}
             className="w-full rounded border border-indigo-200 bg-white px-2 py-1 font-mono text-xs"
             readOnly
             value={inviteUrl}
@@ -203,7 +208,7 @@ function TenantOwnerInviteControl({ tenant }: { tenant: TenantRecord }) {
             onClick={() => void copyInviteUrl()}
             type="button"
           >
-            {copied ? "Copied" : "Copy invite link"}
+            {copied ? t("copied") : t("copyInviteLink")}
           </button>
         </div>
       )}
@@ -226,6 +231,7 @@ export function HostTenantManagement({
   maxCustomDomains: number;
   hostDomainsUsed: number;
 }) {
+  const t = useTranslations("HostTenants");
   const [tenants, setTenants] = useState(initialTenants);
   const [domainClaims, setDomainClaims] = useState(initialDomainClaims);
   const [error, setError] = useState("");
@@ -252,12 +258,12 @@ export function HostTenantManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeTenantError(errorCode(body)));
+        setError(describeTenantError(errorCode(body), t));
         return;
       }
       const parsed = DomainClaimResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned invalid domain verification details.");
+        setError(t("invalidDomainDetails"));
         return;
       }
       setDomainClaims((current) => [
@@ -266,7 +272,7 @@ export function HostTenantManagement({
       ]);
       formElement.reset();
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -286,12 +292,12 @@ export function HostTenantManagement({
       );
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeTenantError(errorCode(body)));
+        setError(describeTenantError(errorCode(body), t));
         return;
       }
       const parsed = TenantResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid tenant record.");
+        setError(t("invalidTenantRecord"));
         return;
       }
       setTenants((current) =>
@@ -303,7 +309,7 @@ export function HostTenantManagement({
         current.filter((item) => item.domain !== claim.domain),
       );
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -327,12 +333,12 @@ export function HostTenantManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeTenantError(errorCode(body)));
+        setError(describeTenantError(errorCode(body), t));
         return;
       }
       const parsed = TenantResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid tenant record.");
+        setError(t("invalidTenantRecord"));
         return;
       }
       setTenants((current) =>
@@ -342,7 +348,7 @@ export function HostTenantManagement({
       );
       formElement.reset();
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -359,12 +365,12 @@ export function HostTenantManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeTenantError(errorCode(body)));
+        setError(describeTenantError(errorCode(body), t));
         return;
       }
       const parsed = TenantResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid tenant record.");
+        setError(t("invalidTenantRecord"));
         return;
       }
       setTenants((current) =>
@@ -373,7 +379,7 @@ export function HostTenantManagement({
         ),
       );
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -398,12 +404,12 @@ export function HostTenantManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeTenantError(errorCode(body)));
+        setError(describeTenantError(errorCode(body), t));
         return;
       }
       const parsed = TenantResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid tenant record.");
+        setError(t("invalidTenantRecord"));
         return;
       }
       setTenants((current) =>
@@ -412,18 +418,14 @@ export function HostTenantManagement({
         ),
       );
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
   }
 
   async function deleteTenant(tenant: TenantRecord) {
-    if (
-      !window.confirm(
-        `Permanently delete tenant "${tenant.name}" and its platform-owned customers, staff, orders, settings, connections, and domains?`,
-      )
-    ) {
+    if (!window.confirm(t("deleteConfirm", { name: tenant.name }))) {
       return;
     }
     setBusy(true);
@@ -434,7 +436,7 @@ export function HostTenantManagement({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(describeTenantError(errorCode(body)));
+        setError(describeTenantError(errorCode(body), t));
         return;
       }
       setTenants((current) => current.filter((item) => item.id !== tenant.id));
@@ -442,7 +444,7 @@ export function HostTenantManagement({
         current.filter((claim) => claim.tenantId !== tenant.id),
       );
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -453,16 +455,20 @@ export function HostTenantManagement({
       <section aria-labelledby="tenant-list-heading" className="space-y-4">
         <div>
           <h2 id="tenant-list-heading" className="text-xl font-semibold">
-            Tenants
+            {t("tenants")}
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            {tenants.length} of {maxTenants} tenants · {domainsUsed} of{" "}
-            {maxCustomDomains} custom domains used
+            {t("usageSummary", {
+              tenants: tenants.length,
+              maxTenants,
+              domainsUsed,
+              maxCustomDomains,
+            })}
           </p>
         </div>
         {tenants.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-600">
-            No tenants yet. Create the first tenant below.
+            {t("noTenants")}
           </p>
         ) : (
           <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
@@ -475,7 +481,7 @@ export function HostTenantManagement({
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold">{tenant.name}</h3>
                     <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-700">
-                      {tenant.status}
+                      {t(tenant.status)}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-600">
@@ -488,7 +494,7 @@ export function HostTenantManagement({
                     }
                   >
                     <label className="space-y-1 text-xs font-medium">
-                      Store name
+                      {t("storeName")}
                       <input
                         className="block rounded-md border border-slate-300 px-3 py-2 text-sm"
                         name="name"
@@ -498,7 +504,7 @@ export function HostTenantManagement({
                       />
                     </label>
                     <label className="space-y-1 text-xs font-medium">
-                      Plan
+                      {t("plan")}
                       <input
                         className="block rounded-md border border-slate-300 px-3 py-2 text-sm"
                         name="plan"
@@ -512,13 +518,13 @@ export function HostTenantManagement({
                       disabled={busy}
                       type="submit"
                     >
-                      Save details
+                      {t("saveDetails")}
                     </button>
                   </form>
                   {tenant.domains.length > 0 && (
                     <div className="mt-3 space-y-3">
                       <p className="text-sm font-medium text-slate-700">
-                        Verified domains
+                        {t("verifiedDomains")}
                       </p>
                       {tenant.domains.map((domain) => (
                         <DomainReadinessControl
@@ -534,7 +540,7 @@ export function HostTenantManagement({
                     onSubmit={(event) => void addDomain(tenant.id, event)}
                   >
                     <label className="sr-only" htmlFor={`domain-${tenant.id}`}>
-                      Custom domain
+                      {t("customDomain")}
                     </label>
                     <input
                       className="min-w-48 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -548,7 +554,7 @@ export function HostTenantManagement({
                       disabled={busy}
                       type="submit"
                     >
-                      Add custom domain
+                      {t("addCustomDomain")}
                     </button>
                   </form>
                   {domainClaims
@@ -579,8 +585,8 @@ export function HostTenantManagement({
                     type="button"
                   >
                     {tenant.status === "active"
-                      ? "Suspend tenant"
-                      : "Activate tenant"}
+                      ? t("suspendTenant")
+                      : t("activateTenant")}
                   </button>
                   <button
                     className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
@@ -588,7 +594,7 @@ export function HostTenantManagement({
                     onClick={() => void deleteTenant(tenant)}
                     type="button"
                   >
-                    Delete tenant
+                    {t("deleteTenant")}
                   </button>
                 </div>
               </li>
@@ -599,14 +605,14 @@ export function HostTenantManagement({
 
       <section aria-labelledby="create-tenant-heading">
         <h2 id="create-tenant-heading" className="text-xl font-semibold">
-          Create a tenant
+          {t("createTenant")}
         </h2>
         <form
           className="mt-4 grid gap-4 rounded-lg border border-slate-200 bg-white p-5 sm:grid-cols-2"
           onSubmit={createTenant}
         >
           <label className="space-y-1 text-sm font-medium">
-            Store name
+            {t("storeName")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="name"
@@ -615,7 +621,7 @@ export function HostTenantManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Tenant slug
+            {t("tenantSlug")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="slug"
@@ -625,7 +631,7 @@ export function HostTenantManagement({
             />
           </label>
           <label className="space-y-1 text-sm font-medium">
-            Plan
+            {t("plan")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               name="plan"
@@ -635,8 +641,7 @@ export function HostTenantManagement({
             />
           </label>
           <p className="text-sm text-slate-600 sm:col-span-2">
-            Add custom domains after creating the tenant. They become active
-            storefront routes only after DNS verification.
+            {t("customDomainHelp")}
           </p>
           {error && (
             <p className="text-sm text-red-700 sm:col-span-2" role="alert">
@@ -649,7 +654,7 @@ export function HostTenantManagement({
               disabled={busy}
               type="submit"
             >
-              {busy ? "Saving…" : "Create tenant"}
+              {busy ? t("saving") : t("createTenant")}
             </button>
           </div>
         </form>
@@ -665,6 +670,7 @@ function DomainReadinessControl({
   domain: string;
   tenantId: string;
 }) {
+  const t = useTranslations("HostTenants");
   const [result, setResult] = useState<
     z.infer<typeof DomainReadinessResponseSchema>["readiness"] | null
   >(null);
@@ -687,19 +693,19 @@ function DomainReadinessControl({
       if (!response.ok) {
         setError(
           errorCode(body) === "rate_limited"
-            ? "Too many readiness checks. Wait a few minutes and try again."
-            : describeTenantError(errorCode(body)),
+            ? t("tooManyReadiness")
+            : describeTenantError(errorCode(body), t),
         );
         return;
       }
       const parsed = DomainReadinessResponseSchema.safeParse(body);
       if (!parsed.success) {
-        setError("The server returned an invalid readiness result.");
+        setError(t("invalidReadiness"));
         return;
       }
       setResult(parsed.data.readiness);
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -708,17 +714,14 @@ function DomainReadinessControl({
   return (
     <div className="rounded-md border border-slate-200 p-3">
       <p className="break-all text-sm font-medium text-slate-800">{domain}</p>
-      <p className="mt-1 text-xs text-slate-600">
-        Add this hostname to your hosting provider and configure it to serve
-        this app. The provider must provision a valid TLS certificate.
-      </p>
+      <p className="mt-1 text-xs text-slate-600">{t("readinessHelp")}</p>
       <button
         className="mt-2 rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
         disabled={busy}
         onClick={() => void checkReadiness()}
         type="button"
       >
-        {busy ? "Checking…" : "Check HTTPS and TLS"}
+        {busy ? t("checking") : t("checkHttpsTls")}
       </button>
       {result && (
         <p
@@ -728,14 +731,15 @@ function DomainReadinessControl({
           role="status"
         >
           {result.status === "ready"
-            ? `HTTPS and TLS are working (HTTP ${result.httpStatus}). Certificate expires ${
-                result.certificateExpiresAt
+            ? t("httpsReady", {
+                httpStatus: result.httpStatus,
+                expires: result.certificateExpiresAt
                   ? new Date(result.certificateExpiresAt).toLocaleString()
-                  : "at an unknown date"
-              }.`
+                  : t("unknownDate"),
+              })
             : result.status === "http_error"
-              ? `TLS is valid, but the app returned HTTP ${result.httpStatus}. Check the hosting provider's domain routing.`
-              : readinessMessage(result.status)}
+              ? t("httpError", { httpStatus: result.httpStatus })
+              : readinessMessage(result.status, t)}
         </p>
       )}
       {error && (
@@ -747,17 +751,17 @@ function DomainReadinessControl({
   );
 }
 
-function readinessMessage(status: string): string {
+function readinessMessage(status: string, t: (key: string) => string): string {
   if (status === "tls_not_ready") {
-    return "The HTTPS endpoint did not present a valid certificate for this domain. Check the hosting provider's domain and certificate settings.";
+    return t("tlsNotReady");
   }
   if (status === "blocked_target") {
-    return "The domain currently resolves to a non-public address, so it was not checked.";
+    return t("blockedTarget");
   }
   if (status === "timeout") {
-    return "The HTTPS check timed out. Confirm the domain is attached to the hosting provider and try again.";
+    return t("timeout");
   }
-  return "The HTTPS endpoint could not be reached. Confirm the domain is attached to the hosting provider and DNS is pointing to it.";
+  return t("unreachable");
 }
 
 function DomainVerificationControl({
@@ -771,10 +775,11 @@ function DomainVerificationControl({
   platformDomain: string;
   onVerify: () => void;
 }) {
+  const t = useTranslations("HostTenants");
   return (
     <div className="mt-3 space-y-2 rounded-md bg-amber-50 p-3 text-sm">
       <p className="font-medium text-amber-950">
-        Verify {claim.domain} by adding these DNS records:
+        {t("verifyDomain", { domain: claim.domain })}
       </p>
       <dl className="grid gap-2 text-amber-950 sm:grid-cols-2">
         <div>
@@ -790,7 +795,7 @@ function DomainVerificationControl({
           </dd>
         </div>
         <div className="sm:col-span-2">
-          <dt className="font-medium">TXT value</dt>
+          <dt className="font-medium">{t("txtValue")}</dt>
           <dd className="break-all font-mono text-xs">
             platform-verification={claim.verificationToken}
           </dd>
@@ -802,7 +807,7 @@ function DomainVerificationControl({
         onClick={onVerify}
         type="button"
       >
-        Verify DNS
+        {t("verifyDns")}
       </button>
     </div>
   );
