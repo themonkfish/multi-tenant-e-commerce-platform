@@ -1,4 +1,5 @@
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
+import { useTranslations } from "next-intl";
 
 export function summarizePlatformOrders(orders: CustomerOrder[]) {
   const totalsByCurrency = new Map<string, number>();
@@ -33,38 +34,38 @@ export function PlatformAnalyticsSummary({
 }: {
   orders: CustomerOrder[];
 }) {
+  const t = useTranslations("SuperAdminOperations");
   const summary = summarizePlatformOrders(orders);
 
   return (
     <section aria-labelledby="platform-analytics-heading" className="space-y-4">
       <div>
         <h2 id="platform-analytics-heading" className="text-xl font-semibold">
-          Platform analytics
+          {t("analyticsTitle")}
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Persisted order totals across all tenant scopes. Totals are grouped by
-          currency and remain in minor units.
+          {t("analyticsDescription")}
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <article className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-600">Orders</p>
+          <p className="text-sm text-slate-600">{t("orders")}</p>
           <p className="mt-1 text-2xl font-semibold">{summary.orderCount}</p>
         </article>
         <article className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-600">Paid orders</p>
+          <p className="text-sm text-slate-600">{t("paidOrders")}</p>
           <p className="mt-1 text-2xl font-semibold">
             {summary.paidOrderCount}
           </p>
         </article>
         <article className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-600">COD due</p>
+          <p className="text-sm text-slate-600">{t("codDue")}</p>
           <p className="mt-1 text-2xl font-semibold">{summary.codDueCount}</p>
         </article>
         <article className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-600">Gross order totals</p>
+          <p className="text-sm text-slate-600">{t("grossTotals")}</p>
           {summary.totalsByCurrency.length === 0 ? (
-            <p className="mt-1 font-semibold">None</p>
+            <p className="mt-1 font-semibold">{t("none")}</p>
           ) : (
             <ul className="mt-1 space-y-1 font-semibold">
               {summary.totalsByCurrency.map(([currency, amount]) => (

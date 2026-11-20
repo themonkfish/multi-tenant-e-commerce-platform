@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   PlatformSettingsSchema,
   type PlatformSettings,
@@ -11,6 +12,7 @@ export function PlatformSettingsForm({
 }: {
   initialSettings: PlatformSettings;
 }) {
+  const t = useTranslations("SuperAdminSettings");
   const [settings, setSettings] = useState(initialSettings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -40,9 +42,7 @@ export function PlatformSettingsForm({
       });
       const body: unknown = await response.json();
       if (!response.ok) {
-        setError(
-          "The settings could not be saved. Check the values and try again.",
-        );
+        setError(t("saveFailed"));
         return;
       }
       if (typeof body === "object" && body !== null && "settings" in body) {
@@ -53,7 +53,7 @@ export function PlatformSettingsForm({
       }
       setSaved(true);
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -63,18 +63,16 @@ export function PlatformSettingsForm({
     <section aria-labelledby="platform-settings-heading" className="space-y-4">
       <div>
         <h2 id="platform-settings-heading" className="text-xl font-semibold">
-          Platform settings
+          {t("title")}
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Update the platform name, theme colors, and legal links.
-        </p>
+        <p className="mt-1 text-sm text-slate-600">{t("description")}</p>
       </div>
       <form
         className="grid gap-4 rounded-lg border border-slate-200 bg-white p-5 sm:grid-cols-2"
         onSubmit={submit}
       >
         <label className="space-y-1 text-sm font-medium sm:col-span-2">
-          Platform name
+          {t("platformName")}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             name="name"
@@ -84,7 +82,7 @@ export function PlatformSettingsForm({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Primary color
+          {t("primaryColor")}
           <input
             className="h-10 w-full rounded-md border border-slate-300 px-2"
             name="primaryColor"
@@ -94,7 +92,7 @@ export function PlatformSettingsForm({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Accent color
+          {t("accentColor")}
           <input
             className="h-10 w-full rounded-md border border-slate-300 px-2"
             name="accentColor"
@@ -104,7 +102,7 @@ export function PlatformSettingsForm({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Terms URL
+          {t("termsUrl")}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             name="termsUrl"
@@ -114,7 +112,7 @@ export function PlatformSettingsForm({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Privacy URL
+          {t("privacyUrl")}
           <input
             className="w-full rounded-md border border-slate-300 px-3 py-2"
             name="privacyUrl"
@@ -130,7 +128,7 @@ export function PlatformSettingsForm({
         )}
         {saved && (
           <p className="text-sm text-emerald-700 sm:col-span-2" role="status">
-            Platform settings saved.
+            {t("settingsSaved")}
           </p>
         )}
         <div className="sm:col-span-2">
@@ -139,7 +137,7 @@ export function PlatformSettingsForm({
             disabled={busy}
             type="submit"
           >
-            {busy ? "Saving…" : "Save settings"}
+            {busy ? t("saving") : t("saveSettings")}
           </button>
         </div>
       </form>

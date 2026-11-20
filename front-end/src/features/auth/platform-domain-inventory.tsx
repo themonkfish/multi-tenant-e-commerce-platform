@@ -3,6 +3,7 @@ import type {
   TenantDomainClaim,
   TenantRecord,
 } from "@/core/domain/host-portal";
+import { useTranslations } from "next-intl";
 
 export function PlatformDomainInventory({
   hosts,
@@ -15,6 +16,7 @@ export function PlatformDomainInventory({
   tenantClaims: TenantDomainClaim[];
   platformDomain?: string;
 }) {
+  const t = useTranslations("SuperAdminOperations");
   const tenantById = new Map(tenants.map((tenant) => [tenant.id, tenant]));
   const claimByDomain = new Map(
     tenantClaims.map((claim) => [claim.domain, claim]),
@@ -23,7 +25,7 @@ export function PlatformDomainInventory({
     host.domains.map((domain) => ({
       domain,
       owner: host.name,
-      scope: "Host",
+      scope: t("hostScope"),
       status: host.status,
     })),
   );
@@ -31,7 +33,7 @@ export function PlatformDomainInventory({
     tenant.domains.map((domain) => ({
       domain,
       owner: tenant.name,
-      scope: "Tenant",
+      scope: t("tenantScope"),
       status: tenant.status,
     })),
   );
@@ -44,18 +46,18 @@ export function PlatformDomainInventory({
       domain: claim.domain,
       owner:
         tenantById.get(claim.tenantId)?.name ??
-        `Tenant ${claim.tenantId.slice(0, 8)}`,
-      scope: "Tenant claim",
-      status: "pending",
+        t("tenantFallback", { id: claim.tenantId.slice(0, 8) }),
+      scope: t("tenantClaimScope"),
+      status: t("pending"),
     }));
   const rows = [
     ...(platformDomain
       ? [
           {
             domain: platformDomain,
-            owner: "Platform",
-            scope: "Platform",
-            status: "active",
+            owner: t("platformOwner"),
+            scope: t("platformScope"),
+            status: t("active"),
           },
         ]
       : []),
@@ -68,15 +70,13 @@ export function PlatformDomainInventory({
     <section aria-labelledby="platform-domains-heading" className="space-y-4">
       <div>
         <h2 id="platform-domains-heading" className="text-xl font-semibold">
-          Domain inventory
+          {t("domainTitle")}
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Platform, host, verified tenant, and pending tenant claim domains.
-        </p>
+        <p className="mt-1 text-sm text-slate-600">{t("domainDescription")}</p>
       </div>
       {rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-600">
-          No domains are registered.
+          {t("noDomains")}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -84,16 +84,16 @@ export function PlatformDomainInventory({
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-4 py-3 font-medium" scope="col">
-                  Domain
+                  {t("domain")}
                 </th>
                 <th className="px-4 py-3 font-medium" scope="col">
-                  Scope
+                  {t("scope")}
                 </th>
                 <th className="px-4 py-3 font-medium" scope="col">
-                  Owner
+                  {t("owner")}
                 </th>
                 <th className="px-4 py-3 font-medium" scope="col">
-                  Status
+                  {t("status")}
                 </th>
               </tr>
             </thead>
@@ -108,14 +108,14 @@ export function PlatformDomainInventory({
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${
-                        row.status === "active"
+                        row.status === t("active")
                           ? "bg-emerald-50 text-emerald-700"
                           : "bg-slate-100 text-slate-700"
                       }`}
                     >
                       {claimByDomain.has(row.domain) &&
-                      row.scope === "Tenant claim"
-                        ? "claim pending"
+                      row.scope === t("tenantClaimScope")
+                        ? t("claimPending")
                         : row.status}
                     </span>
                   </td>
