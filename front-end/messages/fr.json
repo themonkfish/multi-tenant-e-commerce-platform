@@ -634,6 +634,20 @@
     "Delivered": "Livrée",
     "Cancelled": "Annulée"
   },
+  "TenantInvite": {
+    "tenantPortal": "Portail du tenant",
+    "pageTitle": "Accepter l’invitation de propriétaire de boutique",
+    "linkInvalid": "Ce lien d’invitation est manquant ou malformé. Demandez à l’administrateur hôte une nouvelle invitation.",
+    "passwordMismatch": "Les mots de passe ne correspondent pas.",
+    "inviteInvalid": "Cette invitation est invalide, expirée ou déjà utilisée. Demandez à l’hôte une nouvelle invitation.",
+    "tooManyAttempts": "Trop de tentatives. Attendez avant de réessayer.",
+    "acceptFailed": "Impossible d’accepter l’invitation. Veuillez réessayer.",
+    "requestUnavailable": "Impossible de joindre le serveur. Veuillez réessayer.",
+    "createPassword": "Créer un mot de passe (14 caractères minimum)",
+    "confirmPassword": "Confirmer le mot de passe",
+    "accepting": "Acceptation de l’invitation…",
+    "acceptInvitation": "Accepter l’invitation"
+  },
   "Home": {
     "platformName": "Espace commerce",
     "phase": "Phase 1 - Fondations",

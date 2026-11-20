@@ -634,6 +634,20 @@
     "Delivered": "Delivered",
     "Cancelled": "Cancelled"
   },
+  "TenantInvite": {
+    "tenantPortal": "Tenant portal",
+    "pageTitle": "Accept store owner invitation",
+    "linkInvalid": "This invitation link is missing or malformed. Ask the host administrator for a new invitation.",
+    "passwordMismatch": "The passwords do not match.",
+    "inviteInvalid": "This invitation is invalid, expired, or already used. Ask the host for a new invite.",
+    "tooManyAttempts": "Too many attempts. Wait before trying again.",
+    "acceptFailed": "The invitation could not be accepted. Please try again.",
+    "requestUnavailable": "The request could not reach the server. Please try again.",
+    "createPassword": "Create password (at least 14 characters)",
+    "confirmPassword": "Confirm password",
+    "accepting": "Accepting invitation…",
+    "acceptInvitation": "Accept invitation"
+  },
   "Home": {
     "platformName": "Commerce Workspace",
     "phase": "Phase 1 · Foundation",

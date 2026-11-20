@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { TenantInviteAcceptForm } from "@/features/tenant-auth/tenant-invite-accept-form";
 
 export const metadata: Metadata = {
@@ -7,12 +8,16 @@ export const metadata: Metadata = {
 };
 
 type TenantAcceptInvitePageProps = {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<{ token?: string | string[] }>;
 };
 
 export default async function TenantAcceptInvitePage({
+  params,
   searchParams,
 }: TenantAcceptInvitePageProps) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "TenantInvite" });
   const { token } = await searchParams;
   const inviteToken = typeof token === "string" ? token : "";
   const validToken = /^[A-Za-z0-9_-]{40,64}$/.test(inviteToken);
@@ -22,18 +27,17 @@ export default async function TenantAcceptInvitePage({
       <section className="w-full space-y-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
         <header>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-700">
-            Tenant portal
+            {t("tenantPortal")}
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Accept store owner invitation
+            {t("pageTitle")}
           </h1>
         </header>
         {validToken ? (
           <TenantInviteAcceptForm token={inviteToken} />
         ) : (
           <p className="text-sm leading-6 text-red-700" role="alert">
-            This invitation link is missing or malformed. Ask the host
-            administrator for a new invitation.
+            {t("linkInvalid")}
           </p>
         )}
       </section>
