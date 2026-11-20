@@ -29,6 +29,7 @@ const namespaces = [
   "TenantCatalog",
   "TenantOrders",
   "TenantInvite",
+  "HostAuth",
 ] as const;
 
 function flattenMessages(

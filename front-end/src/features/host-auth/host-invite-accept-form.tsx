@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 export function HostInviteAcceptForm({ token }: { token: string }) {
   const router = useRouter();
+  const t = useTranslations("HostAuth");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -13,7 +15,7 @@ export function HostInviteAcceptForm({ token }: { token: string }) {
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
     if (password !== String(form.get("confirmPassword") ?? "")) {
-      setError("The passwords do not match.");
+      setError(t("passwordMismatch"));
       return;
     }
 
@@ -33,17 +35,17 @@ export function HostInviteAcceptForm({ token }: { token: string }) {
             : undefined;
         setError(
           code === "invite_invalid_or_expired"
-            ? "This invitation is invalid, expired, or has already been used. Ask the Super Admin for a new invite."
+            ? t("inviteInvalid")
             : code === "rate_limited"
-              ? "Too many attempts. Wait before trying again."
-              : "The invitation could not be accepted. Please try again.",
+              ? t("tooManyAttempts")
+              : t("inviteAcceptFailed"),
         );
         return;
       }
       router.replace("/host");
       router.refresh();
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -52,7 +54,7 @@ export function HostInviteAcceptForm({ token }: { token: string }) {
   return (
     <form className="space-y-5" onSubmit={submit}>
       <label className="block space-y-2 text-sm font-medium" htmlFor="password">
-        Create password (at least 14 characters)
+        {t("createPassword")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="password"
@@ -68,7 +70,7 @@ export function HostInviteAcceptForm({ token }: { token: string }) {
         className="block space-y-2 text-sm font-medium"
         htmlFor="confirmPassword"
       >
-        Confirm password
+        {t("confirmPassword")}
         <input
           className="w-full rounded-md border border-slate-300 px-3 py-2"
           id="confirmPassword"
@@ -90,7 +92,7 @@ export function HostInviteAcceptForm({ token }: { token: string }) {
         disabled={busy}
         type="submit"
       >
-        {busy ? "Accepting invitation…" : "Accept invitation"}
+        {busy ? t("acceptingInvitation") : t("acceptInvitation")}
       </button>
     </form>
   );
