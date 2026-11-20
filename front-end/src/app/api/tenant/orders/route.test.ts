@@ -331,6 +331,42 @@ describe("PATCH /api/tenant/orders recovery", () => {
     expect(await response.json()).toMatchObject({ order: { fulfillment } });
   });
 
+  it("rejects Delivered when the platform order has not been Shipped", async () => {
+    getTenantPortalSession.mockResolvedValue({
+      userId: customerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["orders:read", "orders:write"],
+    });
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listTenantOrders: vi.fn().mockResolvedValue([
+        {
+          id: orderId,
+          status: "Processing",
+        },
+      ]),
+    });
+
+    const response = await PATCH(
+      new Request("http://store.localhost:3000/api/tenant/orders", {
+        method: "PATCH",
+        headers: {
+          host: "store.localhost:3000",
+          origin: "http://store.localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ orderId, status: "Delivered" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "invalid_status_transition",
+    });
+    expect(createTenantOrderAdapter).not.toHaveBeenCalled();
+  });
+
   it("allows operators to mark a shipped order delivered", async () => {
     const order = {
       id: orderId,
@@ -343,6 +379,7 @@ describe("PATCH /api/tenant/orders recovery", () => {
       currency: "USD",
       itemCount: 1,
     };
+    const shippedOrder = { ...order, status: "Shipped" };
     const updateOrderStatus = vi.fn().mockResolvedValue(order);
     const updateCustomerOrderStatus = vi.fn().mockResolvedValue(order);
     getTenantPortalSession.mockResolvedValue({
@@ -353,6 +390,7 @@ describe("PATCH /api/tenant/orders recovery", () => {
     });
     getPlatformStore.mockReturnValue({
       consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listTenantOrders: vi.fn().mockResolvedValue([shippedOrder]),
       updateCustomerOrderStatus,
       appendAuditEvent: vi.fn().mockResolvedValue(undefined),
     });

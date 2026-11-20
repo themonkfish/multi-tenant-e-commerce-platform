@@ -166,6 +166,22 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ order: result.order });
     }
 
+    if (parsed.data.status === "Delivered") {
+      const platformOrder = (
+        await store.listTenantOrders(session.scope.id)
+      ).find((order) => order.id === parsed.data.orderId);
+      if (
+        !platformOrder ||
+        (platformOrder.status !== "Shipped" &&
+          platformOrder.status !== "Delivered")
+      ) {
+        return NextResponse.json(
+          { error: "invalid_status_transition" },
+          { status: 409 },
+        );
+      }
+    }
+
     const adapter = await createTenantOrderAdapter(
       session.scope.id,
       session.scope.hostId,

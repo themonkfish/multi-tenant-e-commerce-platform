@@ -320,7 +320,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [x] **i18n:** English, French, and Hindi routing is configured with a locale
-      switcher and 288 frontend tests. Customer sign-in/registration, cart and
+      switcher and 289 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -492,7 +492,9 @@ Status snapshot as of 2026-11-19:
       handoff.
 - [x] Let authorized Tenant operators manually mark Shipped orders Delivered.
       Delivered is terminal, is reflected in Customer order history, and does
-      not imply carrier confirmation.
+      not imply carrier confirmation. The Tenant order API rejects Delivered
+      transitions until the platform order is Shipped and permits idempotent
+      retry when already Delivered.
 - [x] Show Customers an accessible order-progress timeline from confirmation
       through delivery in English, French, and Hindi; cancelled orders are
       displayed as a separately localized terminal state.
