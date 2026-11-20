@@ -26,6 +26,7 @@ export default async function TenantDashboardPage({
   await connection();
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "TenantSettings" });
+  const staffT = await getTranslations({ locale, namespace: "TenantStaff" });
   const session = await getTenantOwnerSession();
   if (!session) {
     redirect(`/${locale}/tenant/login`);
@@ -138,7 +139,7 @@ export default async function TenantDashboardPage({
         <h2 className="text-xl font-semibold">{t("sectionTitle")}</h2>
         <p className="text-sm text-slate-600">{t("sectionDescription")}</p>
         <TenantStoreSettingsForm initialSettings={settings} />
-        <h2 className="pt-4 text-xl font-semibold">Team access</h2>
+        <h2 className="pt-4 text-xl font-semibold">{staffT("teamAccess")}</h2>
         <TenantStaffManagement initialStaff={staff} />
         <h2 className="pt-4 text-xl font-semibold">Store setup</h2>
         <div>

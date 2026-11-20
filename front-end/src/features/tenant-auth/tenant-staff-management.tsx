@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { TenantStaffPermissionSchema } from "@/core/domain/tenant-identities";
 import { z } from "zod";
 
@@ -18,6 +19,7 @@ export function TenantStaffManagement({
 }: {
   initialStaff: StaffView[];
 }) {
+  const t = useTranslations("TenantStaff");
   const [staff, setStaff] = useState(initialStaff);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -45,10 +47,10 @@ export function TenantStaffManagement({
             : undefined;
         setError(
           code === "rate_limited"
-            ? "Too many staff changes. Try again later."
+            ? t("tooManyChanges")
             : code === "staff_not_found"
-              ? "That staff account could not be found for this store."
-              : "The staff account could not be updated.",
+              ? t("staffNotFound")
+              : t("staffUpdateFailed"),
         );
         return false;
       }
@@ -59,12 +61,12 @@ export function TenantStaffManagement({
         typeof body.staff !== "object" ||
         body.staff === null
       ) {
-        setError("The server returned invalid staff account data.");
+        setError(t("invalidStaffResponse"));
         return false;
       }
       const parsedStaff = StaffViewSchema.safeParse(body.staff);
       if (!parsedStaff.success) {
-        setError("The server returned invalid staff account data.");
+        setError(t("invalidStaffResponse"));
         return false;
       }
       const updated = parsedStaff.data;
@@ -73,16 +75,16 @@ export function TenantStaffManagement({
       );
       setNotice(
         "password" in update
-          ? "Staff password reset. Share the new password securely."
+          ? t("passwordReset")
           : "permissions" in update
-            ? "Staff permissions updated."
+            ? t("permissionsUpdated")
             : updated.active
-              ? "Staff account reactivated."
-              : "Staff account disabled.",
+              ? t("accountReactivated")
+              : t("accountDisabled"),
       );
       return true;
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
       return false;
     } finally {
       setBusy(false);
@@ -97,7 +99,7 @@ export function TenantStaffManagement({
     const form = new FormData(event.currentTarget);
     const permissions = form.getAll("permissions").map(String);
     if (permissions.length === 0) {
-      setError("Assign at least one permission to each staff account.");
+      setError(t("permissionRequired"));
       setNotice("");
       return;
     }
@@ -105,11 +107,7 @@ export function TenantStaffManagement({
   }
 
   async function deleteStaff(staffId: string) {
-    if (
-      !window.confirm(
-        "Permanently delete this staff account? This immediately revokes its access.",
-      )
-    ) {
+    if (!window.confirm(t("deleteConfirm"))) {
       return;
     }
     setBusy(true);
@@ -127,17 +125,17 @@ export function TenantStaffManagement({
             : undefined;
         setError(
           code === "rate_limited"
-            ? "Too many staff changes. Try again later."
+            ? t("tooManyChanges")
             : code === "staff_not_found"
-              ? "That staff account could not be found for this store."
-              : "The staff account could not be deleted.",
+              ? t("staffNotFound")
+              : t("staffDeleteFailed"),
         );
         return;
       }
       setStaff((current) => current.filter((member) => member.id !== staffId));
-      setNotice("Staff account deleted.");
+      setNotice(t("accountDeleted"));
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -178,10 +176,10 @@ export function TenantStaffManagement({
             : undefined;
         setError(
           code === "account_exists"
-            ? "That email already has an account for this store."
+            ? t("accountExists")
             : code === "rate_limited"
-              ? "Too many staff changes. Try again later."
-              : "The staff account could not be created.",
+              ? t("tooManyChanges")
+              : t("staffCreateFailed"),
         );
         return;
       }
@@ -192,12 +190,12 @@ export function TenantStaffManagement({
         typeof body.staff !== "object" ||
         body.staff === null
       ) {
-        setError("The server returned invalid staff account data.");
+        setError(t("invalidStaffResponse"));
         return;
       }
       const parsedStaff = StaffViewSchema.safeParse(body.staff);
       if (!parsedStaff.success) {
-        setError("The server returned invalid staff account data.");
+        setError(t("invalidStaffResponse"));
         return;
       }
       const created = parsedStaff.data;
@@ -205,9 +203,9 @@ export function TenantStaffManagement({
         [...current, created].sort((a, b) => a.email.localeCompare(b.email)),
       );
       event.currentTarget.reset();
-      setNotice("Staff account created. Share its initial password securely.");
+      setNotice(t("accountCreated"));
     } catch {
-      setError("The request could not reach the server. Please try again.");
+      setError(t("requestUnavailable"));
     } finally {
       setBusy(false);
     }
@@ -216,15 +214,12 @@ export function TenantStaffManagement({
   return (
     <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-5">
       <div>
-        <h3 className="font-semibold">Staff accounts</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Staff can only access the catalog permissions assigned here. They
-          cannot change store settings, API connections, or user accounts.
-        </p>
+        <h3 className="font-semibold">{t("staffTitle")}</h3>
+        <p className="mt-1 text-sm text-slate-600">{t("staffDescription")}</p>
       </div>
       <form className="grid gap-4 sm:grid-cols-2" onSubmit={createStaff}>
         <label className="space-y-1 text-sm font-medium">
-          Staff email
+          {t("staffEmail")}
           <input
             className="w-full rounded-md border px-3 py-2"
             name="email"
@@ -233,7 +228,7 @@ export function TenantStaffManagement({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Initial password (14+ characters)
+          {t("initialPassword")}
           <input
             className="w-full rounded-md border px-3 py-2"
             name="password"
@@ -244,7 +239,7 @@ export function TenantStaffManagement({
           />
         </label>
         <fieldset className="flex flex-wrap gap-4 text-sm sm:col-span-2">
-          <legend className="mb-2 font-medium">Permissions</legend>
+          <legend className="mb-2 font-medium">{t("permissions")}</legend>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -252,7 +247,7 @@ export function TenantStaffManagement({
               value="catalog:read"
               defaultChecked
             />
-            Read catalog
+            {t("readCatalog")}
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -261,15 +256,15 @@ export function TenantStaffManagement({
               value="catalog:write"
               defaultChecked
             />
-            Manage catalog
+            {t("manageCatalog")}
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="permissions" value="orders:read" />
-            Read orders
+            {t("readOrders")}
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="permissions" value="orders:write" />
-            Update order status
+            {t("updateOrderStatus")}
           </label>
         </fieldset>
         {error && (
@@ -287,7 +282,7 @@ export function TenantStaffManagement({
           disabled={busy}
           type="submit"
         >
-          {busy ? "Creating…" : "Create staff account"}
+          {busy ? t("creating") : t("createAccount")}
         </button>
       </form>
       {staff.length > 0 ? (
@@ -298,7 +293,7 @@ export function TenantStaffManagement({
                 <div>
                   <p className="font-medium">{member.email}</p>
                   <p className="mt-1 text-slate-600">
-                    {member.active ? "Active" : "Disabled"} ·{" "}
+                    {member.active ? t("active") : t("disabled")} ·{" "}
                     {member.permissions.join(", ")}
                   </p>
                 </div>
@@ -310,7 +305,7 @@ export function TenantStaffManagement({
                   }
                   type="button"
                 >
-                  {member.active ? "Disable" : "Reactivate"}
+                  {member.active ? t("disable") : t("reactivate")}
                 </button>
               </div>
               <form
@@ -322,14 +317,14 @@ export function TenantStaffManagement({
               >
                 <fieldset className="flex flex-wrap gap-4">
                   <legend className="sr-only">
-                    Permissions for {member.email}
+                    {t("permissionsFor", { email: member.email })}
                   </legend>
                   {(
                     [
-                      ["catalog:read", "Read catalog"],
-                      ["catalog:write", "Manage catalog"],
-                      ["orders:read", "Read orders"],
-                      ["orders:write", "Update order status"],
+                      ["catalog:read", t("readCatalog")],
+                      ["catalog:write", t("manageCatalog")],
+                      ["orders:read", t("readOrders")],
+                      ["orders:write", t("updateOrderStatus")],
                     ] as const
                   ).map(([permission, label]) => (
                     <label className="flex items-center gap-2" key={permission}>
@@ -348,7 +343,7 @@ export function TenantStaffManagement({
                   disabled={busy}
                   type="submit"
                 >
-                  Save permissions
+                  {t("savePermissions")}
                 </button>
                 <button
                   className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 disabled:opacity-60"
@@ -356,7 +351,7 @@ export function TenantStaffManagement({
                   onClick={() => void deleteStaff(member.id)}
                   type="button"
                 >
-                  Delete account
+                  {t("deleteAccount")}
                 </button>
               </form>
               <form
@@ -365,7 +360,7 @@ export function TenantStaffManagement({
               >
                 <input name="staffId" type="hidden" value={member.id} />
                 <label className="space-y-1 text-xs font-medium">
-                  Reset password (14+ characters)
+                  {t("resetPasswordLabel")}
                   <input
                     className="block w-full rounded-md border px-3 py-2 text-sm"
                     name="password"
@@ -380,14 +375,14 @@ export function TenantStaffManagement({
                   disabled={busy}
                   type="submit"
                 >
-                  Reset password
+                  {t("resetPassword")}
                 </button>
               </form>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-slate-500">No staff accounts yet.</p>
+        <p className="text-sm text-slate-500">{t("noAccounts")}</p>
       )}
     </section>
   );
