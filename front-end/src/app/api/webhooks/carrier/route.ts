@@ -11,6 +11,11 @@ import {
   type CarrierEventStatus,
 } from "@/lib/server/carrier-webhooks";
 import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
+import {
+  createStructuredLogger,
+  getRequestCorrelationId,
+  recordObservabilityMetric,
+} from "@/lib/server/observability";
 
 export const runtime = "nodejs";
 
@@ -35,6 +40,9 @@ const CarrierEventSchema = z
   .strict();
 
 export async function POST(request: Request) {
+  const requestId = getRequestCorrelationId(request);
+  recordObservabilityMetric("carrier.webhook.received");
+  const logger = createStructuredLogger({ requestId });
   let secret: string;
   try {
     secret = getServerEnv().CARRIER_WEBHOOK_SECRET ?? "";
@@ -71,6 +79,10 @@ export async function POST(request: Request) {
       secret,
     )
   ) {
+    recordObservabilityMetric("carrier.webhook.invalid_signature");
+    logger.warn("carrier.webhook.rejected", {
+      reason: "invalid_signature",
+    });
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 
@@ -125,6 +137,7 @@ export async function POST(request: Request) {
     platformOrder.fulfillment?.trackingNumber === fulfillment.trackingNumber &&
     platformOrder.fulfillment?.trackingUrl === fulfillment.trackingUrl
   ) {
+    recordObservabilityMetric("carrier.webhook.idempotent");
     return NextResponse.json({ received: true, eventId: parsed.data.eventId });
   }
 
@@ -167,6 +180,11 @@ export async function POST(request: Request) {
       fulfillment,
     );
   } catch (error) {
+    recordObservabilityMetric("carrier.webhook.sync_failed");
+    logger.error("carrier.webhook.sync_failed", error, {
+      tenantId: parsed.data.tenantId,
+      orderId: parsed.data.orderId,
+    });
     if (error instanceof RestBackendError && error.status === 409) {
       return NextResponse.json(
         { error: "invalid_status_transition" },
@@ -199,6 +217,12 @@ export async function POST(request: Request) {
     resourceType: "customer_order",
     resourceId: parsed.data.orderId,
     createdAt: new Date().toISOString(),
+  });
+  recordObservabilityMetric("carrier.webhook.processed");
+  logger.info("carrier.webhook.processed", {
+    tenantId: parsed.data.tenantId,
+    orderId: parsed.data.orderId,
+    status: normalizedStatus,
   });
   return NextResponse.json({ received: true, eventId: parsed.data.eventId });
 }

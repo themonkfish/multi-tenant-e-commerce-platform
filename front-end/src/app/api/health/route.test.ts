@@ -25,6 +25,10 @@ describe("GET /api/health", () => {
       setupComplete: true,
       timestamp: expect.any(String),
       requestId: "health-request-1",
+      observability: expect.objectContaining({
+        uptimeSeconds: expect.any(Number),
+        counters: expect.any(Object),
+      }),
     });
   });
 

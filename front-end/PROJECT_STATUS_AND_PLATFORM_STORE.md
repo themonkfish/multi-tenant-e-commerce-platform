@@ -324,7 +324,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [x] **i18n:** English, French, and Hindi routing is configured with a locale
-      switcher and 299 frontend tests. Customer sign-in/registration, cart and
+      switcher and 303 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -362,8 +362,11 @@ Status snapshot as of 2026-11-19:
       mutation limits are per-account. Structured logging and request
       correlation, audit export, file-store backup/restore, dependency audit,
       SBOM generation, and health reporting are implemented. Production
-      monitoring, a shared distributed rate-limit service, automated migration
-      deployment, restore automation, and full compliance tooling remain.
+      in-process webhook/provider counters and uptime are exposed by health;
+      bearer-protected Prometheus-text metrics are available at `/api/metrics`.
+      External monitoring dashboards, alerting, a shared distributed rate-limit
+      service, automated migration deployment, restore automation, and full
+      compliance tooling remain.
 
 ### Pending roadmap
 
@@ -414,9 +417,10 @@ Status snapshot as of 2026-11-19:
 6. **P3 — Platform operations and scale**
    - CI, migration validation, dependency audit, SBOM generation, health
      reporting, structured logging, audit export, file-store backup/restore,
-     and application test automation are implemented. Add production
-     observability, automated production migration deployment, backup rotation,
-     and restore automation.
+     and application test automation are implemented. In-process uptime and
+     webhook/provider counters are exposed through health and structured
+     webhook logs. Add external monitoring dashboards/alerting, automated
+     production migration deployment, backup rotation, and restore automation.
    - Choose background jobs, email delivery, domain/SSL strategy, and tenant
      identity model.
    - Completed: tenant data export, Customer self-service account deletion,
@@ -566,7 +570,7 @@ Status snapshot as of 2026-11-19:
 - [x] Define inventory reservation and payment-failure behavior. Reservations
       occur at checkout; failed/expired card payments release them, and COD
       orders consume stock when placed.
-- [ ] Add observability, CI/CD, dependency/license scanning, SBOM and third-
+- [ ] Add external observability dashboards/alerts, CI/CD, dependency/license scanning, SBOM and third-
       party notices, backups, tenant export/deletion, and compliance workflows.
       Tenant JSON export and Host-owned platform-record purging are implemented;
       external provider data requires separate purge procedures.
@@ -606,6 +610,7 @@ implemented by selecting a platform-store option.
 | `RESEND_API_KEY`                | Optional for invitation email                        | Server-only API key used to deliver Host/Tenant invitations through Resend.                                                                                 |
 | `INVITATION_EMAIL_FROM`         | With `RESEND_API_KEY`                                | Verified sender address/name, such as `Platform <noreply@example.com>`. Leave both values blank for manual invitation links.                                |
 | `CARRIER_WEBHOOK_SECRET`        | Optional for live carrier events                     | HMAC-SHA256 signing secret for `POST /api/webhooks/carrier`; use `sha256=<hex>` or raw hex in `x-carrier-signature`.                                        |
+| `OBSERVABILITY_METRICS_TOKEN`   | Optional for metrics scraping                        | Bearer token required to access `GET /api/metrics` Prometheus-text output.                                                                                  |
 | `NODE_ENV`                      | Set by Next.js                                       | Use the standard `development`, `test`, or `production` values.                                                                                             |
 
 Do not put tenant-specific backend, storage, or payment secrets in this file;
@@ -779,6 +784,8 @@ RESEND_API_KEY=<server-only-resend-api-key>
 INVITATION_EMAIL_FROM=Platform <noreply@example.com>
 # Optional HMAC secret for signed carrier tracking events.
 CARRIER_WEBHOOK_SECRET=<at-least-16-random-characters>
+# Optional bearer token for protected Prometheus metrics scraping.
+OBSERVABILITY_METRICS_TOKEN=<at-least-16-random-characters>
 ```
 
 Generate secrets on a trusted machine; for example, PowerShell commands in the

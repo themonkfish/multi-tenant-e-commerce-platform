@@ -2,9 +2,25 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createStructuredLogger,
   getRequestCorrelationId,
+  getObservabilityMetrics,
+  recordObservabilityMetric,
+  resetObservabilityMetricsForTests,
 } from "./observability";
 
 describe("observability", () => {
+  it("returns cumulative process counters and uptime", () => {
+    resetObservabilityMetricsForTests();
+    recordObservabilityMetric("carrier.webhook.received");
+    recordObservabilityMetric("carrier.webhook.received");
+    recordObservabilityMetric("carrier.webhook.failed");
+    expect(getObservabilityMetrics()).toMatchObject({
+      uptimeSeconds: expect.any(Number),
+      counters: {
+        "carrier.webhook.received": 2,
+        "carrier.webhook.failed": 1,
+      },
+    });
+  });
   it("reuses a valid request correlation ID", () => {
     const request = new Request("https://store.example.com/api/health", {
       headers: { "x-request-id": "request-123_abc" },

@@ -3,6 +3,7 @@ import { getPlatformStore } from "@/lib/server/platform";
 import {
   createStructuredLogger,
   getRequestCorrelationId,
+  getObservabilityMetrics,
 } from "@/lib/server/observability";
 
 export async function GET(request: Request) {
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
         setupComplete: setup.initialized,
         timestamp: new Date().toISOString(),
         requestId,
+        observability: getObservabilityMetrics(),
       },
       { headers: { "x-request-id": requestId } },
     );

@@ -8,6 +8,11 @@ import {
   StripePaymentConfigurationError,
   verifyStripeWebhookEvent,
 } from "@/lib/server/stripe-payments";
+import {
+  createStructuredLogger,
+  getRequestCorrelationId,
+  recordObservabilityMetric,
+} from "@/lib/server/observability";
 
 export const runtime = "nodejs";
 
@@ -18,6 +23,9 @@ const OrderMetadataSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const requestId = getRequestCorrelationId(request);
+  const logger = createStructuredLogger({ requestId });
+  recordObservabilityMetric("stripe.webhook.received");
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
     return NextResponse.json({ error: "missing_signature" }, { status: 400 });
@@ -51,6 +59,7 @@ export async function POST(request: Request) {
     event.type === "checkout.session.expired" ||
     event.type === "checkout.session.async_payment_failed";
   if (!isPaid && !isFailed) {
+    recordObservabilityMetric("stripe.webhook.ignored");
     return NextResponse.json({ received: true });
   }
 
@@ -90,6 +99,7 @@ export async function POST(request: Request) {
     );
   }
   if (isFailed && order.paymentStatus === "paid") {
+    recordObservabilityMetric("stripe.webhook.failed_after_paid");
     return NextResponse.json({ received: true });
   }
   if (isFailed && order.paymentStatus === "failed") {
@@ -151,6 +161,8 @@ export async function POST(request: Request) {
     await store.commitDiscountRedemption(order.tenantId, order.id);
   }
   if (updated.backendSyncStatus === "synced") {
+    recordObservabilityMetric("stripe.webhook.paid");
+    recordObservabilityMetric("stripe.order_sync.synced");
     return NextResponse.json({ received: true });
   }
 
@@ -163,17 +175,33 @@ export async function POST(request: Request) {
       order: updated,
     });
   } catch {
+    recordObservabilityMetric("stripe.order_sync.failed");
+    logger.error(
+      "stripe.order_sync_failed",
+      new Error("Tenant sync unavailable"),
+      {
+        tenantId,
+        orderId,
+      },
+    );
     return NextResponse.json(
       { error: "order_sync_failed", paymentStatus: "paid" },
       { status: 503 },
     );
   }
   if (syncedOrder.backendSyncStatus !== "synced") {
+    recordObservabilityMetric("stripe.order_sync.failed");
     return NextResponse.json(
       { error: "order_sync_failed", paymentStatus: "paid" },
       { status: 503 },
     );
   }
+  recordObservabilityMetric("stripe.webhook.paid");
+  recordObservabilityMetric("stripe.order_sync.synced");
+  logger.info("stripe.payment_reconciled", {
+    tenantId,
+    orderId,
+  });
   return NextResponse.json({ received: true });
 }
 

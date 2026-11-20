@@ -32,6 +32,47 @@ function errorFields(error: unknown) {
   return { errorMessage: String(error).slice(0, 500) };
 }
 
+const startedAt = Date.now();
+const counters = new Map<string, number>();
+
+export function recordObservabilityMetric(name: string, increment = 1) {
+  if (!name || !Number.isFinite(increment) || increment < 0) return;
+  counters.set(name, (counters.get(name) ?? 0) + increment);
+}
+
+export function getObservabilityMetrics() {
+  return {
+    uptimeSeconds: Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+    counters: Object.fromEntries(
+      [...counters.entries()].sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    ),
+  };
+}
+
+export function resetObservabilityMetricsForTests() {
+  counters.clear();
+}
+
+export function formatPrometheusMetrics(): string {
+  const metrics = getObservabilityMetrics();
+  const lines = [
+    "# HELP ecommerce_process_uptime_seconds Process uptime in seconds.",
+    "# TYPE ecommerce_process_uptime_seconds gauge",
+    `ecommerce_process_uptime_seconds ${metrics.uptimeSeconds}`,
+  ];
+  lines.push(
+    "# HELP ecommerce_event_total Application event counter.",
+    "# TYPE ecommerce_event_total counter",
+  );
+  for (const [name, value] of Object.entries(metrics.counters)) {
+    const escapedName = name.replace(/[^A-Za-z0-9_:]/g, "_");
+    lines.push(`ecommerce_event_total{event="${escapedName}"} ${value}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
 export function createStructuredLogger(context: ObservabilityContext = {}) {
   const base = {
     service: "multi-tenant-e-commerce",
