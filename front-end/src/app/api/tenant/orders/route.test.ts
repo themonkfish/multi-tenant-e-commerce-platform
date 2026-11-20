@@ -331,6 +331,74 @@ describe("PATCH /api/tenant/orders recovery", () => {
     expect(await response.json()).toMatchObject({ order: { fulfillment } });
   });
 
+  it("auto-generates an HTTPS tracking URL for a supported carrier", async () => {
+    const fulfillment = {
+      carrier: "FedEx",
+      trackingNumber: "TRACK 123",
+    };
+    const resolvedFulfillment = {
+      ...fulfillment,
+      trackingUrl: "https://www.fedex.com/fedextrack/?trknbr=TRACK%20123",
+    };
+    const order = {
+      id: orderId,
+      tenantId,
+      customerId,
+      status: "Shipped",
+      createdAt: "2026-10-22T12:00:00.000Z",
+      items: [],
+      total: 0,
+      currency: "USD",
+      itemCount: 1,
+      fulfillment: resolvedFulfillment,
+    };
+    getTenantPortalSession.mockResolvedValue({
+      userId: customerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["orders:read", "orders:write"],
+    });
+    const updateCustomerOrderStatus = vi.fn().mockResolvedValue(order);
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      updateCustomerOrderStatus,
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    });
+    const updateOrderStatus = vi.fn().mockResolvedValue(order);
+    createTenantOrderAdapter.mockResolvedValue({
+      updateOrderStatus,
+    });
+
+    const response = await PATCH(
+      new Request("http://store.localhost:3000/api/tenant/orders", {
+        method: "PATCH",
+        headers: {
+          host: "store.localhost:3000",
+          origin: "http://store.localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId,
+          status: "Shipped",
+          fulfillment,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateOrderStatus).toHaveBeenCalledWith(
+      orderId,
+      "Shipped",
+      resolvedFulfillment,
+    );
+    expect(updateCustomerOrderStatus).toHaveBeenCalledWith({
+      tenantId,
+      orderId,
+      status: "Shipped",
+      fulfillment: resolvedFulfillment,
+    });
+  });
+
   it("rejects Delivered when the platform order has not been Shipped", async () => {
     getTenantPortalSession.mockResolvedValue({
       userId: customerId,

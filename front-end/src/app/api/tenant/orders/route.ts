@@ -4,6 +4,7 @@ import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
 import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { OrderFulfillmentSchema } from "@/core/domain/tenant-identities";
+import { buildCarrierTrackingUrl } from "@/core/domain/tenant-identities";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantPortalSession } from "@/lib/server/session";
@@ -186,18 +187,28 @@ export async function PATCH(request: Request) {
       session.scope.id,
       session.scope.hostId,
     );
+    const fulfillment =
+      parsed.data.status === "Shipped" && parsed.data.fulfillment
+        ? {
+            ...parsed.data.fulfillment,
+            trackingUrl:
+              parsed.data.fulfillment.trackingUrl ??
+              buildCarrierTrackingUrl(
+                parsed.data.fulfillment.carrier,
+                parsed.data.fulfillment.trackingNumber,
+              ),
+          }
+        : parsed.data.fulfillment;
     const order = await adapter.updateOrderStatus(
       parsed.data.orderId,
       parsed.data.status,
-      parsed.data.fulfillment,
+      fulfillment,
     );
     const platformOrder = await store.updateCustomerOrderStatus({
       tenantId: session.scope.id,
       orderId: order.id,
       status: order.status,
-      ...(parsed.data.fulfillment
-        ? { fulfillment: parsed.data.fulfillment }
-        : {}),
+      ...(fulfillment ? { fulfillment } : {}),
     });
     if (platformOrder) {
       await store.appendAuditEvent({

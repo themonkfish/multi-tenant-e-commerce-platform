@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { OrderFulfillmentSchema } from "./tenant-identities";
+import {
+  buildCarrierTrackingUrl,
+  OrderFulfillmentSchema,
+} from "./tenant-identities";
 
 describe("OrderFulfillmentSchema", () => {
   it("accepts a tracking number and optional HTTPS tracking details", () => {
@@ -35,5 +38,17 @@ describe("OrderFulfillmentSchema", () => {
         secret: "unexpected",
       }).success,
     ).toBe(false);
+  });
+
+  it("builds HTTPS tracking links for supported carriers", () => {
+    expect(buildCarrierTrackingUrl("FedEx", "TRACK 123")).toBe(
+      "https://www.fedex.com/fedextrack/?trknbr=TRACK%20123",
+    );
+    expect(buildCarrierTrackingUrl("Delhivery", "DLV123")).toBe(
+      "https://www.delhivery.com/track/package/DLV123",
+    );
+    expect(
+      buildCarrierTrackingUrl("Custom carrier", "TRACK123"),
+    ).toBeUndefined();
   });
 });

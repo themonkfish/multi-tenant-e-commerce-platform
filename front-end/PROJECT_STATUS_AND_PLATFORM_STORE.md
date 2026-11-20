@@ -324,7 +324,7 @@ Status snapshot as of 2026-11-19:
       tenant-scoped routes explicitly opt out of shared Next.js caching to avoid
       cross-tenant reuse.
 - [x] **i18n:** English, French, and Hindi routing is configured with a locale
-      switcher and 292 frontend tests. Customer sign-in/registration, cart and
+      switcher and 294 frontend tests. Customer sign-in/registration, cart and
       checkout form, order confirmation and demo payment screens, account,
       tenant storefront landing page, product detail and review UI, catalog
       browsing, order-sync messages, order progress, and Tenant Owner sign-in
@@ -419,7 +419,10 @@ Status snapshot as of 2026-11-19:
      and restore automation.
    - Choose background jobs, email delivery, domain/SSL strategy, and tenant
      identity model.
-   - Add compliance and export/deletion workflows for tenant data.
+   - Completed: tenant data export, Customer self-service account deletion,
+     tenant/host deletion, audit-event coverage, and secret-free export
+     boundaries. External provider data and registrar/carrier purge procedures
+     remain separate operational workflows.
 
 7. **P3 — Growth and expansion work**
    - Add CMS, reviews, reporting, expanded staff roles, webhooks, and theming
@@ -504,6 +507,10 @@ Status snapshot as of 2026-11-19:
       not imply carrier confirmation. The Tenant order API rejects Delivered
       transitions until the platform order is Shipped and permits idempotent
       retry when already Delivered.
+- [x] Carrier tracking links: Tenant shipment details support FedEx, UPS, DHL,
+      USPS, Delhivery, and BlueDart HTTPS tracking-link generation. Custom
+      carriers retain an operator-entered HTTPS tracking URL; live carrier
+      event ingestion remains future work.
 - [x] Show Customers an accessible order-progress timeline from confirmation
       through delivery in English, French, and Hindi; cancelled orders are
       displayed as a separately localized terminal state.

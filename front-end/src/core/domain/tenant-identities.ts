@@ -88,6 +88,35 @@ export const OrderFulfillmentSchema = z
   .strict();
 export type OrderFulfillment = z.infer<typeof OrderFulfillmentSchema>;
 
+const CARRIER_TRACKING_URLS: Record<
+  string,
+  (trackingNumber: string) => string
+> = {
+  fedex: (trackingNumber) =>
+    `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`,
+  ups: (trackingNumber) =>
+    `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`,
+  dhl: (trackingNumber) =>
+    `https://www.dhl.com/global-en/home/tracking.html?tracking-id=${encodeURIComponent(trackingNumber)}`,
+  "dhl express": (trackingNumber) =>
+    `https://www.dhl.com/global-en/home/tracking.html?tracking-id=${encodeURIComponent(trackingNumber)}`,
+  usps: (trackingNumber) =>
+    `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`,
+  delhivery: (trackingNumber) =>
+    `https://www.delhivery.com/track/package/${encodeURIComponent(trackingNumber)}`,
+  bluedart: (trackingNumber) =>
+    `https://www.bluedart.com/tracking?awb=${encodeURIComponent(trackingNumber)}`,
+};
+
+export function buildCarrierTrackingUrl(
+  carrier: string | undefined,
+  trackingNumber: string,
+): string | undefined {
+  if (!carrier) return undefined;
+  const normalized = carrier.trim().toLowerCase();
+  return CARRIER_TRACKING_URLS[normalized]?.(trackingNumber);
+}
+
 const CustomerOrderBaseSchema = z.object({
   id: z.string().min(1).max(100),
   tenantId: z.uuid(),
