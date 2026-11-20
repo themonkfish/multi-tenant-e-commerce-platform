@@ -798,6 +798,8 @@
     "timeout": "La vérification HTTPS a expiré. Vérifiez que le domaine est lié à l’hébergeur puis réessayez.",
     "unreachable": "Impossible de joindre le point HTTPS. Vérifiez que le domaine est lié à l’hébergeur et pointe vers celui-ci.",
     "verifyDomain": "Vérifiez {domain} en ajoutant ces enregistrements DNS :",
+    "cname": "CNAME",
+    "txt": "TXT",
     "txtValue": "Valeur TXT",
     "verifyDns": "Vérifier le DNS"
   },

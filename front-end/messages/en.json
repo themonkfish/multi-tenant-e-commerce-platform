@@ -798,6 +798,8 @@
     "timeout": "The HTTPS check timed out. Confirm the domain is attached to the hosting provider and try again.",
     "unreachable": "The HTTPS endpoint could not be reached. Confirm the domain is attached to the hosting provider and DNS is pointing to it.",
     "verifyDomain": "Verify {domain} by adding these DNS records:",
+    "cname": "CNAME",
+    "txt": "TXT",
     "txtValue": "TXT value",
     "verifyDns": "Verify DNS"
   },

@@ -783,13 +783,13 @@ function DomainVerificationControl({
       </p>
       <dl className="grid gap-2 text-amber-950 sm:grid-cols-2">
         <div>
-          <dt className="font-medium">CNAME</dt>
+          <dt className="font-medium">{t("cname")}</dt>
           <dd className="break-all font-mono text-xs">
             {claim.domain} -&gt; {platformDomain}
           </dd>
         </div>
         <div>
-          <dt className="font-medium">TXT</dt>
+          <dt className="font-medium">{t("txt")}</dt>
           <dd className="break-all font-mono text-xs">
             _platform-verification.{claim.domain}
           </dd>
