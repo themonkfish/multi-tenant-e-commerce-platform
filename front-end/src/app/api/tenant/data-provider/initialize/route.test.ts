@@ -24,6 +24,7 @@ function initializeRequest() {
     "http://store.localhost:3000/api/tenant/data-provider/initialize",
     {
       method: "POST",
+      body: "{}",
       headers: {
         host: "store.localhost:3000",
         origin: "http://store.localhost:3000",
@@ -47,6 +48,7 @@ describe("POST /api/tenant/data-provider/initialize", () => {
       appendAuditEvent: vi.fn().mockResolvedValue(undefined),
     });
     createTenantDatabaseAdapter.mockResolvedValue({
+      getSchemaVersion: vi.fn().mockResolvedValue(null),
       initializeSchema: vi.fn().mockResolvedValue(7),
     });
 
@@ -57,6 +59,63 @@ describe("POST /api/tenant/data-provider/initialize", () => {
       schemaVersion: 7,
       status: "current",
     });
+  });
+
+  it("requires confirmation before upgrading an older schema", async () => {
+    getTenantOwnerSession.mockResolvedValue({
+      userId: ownerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["tenant:read", "tenant:write"],
+    });
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+    });
+    createTenantDatabaseAdapter.mockResolvedValue({
+      getSchemaVersion: vi.fn().mockResolvedValue(6),
+      initializeSchema: vi.fn(),
+    });
+
+    const response = await POST(initializeRequest());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "schema_upgrade_confirmation_required",
+      schemaVersion: 6,
+      currentSchemaVersion: 7,
+    });
+  });
+
+  it("upgrades an older schema after explicit confirmation", async () => {
+    getTenantOwnerSession.mockResolvedValue({
+      userId: ownerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["tenant:read", "tenant:write"],
+    });
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    });
+    const initializeSchema = vi.fn().mockResolvedValue(7);
+    createTenantDatabaseAdapter.mockResolvedValue({
+      getSchemaVersion: vi.fn().mockResolvedValue(6),
+      initializeSchema,
+    });
+    const request = new Request(initializeRequest().url, {
+      method: "POST",
+      body: JSON.stringify({ confirmUpgrade: true }),
+      headers: {
+        host: "store.localhost:3000",
+        origin: "http://store.localhost:3000",
+        "Content-Type": "application/json",
+      },
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(initializeSchema).toHaveBeenCalledOnce();
   });
 
   it("returns 409 when the provider schema requires a platform upgrade", async () => {
@@ -73,6 +132,7 @@ describe("POST /api/tenant/data-provider/initialize", () => {
       status: 409,
     });
     createTenantDatabaseAdapter.mockResolvedValue({
+      getSchemaVersion: vi.fn().mockResolvedValue(8),
       initializeSchema: vi.fn().mockRejectedValue(upgradeError),
     });
 
@@ -81,6 +141,8 @@ describe("POST /api/tenant/data-provider/initialize", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
       error: "schema_upgrade_required",
+      schemaVersion: 8,
+      currentSchemaVersion: 7,
     });
   });
 

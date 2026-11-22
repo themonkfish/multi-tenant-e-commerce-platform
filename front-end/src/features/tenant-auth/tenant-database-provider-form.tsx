@@ -121,6 +121,16 @@ export function TenantDatabaseProviderForm({
   }
 
   async function initializeSchema() {
+    if (testResult?.schemaStatus === "upgrade_required") {
+      setError(t("schemaTooNew"));
+      return;
+    }
+    if (
+      testResult?.schemaStatus === "upgrade_available" &&
+      !window.confirm(t("confirmSchemaUpgrade"))
+    ) {
+      return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
@@ -128,7 +138,9 @@ export function TenantDatabaseProviderForm({
       const response = await fetch("/api/tenant/data-provider/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({
+          confirmUpgrade: testResult?.schemaStatus === "upgrade_available",
+        }),
       });
       const payload = (await response.json()) as {
         schemaVersion?: number;
@@ -137,11 +149,13 @@ export function TenantDatabaseProviderForm({
       };
       if (!response.ok) {
         setError(
-          payload.error === "schema_upgrade_required"
-            ? t("schemaTooNew")
-            : connection?.type === "supabase"
-              ? t("supabaseInitializeFailed")
-              : t("mongodbInitializeFailed"),
+          payload.error === "schema_upgrade_confirmation_required"
+            ? t("confirmSchemaUpgradeRequired")
+            : payload.error === "schema_upgrade_required"
+              ? t("schemaTooNew")
+              : connection?.type === "supabase"
+                ? t("supabaseInitializeFailed")
+                : t("mongodbInitializeFailed"),
         );
         return;
       }
@@ -291,7 +305,11 @@ export function TenantDatabaseProviderForm({
           </button>
           <button
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
-            disabled={busy || !connection}
+            disabled={
+              busy ||
+              !connection ||
+              testResult?.schemaStatus === "upgrade_required"
+            }
             onClick={initializeSchema}
             type="button"
           >

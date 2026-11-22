@@ -405,6 +405,8 @@
     "supabaseTestUnhealthy": "Échec de la connexion. Appliquez le SQL de référence Supabase au projet tenant, puis réessayez.",
     "mongodbTestUnhealthy": "Impossible de se connecter à MongoDB Atlas. Vérifiez l’URI, l’utilisateur de base de données et la liste d’accès réseau Atlas.",
     "schemaTooNew": "Le schéma de base de données est plus récent que celui pris en charge par cette plateforme.",
+    "confirmSchemaUpgrade": "Mettre à niveau l’ancien schéma de base de données du tenant ? Confirmez que vous avez vérifié le schéma du fournisseur et la procédure de sauvegarde.",
+    "confirmSchemaUpgradeRequired": "Confirmez la mise à niveau du schéma avant l’initialisation.",
     "supabaseInitializeFailed": "Échec de l’initialisation. Appliquez d’abord le SQL de référence Supabase au projet tenant.",
     "mongodbInitializeFailed": "Échec de l’initialisation du schéma MongoDB. Vérifiez les autorisations URI et la liste d’accès réseau Atlas.",
     "schemaInitialized": "Schéma du catalogue tenant initialisé (version {version}).",

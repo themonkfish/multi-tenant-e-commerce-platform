@@ -405,6 +405,8 @@
     "supabaseTestUnhealthy": "Connection failed. Apply the Supabase reference SQL to the tenant project, then test again.",
     "mongodbTestUnhealthy": "Could not connect to MongoDB Atlas. Check the URI, database user, and Atlas network access list.",
     "schemaTooNew": "The database schema is newer than this platform supports.",
+    "confirmSchemaUpgrade": "Upgrade the tenant database schema from the current older version? Confirm that you have reviewed the provider schema and backup procedure.",
+    "confirmSchemaUpgradeRequired": "Confirm the schema upgrade before initialization.",
     "supabaseInitializeFailed": "Initialization failed. Apply the Supabase reference SQL to the tenant project first.",
     "mongodbInitializeFailed": "MongoDB schema initialization failed. Verify the URI permissions and Atlas network access list.",
     "schemaInitialized": "Tenant catalog schema initialized (version {version}).",

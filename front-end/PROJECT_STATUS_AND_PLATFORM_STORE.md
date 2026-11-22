@@ -394,6 +394,8 @@ Status snapshot as of 2026-11-19:
 3. **P1 — Provider data layer**
    - Completed: tenant Supabase and MongoDB adapters, reference schemas, and
      provider testing/initialization flows.
+   - Older tenant database schemas now require an explicit upgrade confirmation;
+     newer schemas are rejected with a platform upgrade-required response.
    - Add schema-version checks and upgrade prompts for tenant data providers.
    - Continue credential rotation and connection-validation workflows.
 
