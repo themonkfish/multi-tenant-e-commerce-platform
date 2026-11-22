@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   recordObservabilityMetric("stripe.webhook.received");
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
+    recordObservabilityMetric("stripe.webhook.invalid_signature");
     return NextResponse.json({ error: "missing_signature" }, { status: 400 });
   }
   const contentLength = Number(request.headers.get("content-length") ?? 0);
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
         { status: 503 },
       );
     }
+    recordObservabilityMetric("stripe.webhook.invalid_signature");
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 

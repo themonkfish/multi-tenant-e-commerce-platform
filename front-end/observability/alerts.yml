@@ -1,0 +1,35 @@
+groups:
+  - name: ecommerce-availability
+    rules:
+      - alert: EcommerceMetricsTargetDown
+        expr: up{job="multi_tenant_ecommerce"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "E-commerce metrics target is unreachable"
+          runbook: "https://ecommerce.example.com/docs/observability#runbooks"
+
+      - alert: EcommerceHighWebhookFailureRate
+        expr: |
+          (
+            sum(increase(ecommerce_event_total{event=~"stripe_order_sync_failed|carrier_webhook_sync_failed"}[10m]))
+            /
+            clamp_min(
+              sum(increase(ecommerce_event_total{event=~"stripe_webhook_paid|stripe_order_sync_failed|carrier_webhook_processed|carrier_webhook_sync_failed"}[10m])),
+              1
+            )
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stripe or carrier order synchronization failures exceed 5%"
+
+      - alert: EcommerceWebhookSignatureRejections
+        expr: increase(ecommerce_event_total{event=~"stripe_webhook_invalid_signature|carrier_webhook_invalid_signature"}[10m]) > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Webhook signature rejections are elevated"

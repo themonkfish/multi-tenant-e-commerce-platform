@@ -585,8 +585,11 @@ Status snapshot as of 2026-11-19:
 - [x] Define inventory reservation and payment-failure behavior. Reservations
       occur at checkout; failed/expired card payments release them, and COD
       orders consume stock when placed.
-- [ ] Add external observability dashboards/alerts, CI/CD, dependency/license scanning, SBOM and third-
-      party notices, backups, tenant export/deletion, and compliance workflows.
+- [x] Add external observability dashboards/alerts: Prometheus scrape rules,
+      Grafana dashboard, Stripe/carrier failure alerts, signature-rejection
+      alerts, and runbooks are included. CI/CD, dependency/license scanning,
+      third-party notices, backups, tenant export/deletion, and compliance
+      workflows.
       Tenant JSON export and Host-owned platform-record purging are implemented;
       external provider data requires separate purge procedures.
 - [x] Customer self-service account deletion: authenticated Customers can

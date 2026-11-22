@@ -1,0 +1,68 @@
+{
+  "title": "Multi-Tenant E-Commerce",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "Process uptime",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "ecommerce_process_uptime_seconds",
+          "legendFormat": "uptime"
+        }
+      ],
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Metrics scrape success",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(ecommerce_event_total{event=\"metrics_scrape_success\"}[5m])",
+          "legendFormat": "success"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 }
+    },
+    {
+      "title": "Stripe webhook events",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(ecommerce_event_total{event=~\"stripe_webhook_received|stripe_webhook_paid|stripe_order_sync_failed|stripe_webhook_refunded\"}[5m])",
+          "legendFormat": "{{event}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 }
+    },
+    {
+      "title": "Carrier webhook events",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(ecommerce_event_total{event=~\"carrier_webhook_received|carrier_webhook_processed|carrier_webhook_sync_failed|carrier_webhook_invalid_signature\"}[5m])",
+          "legendFormat": "{{event}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "title": "Rate-limit and unauthorized activity",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(ecommerce_event_total{event=~\"metrics_scrape_unauthorized|.*rate_limited.*\"}[5m])",
+          "legendFormat": "{{event}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    }
+  ]
+}
