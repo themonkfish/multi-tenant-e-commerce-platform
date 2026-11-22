@@ -796,6 +796,8 @@
     "readinessHelp": "Ajoutez ce nom d’hôte chez votre hébergeur et configurez-le pour servir cette application. L’hébergeur doit fournir un certificat TLS valide.",
     "checking": "Vérification…",
     "checkHttpsTls": "Vérifier HTTPS et TLS",
+    "removeDomain": "Supprimer le domaine",
+    "removeDomainConfirm": "Supprimer le domaine vérifié {domain} ? Il ne résoudra plus vers ce tenant.",
     "unknownDate": "à une date inconnue",
     "httpsReady": "HTTPS et TLS fonctionnent (HTTP {httpStatus}). Le certificat expire {expires}.",
     "httpError": "TLS est valide, mais l’application a renvoyé HTTP {httpStatus}. Vérifiez le routage du domaine chez l’hébergeur.",

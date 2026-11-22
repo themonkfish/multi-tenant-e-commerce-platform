@@ -796,6 +796,8 @@
     "readinessHelp": "Add this hostname to your hosting provider and configure it to serve this app. The provider must provision a valid TLS certificate.",
     "checking": "Checking…",
     "checkHttpsTls": "Check HTTPS and TLS",
+    "removeDomain": "Remove domain",
+    "removeDomainConfirm": "Remove the verified domain {domain}? It will stop resolving to this tenant.",
     "unknownDate": "at an unknown date",
     "httpsReady": "HTTPS and TLS are working (HTTP {httpStatus}). Certificate expires {expires}.",
     "httpError": "TLS is valid, but the app returned HTTP {httpStatus}. Check the hosting provider's domain routing.",

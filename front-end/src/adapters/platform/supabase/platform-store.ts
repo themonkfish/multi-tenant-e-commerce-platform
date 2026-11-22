@@ -2123,6 +2123,36 @@ export class SupabasePlatformStore implements PlatformStore {
     );
   }
 
+  async removeTenantDomain(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null> {
+    const { data, error } = await this.client.rpc(
+      "remove_platform_tenant_domain",
+      {
+        p_host_id: input.hostId,
+        p_tenant_id: input.tenantId,
+        p_domain: input.domain,
+        p_updated_at: input.updatedAt,
+        p_actor_id: input.auditEvent.actorId,
+        p_audit_id: input.auditEvent.id,
+        p_audit_created_at: input.auditEvent.createdAt,
+      },
+    );
+    if (error) {
+      throw new Error(`Could not remove tenant domain: ${error.message}`);
+    }
+    if (!data) return null;
+    return (
+      (await this.listTenantsForHost(input.hostId)).find(
+        (tenant) => tenant.id === input.tenantId,
+      ) ?? null
+    );
+  }
+
   async createTenantForHost(
     tenant: TenantRecord,
     auditEvent: AuditEvent,

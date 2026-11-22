@@ -315,6 +315,41 @@ export function HostTenantManagement({
     }
   }
 
+  async function removeDomain(tenantId: string, domain: string) {
+    if (!window.confirm(t("removeDomainConfirm", { domain }))) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/host/tenants/${tenantId}/domains/remove`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain }),
+        },
+      );
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(describeTenantError(errorCode(body), t));
+        return;
+      }
+      const parsed = TenantResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError(t("invalidTenantRecord"));
+        return;
+      }
+      setTenants((current) =>
+        current.map((tenant) =>
+          tenant.id === parsed.data.tenant.id ? parsed.data.tenant : tenant,
+        ),
+      );
+    } catch {
+      setError(t("requestUnavailable"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createTenant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -531,6 +566,8 @@ export function HostTenantManagement({
                           domain={domain}
                           key={domain}
                           tenantId={tenant.id}
+                          busy={busy}
+                          onRemove={() => void removeDomain(tenant.id, domain)}
                         />
                       ))}
                     </div>
@@ -666,19 +703,23 @@ export function HostTenantManagement({
 function DomainReadinessControl({
   domain,
   tenantId,
+  busy: globallyBusy,
+  onRemove,
 }: {
   domain: string;
   tenantId: string;
+  busy: boolean;
+  onRemove: () => void;
 }) {
   const t = useTranslations("HostTenants");
   const [result, setResult] = useState<
     z.infer<typeof DomainReadinessResponseSchema>["readiness"] | null
   >(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   async function checkReadiness() {
-    setBusy(true);
+    setChecking(true);
     setError("");
     try {
       const response = await fetch(
@@ -707,7 +748,7 @@ function DomainReadinessControl({
     } catch {
       setError(t("requestUnavailable"));
     } finally {
-      setBusy(false);
+      setChecking(false);
     }
   }
 
@@ -717,11 +758,19 @@ function DomainReadinessControl({
       <p className="mt-1 text-xs text-slate-600">{t("readinessHelp")}</p>
       <button
         className="mt-2 rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
-        disabled={busy}
+        disabled={globallyBusy || checking}
         onClick={() => void checkReadiness()}
         type="button"
       >
-        {busy ? t("checking") : t("checkHttpsTls")}
+        {checking ? t("checking") : t("checkHttpsTls")}
+      </button>
+      <button
+        className="ml-2 mt-2 rounded border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-800 hover:bg-rose-50 disabled:opacity-60"
+        disabled={globallyBusy || checking}
+        onClick={onRemove}
+        type="button"
+      >
+        {t("removeDomain")}
       </button>
       {result && (
         <p

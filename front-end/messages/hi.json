@@ -796,6 +796,8 @@
     "readinessHelp": "इस होस्टनाम को होस्टिंग प्रदाता में जोड़ें और इसे इस ऐप को सर्व करने के लिए कॉन्फ़िगर करें। प्रदाता को मान्य TLS प्रमाणपत्र देना होगा।",
     "checking": "जाँच हो रही है…",
     "checkHttpsTls": "HTTPS और TLS जाँचें",
+    "removeDomain": "डोमेन हटाएँ",
+    "removeDomainConfirm": "सत्यापित डोमेन {domain} हटाएँ? यह अब इस टेनेंट की ओर resolve नहीं होगा.",
     "unknownDate": "अज्ञात तारीख पर",
     "httpsReady": "HTTPS और TLS काम कर रहे हैं (HTTP {httpStatus})। प्रमाणपत्र की समाप्ति {expires} है।",
     "httpError": "TLS मान्य है, लेकिन ऐप ने HTTP {httpStatus} लौटाया। होस्टिंग प्रदाता का डोमेन रूटिंग जाँचें।",

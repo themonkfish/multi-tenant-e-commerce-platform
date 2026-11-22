@@ -770,6 +770,18 @@ export type PlatformDatabase = {
         };
         Returns: boolean;
       };
+      remove_platform_tenant_domain: {
+        Args: {
+          p_host_id: string;
+          p_tenant_id: string;
+          p_domain: string;
+          p_updated_at: string;
+          p_actor_id: string;
+          p_audit_id: string;
+          p_audit_created_at: string;
+        };
+        Returns: boolean;
+      };
       update_platform_tenant_status: {
         Args: {
           p_host_id: string;

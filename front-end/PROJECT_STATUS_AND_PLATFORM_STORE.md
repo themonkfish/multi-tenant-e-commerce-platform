@@ -455,8 +455,9 @@ Status snapshot as of 2026-11-19:
       and Customer operations on the server.
 - [x] Add Tenant Owner Staff permission editing and account deletion with
       tenant-scoped operations and audit events.
-- [ ] Provision tenant storefronts and domains; extend the initial Tenant Owner
-      portal with backend, storage, payment, catalog, and staff settings.
+- [x] Provision tenant storefront domains: add, DNS/TXT verify, HTTPS/TLS
+      readiness-check, and remove verified custom domains. Tenant Owner backend,
+      storage, payment, catalog, and staff settings are also available.
 - [x] Complete the setup wizard's connection check, platform theme/legal
       settings, invitation-email readiness status, and first-host guidance.
       Reserved-domain configuration is implemented and centralized.
@@ -829,7 +830,7 @@ Before deploying the app:
    `0022_host_deletion.sql`, `0023_tenant_deletion.sql`,
    `0024_tenant_metadata_updates.sql`, `0025_product_reviews.sql`,
    `0026_cod_order_cancellation.sql`, `0027_order_delivery_status.sql`,
-   and `0028_stripe_refunds.sql`.
+   `0028_stripe_refunds.sql`, and `0029_tenant_domain_removal.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

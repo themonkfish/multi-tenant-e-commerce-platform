@@ -1920,6 +1920,30 @@ export class FilePlatformStore implements PlatformStore {
     });
   }
 
+  async removeTenantDomain(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    updatedAt: string;
+    auditEvent: AuditEvent;
+  }): Promise<TenantRecord | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const tenant = state.tenants.find(
+        (candidate) =>
+          candidate.id === input.tenantId && candidate.hostId === input.hostId,
+      );
+      if (!tenant || !tenant.domains.includes(input.domain)) return null;
+      tenant.domains = tenant.domains.filter(
+        (domain) => domain !== input.domain,
+      );
+      tenant.updatedAt = input.updatedAt;
+      state.auditEvents.push(input.auditEvent);
+      await this.writeState(state);
+      return tenant;
+    });
+  }
+
   async getTenantByDomain(domain: string): Promise<TenantRecord | null> {
     const state = await this.readState();
     return (
