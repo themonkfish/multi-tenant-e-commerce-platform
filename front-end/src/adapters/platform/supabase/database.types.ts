@@ -365,7 +365,8 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
-          payment_status: "pending" | "paid" | "failed" | "cod_due";
+          payment_status:
+            "pending" | "paid" | "failed" | "cod_due" | "refunded";
           payment_method: "stripe" | "cash_on_delivery";
           delivery_address: Json | null;
           payment_attempt: number;
@@ -393,7 +394,8 @@ export type PlatformDatabase = {
           total: number;
           currency: string;
           item_count: number;
-          payment_status?: "pending" | "paid" | "failed" | "cod_due";
+          payment_status?:
+            "pending" | "paid" | "failed" | "cod_due" | "refunded";
           payment_method?: "stripe" | "cash_on_delivery";
           delivery_address?: Json | null;
           payment_attempt?: number;
@@ -413,7 +415,8 @@ export type PlatformDatabase = {
           discount_amount?: number;
           tax_rate_basis_points?: number;
           tax_amount?: number;
-          payment_status?: "pending" | "paid" | "failed" | "cod_due";
+          payment_status?:
+            "pending" | "paid" | "failed" | "cod_due" | "refunded";
           payment_method?: "stripe" | "cash_on_delivery";
           delivery_address?: Json | null;
           payment_attempt?: number;

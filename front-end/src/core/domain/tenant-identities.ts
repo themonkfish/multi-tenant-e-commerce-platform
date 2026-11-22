@@ -141,7 +141,7 @@ const CustomerOrderBaseSchema = z.object({
   itemCount: z.number().int().positive(),
   paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
   paymentStatus: z
-    .enum(["pending", "paid", "failed", "cod_due"])
+    .enum(["pending", "paid", "failed", "cod_due", "refunded"])
     .default("paid"),
   paymentAttempt: z.number().int().nonnegative().default(0),
   paymentSessionId: z.string().min(1).optional(),

@@ -52,6 +52,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+    if (
+      !charge.refunded ||
+      !Number.isSafeInteger(charge.amount) ||
+      !Number.isSafeInteger(charge.amount_refunded) ||
+      charge.amount_refunded < charge.amount
+    ) {
+      return NextResponse.json({ received: true });
+    }
+    const metadata = OrderMetadataSchema.safeParse(charge.metadata);
+    if (!metadata.success) {
+      return NextResponse.json(
+        { error: "invalid_order_metadata" },
+        { status: 400 },
+      );
+    }
+    const { tenantId, customerId, orderId } = metadata.data;
+    const order = await getPlatformStore().getCustomerOrder(
+      tenantId,
+      customerId,
+      orderId,
+    );
+    if (!order) {
+      return NextResponse.json({ error: "order_not_found" }, { status: 404 });
+    }
+    if (order.paymentStatus !== "paid" && order.paymentStatus !== "refunded") {
+      return NextResponse.json({ received: true });
+    }
+    if (!order.paymentSessionId) {
+      return NextResponse.json({ received: true });
+    }
+    const refunded = await getPlatformStore().updateCustomerOrderPayment({
+      tenantId,
+      customerId,
+      orderId,
+      sessionId: order.paymentSessionId,
+      status: "refunded",
+    });
+    if (!refunded) {
+      return NextResponse.json(
+        { error: "refund_update_conflict" },
+        { status: 409 },
+      );
+    }
+    recordObservabilityMetric("stripe.webhook.refunded");
+    return NextResponse.json({ received: true });
+  }
+
   const isPaid =
     event.type === "checkout.session.completed" ||
     event.type === "checkout.session.async_payment_succeeded";

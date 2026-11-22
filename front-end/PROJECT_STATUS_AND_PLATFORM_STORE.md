@@ -494,6 +494,8 @@ Status snapshot as of 2026-11-19:
       replay avoids duplicate paid-payment writes and returns a retryable 503
       while Tenant order delivery remains pending. Replay also avoids duplicate
       inventory and discount commits after a payment is already paid.
+      Fully refunded Stripe charges reconcile to a `refunded` Customer payment
+      state; partial refunds do not prematurely mark the order refunded.
 - [x] Add a local-only simulated checkout for testing success, failure, and
       Tenant order delivery without payment-provider credentials.
 - [ ] Add production Stripe Connect after provider-specific onboarding,
@@ -817,7 +819,8 @@ Before deploying the app:
    `0020_checkout_tax.sql`, `0021_host_updates.sql`,
    `0022_host_deletion.sql`, `0023_tenant_deletion.sql`,
    `0024_tenant_metadata_updates.sql`, `0025_product_reviews.sql`,
-   `0026_cod_order_cancellation.sql`, and `0027_order_delivery_status.sql`.
+   `0026_cod_order_cancellation.sql`, `0027_order_delivery_status.sql`,
+   and `0028_stripe_refunds.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

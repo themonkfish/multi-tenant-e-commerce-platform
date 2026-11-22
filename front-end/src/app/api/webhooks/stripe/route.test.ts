@@ -65,6 +65,56 @@ function webhookRequest() {
 describe("Stripe payment webhook", () => {
   afterEach(() => vi.clearAllMocks());
 
+  it("records a fully refunded paid order", async () => {
+    const order = {
+      id: orderId,
+      tenantId,
+      customerId,
+      status: "Confirmed",
+      createdAt: "2026-10-22T12:00:00.000Z",
+      items: [],
+      total: 2500,
+      currency: "USD",
+      itemCount: 1,
+      paymentStatus: "paid",
+      paymentAttempt: 1,
+      paymentSessionId: sessionId,
+      backendSyncStatus: "synced",
+    };
+    const updateCustomerOrderPayment = vi.fn().mockResolvedValue({
+      ...order,
+      paymentStatus: "refunded",
+    });
+    getPlatformStore.mockReturnValue({
+      getCustomerOrder: vi.fn().mockResolvedValue(order),
+      updateCustomerOrderPayment,
+    });
+    verifyStripeWebhookEvent.mockReturnValue({
+      id: "evt_test_refund_1",
+      type: "charge.refunded",
+      livemode: false,
+      data: {
+        object: {
+          refunded: true,
+          amount: 2500,
+          amount_refunded: 2500,
+          metadata: { tenantId, customerId, orderId },
+        },
+      },
+    });
+
+    const response = await POST(webhookRequest());
+
+    expect(response.status).toBe(200);
+    expect(updateCustomerOrderPayment).toHaveBeenCalledWith({
+      tenantId,
+      customerId,
+      orderId,
+      sessionId,
+      status: "refunded",
+    });
+  });
+
   it("marks the scoped order paid and only then delivers it to the Tenant backend", async () => {
     const order = {
       id: orderId,

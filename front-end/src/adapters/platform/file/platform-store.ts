@@ -1182,6 +1182,12 @@ export class FilePlatformStore implements PlatformStore {
       );
       if (!order) return null;
       if (order.paymentStatus === "paid" && input.status !== "paid") {
+        if (input.status === "refunded") {
+          order.paymentStatus = "refunded";
+          const updated = CustomerOrderSchema.parse(order);
+          await this.writeState(state);
+          return updated;
+        }
         return order;
       }
       if (input.status === "failed" && order.paymentStatus !== "pending") {

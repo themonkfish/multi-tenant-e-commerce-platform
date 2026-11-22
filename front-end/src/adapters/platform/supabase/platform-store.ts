@@ -1385,7 +1385,11 @@ export class SupabasePlatformStore implements PlatformStore {
       .eq("payment_session_id", input.sessionId)
       .in(
         "payment_status",
-        input.status === "paid" ? ["pending", "failed", "paid"] : ["pending"],
+        input.status === "paid"
+          ? ["pending", "failed", "paid"]
+          : input.status === "refunded"
+            ? ["paid", "refunded"]
+            : ["pending"],
       )
       .select("*")
       .maybeSingle();
