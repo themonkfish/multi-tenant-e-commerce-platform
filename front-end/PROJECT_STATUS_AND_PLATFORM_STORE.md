@@ -404,7 +404,9 @@ Status snapshot as of 2026-11-19:
      verification, plus India-only Cash on Delivery. Stripe Connect tenant
      onboarding is blocked pending platform-country eligibility; regional
      gateways are deferred.
-   - Wire uploaded assets into product image management.
+   - Uploaded S3-compatible tenant assets can be selected for product images;
+     server-side catalog mutations validate uploaded image ownership and
+     replaced or deleted product images are cleaned up when storage permits.
    - Basic address capture, configurable flat shipping, and order tracking are
      implemented. Discount codes and variant inventory reservation are
      implemented; continue with tax workflows around synchronized Tenant

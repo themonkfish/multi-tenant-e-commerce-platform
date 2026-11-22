@@ -5,6 +5,11 @@ import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog"
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantCatalogSession } from "@/lib/server/session";
+import { createTenantStorageAdapter } from "@/adapters/storage/tenant-storage-provider";
+import {
+  getTenantUploadedImageKey,
+  validateTenantUploadedImageUrl,
+} from "@/lib/server/product-images";
 import { TenantDataBackendError } from "@/core/ports/data";
 
 function backendError(error: unknown) {
@@ -144,6 +149,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
   try {
+    if (
+      parsed.data.imageUrl &&
+      getTenantUploadedImageKey(session.scope.id, parsed.data.imageUrl)
+    ) {
+      try {
+        const storage = await createTenantStorageAdapter(
+          session.scope.id,
+          session.scope.hostId,
+        );
+        validateTenantUploadedImageUrl(
+          storage,
+          session.scope.id,
+          parsed.data.imageUrl,
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          (error.message.startsWith("Product image") ||
+            error.message === "Tenant storage provider is not configured")
+        ) {
+          return NextResponse.json(
+            { error: "invalid_product_image" },
+            { status: 400 },
+          );
+        }
+        throw error;
+      }
+    }
     const catalog = await createTenantCatalogAdapter(
       session.scope.id,
       session.scope.hostId,

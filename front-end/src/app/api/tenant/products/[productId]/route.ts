@@ -6,6 +6,11 @@ import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog"
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantCatalogSession } from "@/lib/server/session";
+import { createTenantStorageAdapter } from "@/adapters/storage/tenant-storage-provider";
+import {
+  getTenantUploadedImageKey,
+  validateTenantUploadedImageUrl,
+} from "@/lib/server/product-images";
 
 type ProductRouteContext = {
   params: Promise<{ productId: string }>;
@@ -123,11 +128,60 @@ export async function PATCH(request: Request, context: ProductRouteContext) {
       session.scope.id,
       session.scope.hostId,
     );
+    if (
+      parsed.data.imageUrl &&
+      getTenantUploadedImageKey(session.scope.id, parsed.data.imageUrl)
+    ) {
+      const storage = await createTenantStorageAdapter(
+        session.scope.id,
+        session.scope.hostId,
+      );
+      try {
+        validateTenantUploadedImageUrl(
+          storage,
+          session.scope.id,
+          parsed.data.imageUrl,
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.startsWith("Product image")
+        ) {
+          return NextResponse.json(
+            { error: "invalid_product_image" },
+            { status: 400 },
+          );
+        }
+        throw error;
+      }
+    }
+    const existing = await catalog.getProduct(session.scope.id, productId);
     const product = await catalog.updateProduct(
       session.scope.id,
       productId,
       parsed.data,
     );
+    const oldKey =
+      existing.imageUrl &&
+      getTenantUploadedImageKey(session.scope.id, existing.imageUrl);
+    const newKey =
+      parsed.data.imageUrl &&
+      getTenantUploadedImageKey(session.scope.id, parsed.data.imageUrl);
+    if (oldKey && oldKey !== newKey) {
+      try {
+        const storage = await createTenantStorageAdapter(
+          session.scope.id,
+          session.scope.hostId,
+        );
+        await storage.delete(oldKey);
+      } catch (error) {
+        console.error("Tenant product image cleanup failed", {
+          tenantId: session.scope.id,
+          productId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     return NextResponse.json({ product });
   } catch (error) {
     if (
@@ -173,7 +227,32 @@ export async function DELETE(request: Request, context: ProductRouteContext) {
       session.scope.id,
       session.scope.hostId,
     );
+    const existing = await catalog.getProduct(session.scope.id, productId);
     await catalog.deleteProduct(session.scope.id, productId);
+    if (
+      existing.imageUrl &&
+      getTenantUploadedImageKey(session.scope.id, existing.imageUrl)
+    ) {
+      const key = getTenantUploadedImageKey(
+        session.scope.id,
+        existing.imageUrl,
+      );
+      if (key) {
+        try {
+          const storage = await createTenantStorageAdapter(
+            session.scope.id,
+            session.scope.hostId,
+          );
+          await storage.delete(key);
+        } catch (error) {
+          console.error("Tenant product image cleanup failed", {
+            tenantId: session.scope.id,
+            productId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
     return new Response(null, { status: 204 });
   } catch (error) {
     if (
