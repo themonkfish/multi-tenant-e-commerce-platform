@@ -6,6 +6,7 @@ import { OrderFulfillmentSchema } from "@/core/domain/tenant-identities";
 import { getServerEnv } from "@/lib/server/env";
 import { getPlatformStore } from "@/lib/server/platform";
 import {
+  carrierStatusRank,
   normalizeCarrierEventStatus,
   verifyCarrierWebhookSignature,
   type CarrierEventStatus,
@@ -141,6 +142,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, eventId: parsed.data.eventId });
   }
 
+  if (
+    carrierStatusRank(normalizedStatus) <
+    carrierStatusRank(platformOrder.status)
+  ) {
+    return NextResponse.json({ received: true });
+  }
+
   const hosts = await store.listHosts();
   const tenantRecords = await Promise.all(
     hosts.map((host) => store.listTenantsForHost(host.id)),
@@ -161,12 +169,6 @@ export async function POST(request: Request) {
       { error: "invalid_status_transition" },
       { status: 409 },
     );
-  }
-  if (
-    normalizedStatus === "Processing" &&
-    platformOrder.status === "Delivered"
-  ) {
-    return NextResponse.json({ received: true });
   }
 
   try {

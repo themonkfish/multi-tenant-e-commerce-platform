@@ -149,4 +149,36 @@ describe("POST /api/webhooks/carrier", () => {
     });
     expect(createTenantOrderAdapter).not.toHaveBeenCalled();
   });
+
+  it("ignores a Processing event after an order is already Shipped", async () => {
+    vi.stubEnv("CARRIER_WEBHOOK_SECRET", secret);
+    getPlatformStore.mockReturnValue({
+      listTenantOrders: vi.fn().mockResolvedValue([
+        {
+          id: orderId,
+          tenantId,
+          status: "Shipped",
+          fulfillment: {
+            carrier: "FedEx",
+            trackingNumber: "TRACK-123",
+          },
+        },
+      ]),
+    });
+
+    const response = await POST(
+      carrierRequest({
+        eventId: "evt-picked-up-late",
+        tenantId,
+        orderId,
+        trackingNumber: "TRACK-123",
+        carrier: "FedEx",
+        status: "picked_up",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: true });
+    expect(createTenantOrderAdapter).not.toHaveBeenCalled();
+  });
 });

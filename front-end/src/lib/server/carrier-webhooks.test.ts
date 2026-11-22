@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  carrierStatusRank,
   normalizeCarrierEventStatus,
   verifyCarrierWebhookSignature,
 } from "./carrier-webhooks";
@@ -27,5 +28,14 @@ describe("carrier webhook helpers", () => {
     expect(normalizeCarrierEventStatus("out_for_delivery")).toBe("Shipped");
     expect(normalizeCarrierEventStatus("delivered")).toBe("Delivered");
     expect(normalizeCarrierEventStatus("cancelled")).toBeNull();
+  });
+
+  it("ranks statuses monotonically to prevent carrier-event regression", () => {
+    expect(carrierStatusRank("Processing")).toBeLessThan(
+      carrierStatusRank("Shipped"),
+    );
+    expect(carrierStatusRank("Shipped")).toBeLessThan(
+      carrierStatusRank("Delivered"),
+    );
   });
 });

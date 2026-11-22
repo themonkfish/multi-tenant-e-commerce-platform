@@ -522,7 +522,8 @@ Status snapshot as of 2026-11-19:
       carriers retain an operator-entered HTTPS tracking URL. A signed generic
       carrier webhook now normalizes in-transit, out-for-delivery, and delivered
       events, rejects invalid signatures and transitions, and provides idempotent
-      repeat-event handling.
+      repeat-event handling. Carrier events are reconciled monotonically so
+      older Processing events cannot regress an already Shipped or Delivered order.
 - [x] Show Customers an accessible order-progress timeline from confirmation
       through delivery in English, French, and Hindi; cancelled orders are
       displayed as a separately localized terminal state.

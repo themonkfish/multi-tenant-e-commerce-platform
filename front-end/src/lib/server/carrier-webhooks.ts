@@ -45,3 +45,20 @@ export function normalizeCarrierEventStatus(
       return null;
   }
 }
+
+export function carrierStatusRank(
+  status: "Confirmed" | "Processing" | "Shipped" | "Delivered" | "Cancelled",
+): number {
+  switch (status) {
+    case "Confirmed":
+      return 0;
+    case "Processing":
+      return 1;
+    case "Shipped":
+      return 2;
+    case "Delivered":
+      return 3;
+    case "Cancelled":
+      return -1;
+  }
+}
