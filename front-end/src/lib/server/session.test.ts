@@ -219,6 +219,33 @@ describe("session boundary hardening", () => {
     await expect(getTenantStaffSession()).resolves.toBeNull();
   });
 
+  it("rejects an existing tenant-staff JWT after the staff account is disabled", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "tenant",
+      domain: "store.example.com",
+      host,
+      tenant,
+      scope: { kind: "tenant", id: tenantId, hostId },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: staffId,
+        role: "tenant_staff",
+        scope: { kind: "tenant", id: tenantId, hostId },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      listHosts: vi.fn(async () => [host]),
+      listTenantsForHost: vi.fn(async () => [tenant]),
+      getTenantStaffForTenant: vi.fn(async () => ({
+        ...staffRecord,
+        active: false,
+      })),
+    });
+
+    await expect(getTenantStaffSession()).resolves.toBeNull();
+  });
+
   it("rejects a super-admin session when the request is not on the platform domain", async () => {
     requestScopeMock.getRequestDomainScope.mockResolvedValue({
       kind: "host",

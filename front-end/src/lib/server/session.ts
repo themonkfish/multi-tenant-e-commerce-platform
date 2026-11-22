@@ -372,6 +372,7 @@ export async function getTenantStaffSession(): Promise<Principal | null> {
   );
   if (
     !staff?.success ||
+    !staff.data.active ||
     staff.data.hostId !== claims.data.scope.hostId ||
     !host ||
     host.status !== "active" ||

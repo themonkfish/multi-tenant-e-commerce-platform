@@ -375,6 +375,8 @@ Status snapshot as of 2026-11-19:
 1. **P1 — Security and scope hardening**
    - Completed: auth/session boundaries, tenant-scoped host validation, stale
      singleton removal, and tenant-aware cache invalidation for scoped routes.
+     Tenant Staff JWTs are revalidated against the live account and reject
+     disabled staff immediately, even if the JWT has not expired.
    - Keep regression coverage for platform, host, tenant, staff, and customer
      scopes as the ongoing safety net.
    - Continue hardening auth/session boundaries for tenant storefront and portal
