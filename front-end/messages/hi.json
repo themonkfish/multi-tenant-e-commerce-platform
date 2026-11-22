@@ -41,6 +41,7 @@
     "cashCollected": "नकद भुगतान प्राप्त",
     "paymentPending": "भुगतान लंबित",
     "paymentFailed": "भुगतान विफल",
+    "paymentRefunded": "भुगतान रिफंड किया गया",
     "ordered": "ऑर्डर की तारीख: {date}",
     "includesShipping": "इसमें {amount} शिपिंग शामिल है",
     "discount": "छूट",

@@ -192,6 +192,28 @@ export async function retrieveStripeCheckoutSession(sessionId: string) {
   return createStripeClient(secretKey).checkout.sessions.retrieve(sessionId);
 }
 
+export async function createStripeRefund(input: {
+  order: CustomerOrder;
+  paymentIntentId: string;
+}) {
+  if (input.order.paymentMethod !== "stripe") {
+    throw new Error("Only Stripe orders can be refunded");
+  }
+  if (input.order.paymentStatus !== "paid") {
+    throw new Error("Only paid orders can be refunded");
+  }
+  if (!input.paymentIntentId) {
+    throw new Error("A Stripe payment intent is required");
+  }
+  const { secretKey } = getStripeConfiguration();
+  return createStripeClient(secretKey).refunds.create(
+    { payment_intent: input.paymentIntentId, amount: input.order.total },
+    {
+      idempotencyKey: `${input.order.tenantId}-${input.order.id}-refund`,
+    },
+  );
+}
+
 export function verifyStripeWebhookEvent(
   payload: string,
   signature: string,

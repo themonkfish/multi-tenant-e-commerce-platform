@@ -41,6 +41,7 @@
     "cashCollected": "Cash collected",
     "paymentPending": "Payment pending",
     "paymentFailed": "Payment failed",
+    "paymentRefunded": "Payment refunded",
     "ordered": "Ordered {date}",
     "includesShipping": "Includes {amount} shipping",
     "discount": "Discount",

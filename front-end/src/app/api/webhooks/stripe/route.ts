@@ -4,6 +4,7 @@ import { z } from "zod";
 import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
 import { getPlatformStore } from "@/lib/server/platform";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
+import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
 import {
   StripePaymentConfigurationError,
   verifyStripeWebhookEvent,
@@ -96,6 +97,36 @@ export async function POST(request: Request) {
         { error: "refund_update_conflict" },
         { status: 409 },
       );
+    }
+    if (order.paymentStatus !== "refunded") {
+      if (order.items.some((item) => item.inventoryTracked)) {
+        const hostId = await getActiveTenantHostId(
+          getPlatformStore(),
+          tenantId,
+        );
+        const catalog = await createTenantCatalogAdapter(tenantId, hostId);
+        await catalog.restoreInventory(`${order.id}-${order.paymentAttempt}`);
+      }
+      if (order.discountCode) {
+        await getPlatformStore().cancelDiscountRedemption(tenantId, order.id);
+      }
+      const hostId = await getActiveTenantHostId(getPlatformStore(), tenantId);
+      const tenantOrders = await createTenantOrderAdapter(tenantId, hostId);
+      await tenantOrders.updateOrderStatus(order.id, "Cancelled");
+      await getPlatformStore().updateCustomerOrderStatus({
+        tenantId,
+        orderId: order.id,
+        status: "Cancelled",
+      });
+      await getPlatformStore().appendAuditEvent({
+        id: randomUUID(),
+        actorId: "stripe-webhook",
+        scope: { kind: "tenant", id: tenantId, hostId },
+        action: "tenant.order.refunded",
+        resourceType: "customer_order",
+        resourceId: order.id,
+        createdAt: new Date().toISOString(),
+      });
     }
     recordObservabilityMetric("stripe.webhook.refunded");
     return NextResponse.json({ received: true });
@@ -266,3 +297,4 @@ async function getActiveTenantHostId(
   if (!tenant) throw new Error("Cannot locate the paid order's tenant");
   return tenant.hostId;
 }
+import { randomUUID } from "node:crypto";

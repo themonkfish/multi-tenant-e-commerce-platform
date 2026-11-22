@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const {
   getPlatformStore,
   createTenantCatalogAdapter,
+  createTenantOrderAdapter,
   syncCustomerOrderToTenant,
   verifyStripeWebhookEvent,
 } = vi.hoisted(() => ({
   getPlatformStore: vi.fn(),
   createTenantCatalogAdapter: vi.fn(),
+  createTenantOrderAdapter: vi.fn(),
   syncCustomerOrderToTenant: vi.fn(),
   verifyStripeWebhookEvent: vi.fn(),
 }));
@@ -15,6 +17,9 @@ const {
 vi.mock("@/lib/server/platform", () => ({ getPlatformStore }));
 vi.mock("@/adapters/data/rest/tenant-catalog", () => ({
   createTenantCatalogAdapter,
+}));
+vi.mock("@/adapters/data/rest/tenant-orders", () => ({
+  createTenantOrderAdapter,
 }));
 vi.mock("@/lib/server/customer-order-sync", () => ({
   syncCustomerOrderToTenant,
@@ -88,6 +93,21 @@ describe("Stripe payment webhook", () => {
     getPlatformStore.mockReturnValue({
       getCustomerOrder: vi.fn().mockResolvedValue(order),
       updateCustomerOrderPayment,
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId, status: "active" }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId, status: "active" }]),
+      updateCustomerOrderStatus: vi.fn().mockResolvedValue({
+        ...order,
+        status: "Cancelled",
+        paymentStatus: "refunded",
+      }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    });
+    createTenantOrderAdapter.mockResolvedValue({
+      updateOrderStatus: vi
+        .fn()
+        .mockResolvedValue({ ...order, status: "Cancelled" }),
     });
     verifyStripeWebhookEvent.mockReturnValue({
       id: "evt_test_refund_1",

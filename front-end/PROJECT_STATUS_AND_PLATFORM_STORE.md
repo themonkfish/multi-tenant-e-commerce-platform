@@ -496,6 +496,9 @@ Status snapshot as of 2026-11-19:
       inventory and discount commits after a payment is already paid.
       Fully refunded Stripe charges reconcile to a `refunded` Customer payment
       state; partial refunds do not prematurely mark the order refunded.
+      Authorized Tenant operators can request a full Stripe refund. The signed
+      refund webhook restores tracked inventory, releases discount commitments,
+      cancels the Tenant order snapshot, and records an audit event.
 - [x] Add a local-only simulated checkout for testing success, failure, and
       Tenant order delivery without payment-provider credentials.
 - [ ] Add production Stripe Connect after provider-specific onboarding,

@@ -41,6 +41,7 @@
     "cashCollected": "Paiement en espèces reçu",
     "paymentPending": "Paiement en attente",
     "paymentFailed": "Échec du paiement",
+    "paymentRefunded": "Paiement remboursé",
     "ordered": "Commandée le {date}",
     "includesShipping": "Frais de livraison : {amount}",
     "discount": "Réduction",

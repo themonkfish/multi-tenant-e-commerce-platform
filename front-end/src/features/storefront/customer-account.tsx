@@ -196,7 +196,9 @@ export function StorefrontCustomerAccount({
                               order.paymentStatus !== "paid"
                             ? order.paymentStatus === "pending"
                               ? t("paymentPending")
-                              : t("paymentFailed")
+                              : order.paymentStatus === "refunded"
+                                ? t("paymentRefunded")
+                                : t("paymentFailed")
                             : order.status === "Confirmed"
                               ? t("orderStatus.confirmed")
                               : order.status === "Processing"
