@@ -13,3 +13,32 @@ export function calculateTaxAmount(
   }
   return Math.round((taxableAmount * rateBasisPoints) / 10_000);
 }
+
+export type TenantTaxJurisdiction = {
+  country: string;
+  state?: string;
+  rateBasisPoints: number;
+};
+
+export function resolveTenantTaxRate(
+  tax: {
+    rateBasisPoints: number;
+    jurisdictions?: TenantTaxJurisdiction[];
+  },
+  address: { country: string; state: string } | undefined,
+): number {
+  if (!address) return tax.rateBasisPoints;
+  const exact = tax.jurisdictions?.find(
+    (jurisdiction) =>
+      jurisdiction.country === address.country &&
+      jurisdiction.state?.trim().toLowerCase() ===
+        address.state.trim().toLowerCase(),
+  );
+  if (exact) return exact.rateBasisPoints;
+  const country = tax.jurisdictions?.find(
+    (jurisdiction) =>
+      jurisdiction.country === address.country &&
+      jurisdiction.state === undefined,
+  );
+  return country?.rateBasisPoints ?? tax.rateBasisPoints;
+}

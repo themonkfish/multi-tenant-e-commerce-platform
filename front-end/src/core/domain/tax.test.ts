@@ -4,7 +4,7 @@ import {
   TenantStoreSettingsSchema,
 } from "./host-portal";
 import { CustomerOrderSchema } from "./tenant-identities";
-import { calculateTaxAmount } from "./tax";
+import { calculateTaxAmount, resolveTenantTaxRate } from "./tax";
 
 describe("calculateTaxAmount", () => {
   it("calculates tax in minor units and rounds to the nearest unit", () => {
@@ -27,7 +27,7 @@ describe("calculateTaxAmount", () => {
 
   it("defaults tenant tax off and validates configured basis-point rates", () => {
     const defaults = createDefaultTenantStoreSettings("Shop");
-    expect(defaults.tax).toEqual({ rateBasisPoints: 0 });
+    expect(defaults.tax).toEqual({ rateBasisPoints: 0, jurisdictions: [] });
     expect(
       TenantStoreSettingsSchema.parse({
         ...defaults,
@@ -40,6 +40,28 @@ describe("calculateTaxAmount", () => {
         tax: { rateBasisPoints: 10_001 },
       }).success,
     ).toBe(false);
+  });
+
+  it("resolves exact state, country, and fallback tax rates", () => {
+    const tax = {
+      rateBasisPoints: 500,
+      jurisdictions: [
+        { country: "IN", state: "Maharashtra", rateBasisPoints: 825 },
+        { country: "IN", rateBasisPoints: 700 },
+      ],
+    };
+    expect(
+      resolveTenantTaxRate(tax, {
+        country: "IN",
+        state: "maharashtra",
+      }),
+    ).toBe(825);
+    expect(resolveTenantTaxRate(tax, { country: "IN", state: "Delhi" })).toBe(
+      700,
+    );
+    expect(
+      resolveTenantTaxRate(tax, { country: "US", state: "California" }),
+    ).toBe(500);
   });
 
   it("validates the tax snapshot and total against discounted merchandise", () => {

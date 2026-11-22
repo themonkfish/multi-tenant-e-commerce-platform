@@ -69,6 +69,9 @@ export function TenantStoreSettingsForm({
       .toFixed(2)
       .replace(/\.?0+$/, ""),
   );
+  const [taxJurisdictionsText, setTaxJurisdictionsText] = useState(
+    JSON.stringify(initialSettings.tax.jurisdictions ?? [], null, 2),
+  );
   const [discountsText, setDiscountsText] = useState(
     JSON.stringify(initialSettings.discounts, null, 2),
   );
@@ -114,6 +117,14 @@ export function TenantStoreSettingsForm({
       setNotice("");
       return;
     }
+    let jurisdictions: unknown;
+    try {
+      jurisdictions = JSON.parse(taxJurisdictionsText);
+    } catch {
+      setError(t("invalidTaxJurisdictions"));
+      setNotice("");
+      return;
+    }
     const rawSettings = {
       branding: {
         name: form.get("brandName"),
@@ -138,7 +149,7 @@ export function TenantStoreSettingsForm({
           ? { freeShippingThreshold }
           : {}),
       },
-      tax: { rateBasisPoints },
+      tax: { rateBasisPoints, jurisdictions },
       payments: {
         stripe: form.get("paymentStripe") === "on",
         cashOnDelivery: form.get("paymentCashOnDelivery") === "on",
@@ -269,6 +280,22 @@ export function TenantStoreSettingsForm({
             onChange={(event) => setTaxRate(event.target.value)}
             required
           />
+        </label>
+        <label className="block space-y-1 text-sm font-medium">
+          {t("taxJurisdictions")}
+          <textarea
+            className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs"
+            name="taxJurisdictions"
+            rows={5}
+            value={taxJurisdictionsText}
+            onChange={(event) => setTaxJurisdictionsText(event.target.value)}
+            placeholder={
+              '[\n  { "country": "IN", "state": "Maharashtra", "rateBasisPoints": 825 }\n]'
+            }
+          />
+          <span className="block font-normal text-slate-600">
+            {t("taxJurisdictionsHelp")}
+          </span>
         </label>
       </fieldset>
       <fieldset className="space-y-3 rounded-md border border-slate-200 p-4 sm:col-span-2">

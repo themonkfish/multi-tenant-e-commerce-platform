@@ -161,6 +161,21 @@ export const TenantStoreSettingsSchema = z
     tax: z
       .object({
         rateBasisPoints: z.number().int().min(0).max(10_000),
+        jurisdictions: z
+          .array(
+            z
+              .object({
+                country: z
+                  .string()
+                  .trim()
+                  .regex(/^[A-Z]{2}$/),
+                state: z.string().trim().min(1).max(100).optional(),
+                rateBasisPoints: z.number().int().min(0).max(10_000),
+              })
+              .strict(),
+          )
+          .max(50)
+          .optional(),
       })
       .default({ rateBasisPoints: 0 }),
     payments: z
@@ -207,7 +222,7 @@ export function createDefaultTenantStoreSettings(
       currencies: ["USD"],
     },
     shipping: { flatRate: 0 },
-    tax: { rateBasisPoints: 0 },
+    tax: { rateBasisPoints: 0, jurisdictions: [] },
     payments: { stripe: true, cashOnDelivery: false },
     discounts: [],
   };

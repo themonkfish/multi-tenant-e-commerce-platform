@@ -553,7 +553,10 @@ Status snapshot as of 2026-11-19:
 - [x] Tenant-configured tax-exclusive percentage rates with server-side tax
       calculation on discounted merchandise, order snapshots, payment totals,
       and customer/Tenant order summaries. Checkout route coverage also verifies
-      COD tax, shipping, and final-total snapshots.
+      COD tax, shipping, and final-total snapshots. Optional country/state
+      jurisdiction overrides are resolved before snapshotting the effective rate;
+      the existing tenant-wide percentage remains the fallback and this is not
+      tax-compliance or advisory automation.
 - [ ] Complete orders, customer, shipping, and tax workflows.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order

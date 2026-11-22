@@ -15,7 +15,7 @@ import {
   findTenantDiscount,
   validateTenantDiscount,
 } from "@/core/domain/discounts";
-import { calculateTaxAmount } from "@/core/domain/tax";
+import { calculateTaxAmount, resolveTenantTaxRate } from "@/core/domain/tax";
 import type { Product } from "@/core/ports/data";
 import type { InventoryReservationItem } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
@@ -601,7 +601,10 @@ export async function POST(request: Request) {
     const discountAmount = discount
       ? calculateDiscountAmount(discount, subtotal)
       : 0;
-    const taxRateBasisPoints = shippingSettings.tax.rateBasisPoints;
+    const taxRateBasisPoints = resolveTenantTaxRate(
+      shippingSettings.tax,
+      parsed.data.deliveryAddress,
+    );
     const taxAmount = calculateTaxAmount(
       subtotal - discountAmount,
       taxRateBasisPoints,
