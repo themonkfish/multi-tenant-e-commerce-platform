@@ -11,10 +11,12 @@ import { TenantDataExport } from "@/features/tenant-auth/tenant-data-export";
 import {
   TenantDatabaseConnectionViewSchema,
   TenantStorageConnectionViewSchema,
+  getTenantProvisioningReadiness,
 } from "@/core/domain/tenant-config";
 import { TenantStaffManagement } from "@/features/tenant-auth/tenant-staff-management";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantOwnerSession } from "@/lib/server/session";
+import { getStripeConfiguration } from "@/lib/server/stripe-payments";
 
 type TenantDashboardPageProps = {
   params: Promise<{ locale: string }>;
@@ -89,6 +91,23 @@ export default async function TenantDashboardPage({
       })
     : null;
   const staff = await store.listTenantStaff(tenant.id);
+  let stripeConfigured = false;
+  try {
+    getStripeConfiguration();
+    stripeConfigured = true;
+  } catch {
+    stripeConfigured = false;
+  }
+  const readiness = getTenantProvisioningReadiness({
+    restConfigured: Boolean(restConnection),
+    databaseConfigured: Boolean(databaseProvider),
+    storageConfigured: Boolean(storageProvider),
+    stripeConfigured,
+    stripeEnabled: settings.payments.stripe,
+    cashOnDeliveryEnabled: settings.payments.cashOnDelivery,
+    staffCount: staff.length,
+    customDomainCount: tenant.domains.length,
+  });
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -143,6 +162,55 @@ export default async function TenantDashboardPage({
         <h2 className="text-xl font-semibold">{t("sectionTitle")}</h2>
         <p className="text-sm text-slate-600">{t("sectionDescription")}</p>
         <TenantStoreSettingsForm initialSettings={settings} />
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">
+              {portalT("provisioningTitle")}
+            </h2>
+            <span
+              className={
+                readiness.ready
+                  ? "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"
+                  : "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900"
+              }
+            >
+              {readiness.ready
+                ? portalT("provisioningReady")
+                : portalT("provisioningIncomplete")}
+            </span>
+          </div>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {readiness.items.map((item) => (
+              <li
+                className="flex items-center justify-between rounded-md border border-slate-100 px-3 py-2 text-sm"
+                key={item.key}
+              >
+                <span>
+                  {item.key === "catalog"
+                    ? portalT("readinessCatalog")
+                    : item.key === "payments"
+                      ? portalT("readinessPayments")
+                      : item.key === "storage"
+                        ? portalT("readinessStorage")
+                        : item.key === "staff"
+                          ? portalT("readinessStaff")
+                          : portalT("readinessCustomDomain")}
+                </span>
+                <span
+                  className={
+                    item.configured
+                      ? "font-medium text-emerald-700"
+                      : "text-slate-500"
+                  }
+                >
+                  {item.configured
+                    ? portalT("readinessConfigured")
+                    : portalT("readinessNotConfigured")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
         <h2 className="pt-4 text-xl font-semibold">{staffT("teamAccess")}</h2>
         <TenantStaffManagement initialStaff={staff} />
         <h2 className="pt-4 text-xl font-semibold">{setupT("storeSetup")}</h2>

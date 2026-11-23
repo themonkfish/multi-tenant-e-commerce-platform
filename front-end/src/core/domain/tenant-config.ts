@@ -348,6 +348,60 @@ export type TenantMongoConnectionInput = z.infer<
 export type TenantDatabaseProviderConfig = z.infer<
   typeof TenantDatabaseProviderConfigSchema
 >;
+
+export type TenantProvisioningReadinessInput = {
+  restConfigured: boolean;
+  databaseConfigured: boolean;
+  storageConfigured: boolean;
+  stripeConfigured: boolean;
+  stripeEnabled: boolean;
+  cashOnDeliveryEnabled: boolean;
+  staffCount: number;
+  customDomainCount: number;
+};
+
+export type TenantProvisioningReadiness = {
+  ready: boolean;
+  configuredCount: number;
+  optionalCount: number;
+  items: {
+    key: "catalog" | "payments" | "storage" | "staff" | "customDomain";
+    configured: boolean;
+  }[];
+};
+
+export function getTenantProvisioningReadiness(
+  input: TenantProvisioningReadinessInput,
+): TenantProvisioningReadiness {
+  const catalogConfigured = input.restConfigured || input.databaseConfigured;
+  const paymentsConfigured =
+    (input.stripeEnabled && input.stripeConfigured) ||
+    input.cashOnDeliveryEnabled;
+  const items = [
+    { key: "catalog" as const, configured: catalogConfigured },
+    { key: "payments" as const, configured: paymentsConfigured },
+    { key: "storage" as const, configured: input.storageConfigured },
+    { key: "staff" as const, configured: input.staffCount > 0 },
+    {
+      key: "customDomain" as const,
+      configured: input.customDomainCount > 0,
+    },
+  ];
+
+  return {
+    ready: catalogConfigured && paymentsConfigured,
+    configuredCount: items.filter((item) => item.configured).length,
+    optionalCount: items
+      .filter(
+        (item) =>
+          item.key === "storage" ||
+          item.key === "staff" ||
+          item.key === "customDomain",
+      )
+      .filter((item) => item.configured).length,
+    items,
+  };
+}
 export type RestHealthCheckResult = z.infer<typeof RestHealthCheckResultSchema>;
 export type StorageProviderConfig = z.infer<typeof StorageProviderConfigSchema>;
 export type TenantStorageProviderConfig = z.infer<

@@ -388,6 +388,8 @@ Status snapshot as of 2026-11-19:
    - Setup verification, theme/legal settings, first-host guidance, and
      Resend-backed Host/Tenant invitation emails are implemented.
      Reserved-domain validation is centralized.
+     - The Tenant Owner dashboard includes a localized provisioning-readiness
+       summary for catalog, payment, storage, staff, and custom-domain setup.
    - Extend the Tenant Owner portal with storage, payment, catalog, and staff
      configuration controls.
 
