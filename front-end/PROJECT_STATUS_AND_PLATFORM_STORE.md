@@ -122,6 +122,9 @@ Status snapshot as of 2026-11-23:
 - Checkout idempotency replays now compare persisted cart unit prices and
   expected client prices, preventing a reused order key from accepting stale
   or changed checkout pricing.
+- Fully refunded Stripe orders reconcile inventory, discount commitments, the
+  Tenant backend snapshot, platform order status, and audit events. Refund
+  replay remains safe after partial cleanup.
 - Order status reconciliation is monotonic across Tenant routes and platform
   stores: retries are idempotent, backward transitions are rejected, and
   cancelled/delivered terminal states cannot regress.

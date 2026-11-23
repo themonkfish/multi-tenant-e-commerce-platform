@@ -272,6 +272,7 @@ export function canTransitionTenantOrderStatus(
   next: TenantOrder["status"],
 ): boolean {
   if (current === next) return true;
+  if (next === "Cancelled") return current !== "Cancelled";
   if (current === "Cancelled" || current === "Delivered") return false;
 
   switch (current) {

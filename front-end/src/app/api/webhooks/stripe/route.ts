@@ -100,26 +100,23 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
-    if (order.paymentStatus !== "refunded") {
-      if (order.items.some((item) => item.inventoryTracked)) {
-        const hostId = await getActiveTenantHostId(
-          getPlatformStore(),
-          tenantId,
-        );
-        const catalog = await createTenantCatalogAdapter(tenantId, hostId);
-        await catalog.restoreInventory(`${order.id}-${order.paymentAttempt}`);
-      }
-      if (order.discountCode) {
-        await getPlatformStore().cancelDiscountRedemption(tenantId, order.id);
-      }
+    if (order.items.some((item) => item.inventoryTracked)) {
       const hostId = await getActiveTenantHostId(getPlatformStore(), tenantId);
-      const tenantOrders = await createTenantOrderAdapter(tenantId, hostId);
-      await tenantOrders.updateOrderStatus(order.id, "Cancelled");
-      await getPlatformStore().updateCustomerOrderStatus({
-        tenantId,
-        orderId: order.id,
-        status: "Cancelled",
-      });
+      const catalog = await createTenantCatalogAdapter(tenantId, hostId);
+      await catalog.restoreInventory(`${order.id}-${order.paymentAttempt}`);
+    }
+    if (order.discountCode) {
+      await getPlatformStore().cancelDiscountRedemption(tenantId, order.id);
+    }
+    const hostId = await getActiveTenantHostId(getPlatformStore(), tenantId);
+    const tenantOrders = await createTenantOrderAdapter(tenantId, hostId);
+    await tenantOrders.updateOrderStatus(order.id, "Cancelled");
+    await getPlatformStore().updateCustomerOrderStatus({
+      tenantId,
+      orderId: order.id,
+      status: "Cancelled",
+    });
+    if (order.status !== "Cancelled") {
       await getPlatformStore().appendAuditEvent({
         id: randomUUID(),
         actorId: "stripe-webhook",
