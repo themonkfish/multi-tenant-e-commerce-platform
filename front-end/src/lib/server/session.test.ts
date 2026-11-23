@@ -138,6 +138,27 @@ describe("session boundary hardening", () => {
     await expect(getHostOwnerSession()).resolves.toBeNull();
   });
 
+  it("rejects a host-owner JWT after the host is suspended", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "host",
+      domain: "host.example.com",
+      host,
+      scope: { kind: "host", id: hostId },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: userId,
+        role: "host_owner",
+        scope: { kind: "host", id: hostId },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      listHosts: vi.fn(async () => [{ ...host, status: "suspended" }]),
+    });
+
+    await expect(getHostOwnerSession()).resolves.toBeNull();
+  });
+
   it("rejects a tenant-owner session on a mismatched tenant or host scope", async () => {
     requestScopeMock.getRequestDomainScope.mockResolvedValue({
       kind: "tenant",
@@ -157,6 +178,60 @@ describe("session boundary hardening", () => {
     await expect(getTenantOwnerSession()).resolves.toBeNull();
   });
 
+  it("rejects a tenant-owner JWT when the owner account is removed", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "tenant",
+      domain: "store.example.com",
+      host,
+      tenant,
+      scope: { kind: "tenant", id: tenantId, hostId },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: userId,
+        role: "tenant_owner",
+        scope: { kind: "tenant", id: tenantId, hostId },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      listHosts: vi.fn(async () => [host]),
+      listTenantsForHost: vi.fn(async () => [tenant]),
+      getTenantOwnerForTenant: vi.fn(async () => null),
+    });
+
+    await expect(getTenantOwnerSession()).resolves.toBeNull();
+  });
+
+  it("rejects a tenant-owner JWT after the tenant is suspended", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "tenant",
+      domain: "store.example.com",
+      host,
+      tenant,
+      scope: { kind: "tenant", id: tenantId, hostId },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: userId,
+        role: "tenant_owner",
+        scope: { kind: "tenant", id: tenantId, hostId },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      listHosts: vi.fn(async () => [host]),
+      listTenantsForHost: vi.fn(async () => [
+        { ...tenant, status: "suspended" },
+      ]),
+      getTenantOwnerForTenant: vi.fn(async () => ({
+        id: userId,
+        tenantId,
+        hostId,
+      })),
+    });
+
+    await expect(getTenantOwnerSession()).resolves.toBeNull();
+  });
+
   it("rejects a customer session when the request scope does not match the customer tenant", async () => {
     requestScopeMock.getRequestDomainScope.mockResolvedValue({
       kind: "tenant",
@@ -172,6 +247,28 @@ describe("session boundary hardening", () => {
         scope: { kind: "tenant", id: tenantId, hostId },
       },
     } as never);
+
+    await expect(getCustomerSession()).resolves.toBeNull();
+  });
+
+  it("rejects a customer JWT after the customer account is deleted", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "tenant",
+      domain: "store.example.com",
+      host,
+      tenant,
+      scope: { kind: "tenant", id: tenantId, hostId },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: customerId,
+        role: "customer",
+        scope: { kind: "tenant", id: tenantId, hostId },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      getCustomerAccountForTenant: vi.fn(async () => null),
+    });
 
     await expect(getCustomerSession()).resolves.toBeNull();
   });
