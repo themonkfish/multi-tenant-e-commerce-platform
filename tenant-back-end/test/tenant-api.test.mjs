@@ -74,7 +74,7 @@ test("health check returns the contract required by the frontend", async () => {
     status: "healthy",
     db: "up",
     storage: "up",
-    schemaVersion: "9",
+    schemaVersion: "10",
   });
 
   const unauthorized = await fetch(`${baseUrl}/health`);
@@ -413,7 +413,13 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
   const processing = await fetch(`${baseUrl}/orders/${order.id}`, {
     method: "PATCH",
     headers: { ...auth(), "content-type": "application/json" },
-    body: JSON.stringify({ status: "Processing" }),
+    body: JSON.stringify({
+      status: "Processing",
+      fulfillment: {
+        carrier: "Delhivery Surface",
+        trackingNumber: "AWB-123",
+      },
+    }),
   });
   assert.equal(processing.status, 200);
   assert.equal((await processing.json()).order.status, "Processing");
@@ -429,10 +435,34 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
   const shipped = await fetch(`${baseUrl}/orders/${order.id}`, {
     method: "PATCH",
     headers: { ...auth(), "content-type": "application/json" },
-    body: JSON.stringify({ status: "Shipped" }),
+    body: JSON.stringify({
+      status: "Shipped",
+      fulfillment: {
+        carrier: "Delhivery Surface",
+        trackingNumber: "AWB-123",
+        trackingUrl: "https://tracking.example.test/AWB-123",
+      },
+    }),
   });
   assert.equal(shipped.status, 200);
-  assert.equal((await shipped.json()).order.status, "Shipped");
+  assert.deepEqual((await shipped.json()).order.fulfillment, {
+    carrier: "Delhivery Surface",
+    trackingNumber: "AWB-123",
+    trackingUrl: "https://tracking.example.test/AWB-123",
+  });
+
+  const invalidTrackingUrl = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({
+      status: "Shipped",
+      fulfillment: {
+        trackingNumber: "AWB-123",
+        trackingUrl: "http://tracking.example.test/AWB-123",
+      },
+    }),
+  });
+  assert.equal(invalidTrackingUrl.status, 400);
 
   const rollback = await fetch(`${baseUrl}/orders/${order.id}`, {
     method: "PATCH",
@@ -464,6 +494,15 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
     headers: auth(otherApiKey),
   });
   assert.equal(isolatedRead.status, 404);
+  const readFulfillment = await fetch(`${baseUrl}/orders/${order.id}`, {
+    headers: auth(),
+  });
+  const readOrder = await readFulfillment.json();
+  assert.deepEqual(readOrder.order.fulfillment, {
+    carrier: "Delhivery Surface",
+    trackingNumber: "AWB-123",
+    trackingUrl: "https://tracking.example.test/AWB-123",
+  });
 
   const cancellableOrder = {
     ...order,
@@ -535,7 +574,7 @@ test("upgrades an existing SQLite order status constraint", async () => {
 
   const upgraded = await createSqliteProductRepository(databaseFile);
   try {
-    assert.equal(upgraded.health().schemaVersion, "9");
+    assert.equal(upgraded.health().schemaVersion, "10");
     assert.equal(
       upgraded.getOrder(
         "tenant-upgrade",

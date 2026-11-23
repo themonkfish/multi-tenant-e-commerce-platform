@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { isDeepStrictEqual } from "node:util";
 
-const SCHEMA_VERSION = "9";
+const SCHEMA_VERSION = "10";
 
 function toProduct(row) {
   if (!row) return null;
@@ -187,6 +187,10 @@ export async function createSqliteProductRepository(databaseFile) {
       "delivery_address_json",
       "TEXT CHECK (delivery_address_json IS NULL OR (json_valid(delivery_address_json) AND json_type(delivery_address_json) = 'object'))",
     ],
+    [
+      "fulfillment_json",
+      "TEXT CHECK (fulfillment_json IS NULL OR (json_valid(fulfillment_json) AND json_type(fulfillment_json) = 'object'))",
+    ],
   ];
   for (const [column, definition] of orderColumnDefinitions) {
     if (!orderColumns.has(column)) {
@@ -367,6 +371,9 @@ export async function createSqliteProductRepository(databaseFile) {
       ...(row.delivery_address_json === null
         ? {}
         : { deliveryAddress: JSON.parse(row.delivery_address_json) }),
+      ...(row.fulfillment_json === null
+        ? {}
+        : { fulfillment: JSON.parse(row.fulfillment_json) }),
     };
   }
 
@@ -432,6 +439,7 @@ export async function createSqliteProductRepository(databaseFile) {
         throw new Error("Tenant backend failed to persist the order");
       }
       const originalSnapshot = { ...saved, status: "Confirmed" };
+      delete originalSnapshot.fulfillment;
       return {
         order: saved,
         created: result.changes > 0,
@@ -466,12 +474,22 @@ export async function createSqliteProductRepository(databaseFile) {
       };
     },
 
-    updateOrderStatus(tenantId, id, status) {
+    updateOrderStatus(tenantId, id, status, fulfillment) {
       const current = toOrder(selectOrder.get(tenantId, id));
       if (!current) return null;
-      database
-        .prepare("UPDATE orders SET status = ? WHERE tenant_id = ? AND id = ?")
-        .run(status, tenantId, id);
+      if (fulfillment) {
+        database
+          .prepare(
+            "UPDATE orders SET status = ?, fulfillment_json = ? WHERE tenant_id = ? AND id = ?",
+          )
+          .run(status, JSON.stringify(fulfillment), tenantId, id);
+      } else {
+        database
+          .prepare(
+            "UPDATE orders SET status = ? WHERE tenant_id = ? AND id = ?",
+          )
+          .run(status, tenantId, id);
+      }
       return toOrder(selectOrder.get(tenantId, id));
     },
 

@@ -114,7 +114,12 @@ export function buildCarrierTrackingUrl(
 ): string | undefined {
   if (!carrier) return undefined;
   const normalized = carrier.trim().toLowerCase();
-  return CARRIER_TRACKING_URLS[normalized]?.(trackingNumber);
+  const builder =
+    CARRIER_TRACKING_URLS[normalized] ??
+    Object.entries(CARRIER_TRACKING_URLS).find(([name]) =>
+      normalized.startsWith(`${name} `),
+    )?.[1];
+  return builder?.(trackingNumber);
 }
 
 const CustomerOrderBaseSchema = z.object({

@@ -96,6 +96,47 @@ function validateProductId(id) {
   return typeof id === "string" && PRODUCT_ID_PATTERN.test(id);
 }
 
+function parseOrderFulfillment(input) {
+  if (
+    typeof input !== "object" ||
+    input === null ||
+    Array.isArray(input) ||
+    Object.keys(input).some(
+      (key) => !["carrier", "trackingNumber", "trackingUrl"].includes(key),
+    ) ||
+    typeof input.trackingNumber !== "string" ||
+    input.trackingNumber.trim().length < 1 ||
+    input.trackingNumber.length > 120 ||
+    (input.carrier !== undefined &&
+      (typeof input.carrier !== "string" ||
+        input.carrier.trim().length < 1 ||
+        input.carrier.length > 80)) ||
+    (input.trackingUrl !== undefined &&
+      (typeof input.trackingUrl !== "string" ||
+        input.trackingUrl.length > 2048))
+  ) {
+    throw new InputError("Order fulfillment fields are invalid");
+  }
+  if (input.trackingUrl !== undefined) {
+    let url;
+    try {
+      url = new URL(input.trackingUrl);
+    } catch {
+      throw new InputError("Order tracking URL is invalid");
+    }
+    if (url.protocol !== "https:") {
+      throw new InputError("Order tracking URL must use HTTPS");
+    }
+  }
+  return {
+    ...(input.carrier !== undefined ? { carrier: input.carrier.trim() } : {}),
+    trackingNumber: input.trackingNumber.trim(),
+    ...(input.trackingUrl !== undefined
+      ? { trackingUrl: input.trackingUrl }
+      : {}),
+  };
+}
+
 function parseOrder(input, tenantId) {
   if (
     typeof input !== "object" ||
@@ -612,11 +653,26 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
             typeof body !== "object" ||
             body === null ||
             Array.isArray(body) ||
-            Object.keys(body).length !== 1 ||
+            Object.keys(body).some(
+              (key) => !["status", "fulfillment"].includes(key),
+            ) ||
             !ORDER_STATUSES.has(body.status)
           ) {
             sendJson(response, 400, { error: "invalid_order_status" });
             return;
+          }
+          let fulfillment;
+          if (body.fulfillment !== undefined) {
+            if (!["Processing", "Shipped"].includes(body.status)) {
+              sendJson(response, 400, { error: "invalid_order_fulfillment" });
+              return;
+            }
+            try {
+              fulfillment = parseOrderFulfillment(body.fulfillment);
+            } catch {
+              sendJson(response, 400, { error: "invalid_order_fulfillment" });
+              return;
+            }
           }
           const current = repository.getOrder(tenantId, orderId);
           if (!current) {
@@ -631,6 +687,7 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
             tenantId,
             orderId,
             body.status,
+            fulfillment,
           );
           sendJson(response, 200, { order });
           return;

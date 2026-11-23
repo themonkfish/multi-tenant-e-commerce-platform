@@ -104,7 +104,7 @@ Status snapshot as of 2026-11-23:
   in repository order, and lints the resulting schema.
 - CI generates a sorted dependency-notices JSON manifest from the frontend
   package lock and uploads it alongside the SBOM and dependency audit artifacts.
-- The tenant reference SQLite backend reports schema version 9, supporting
+- The tenant reference SQLite backend reports schema version 10, supporting
   catalog schema version 7 fields for categories, images, options, inventory
   variants, and variant pricing, plus idempotent reservation restoration,
   cancellation, and manual delivery status.
@@ -326,8 +326,9 @@ Status snapshot as of 2026-11-23:
       authenticated order creation, confirmation, and history are server-backed.
       Order snapshots sync to the connected Tenant backend with a visible and
       retryable delivery status; Tenant order management supports basic status
-      transitions and optional shipment tracking details. Live payments and
-      carrier integrations are still pending.
+      transitions and optional shipment tracking details. Shiprocket tracking
+      webhooks are supported; live payments and carrier shipment booking remain
+      pending.
 - [x] **Setup wizard:** validates platform-domain and reserved-subdomain input,
       verifies required server security configuration and platform-store
       connectivity before setup, saves platform name/theme/legal links, enrolls
@@ -443,9 +444,9 @@ Status snapshot as of 2026-11-23:
      server-side catalog mutations validate uploaded image ownership and
      replaced or deleted product images are cleaned up when storage permits.
    - Basic address capture, configurable flat shipping, and order tracking are
-     implemented. Discount codes and variant inventory reservation are
-     implemented; continue with tax workflows around synchronized Tenant
-     backend order snapshots.
+     implemented. Discount codes, variant inventory reservation, and
+     tax/shipping snapshots through synchronized Tenant backend orders are
+     implemented.
 
 5. **P2 — Storefront runtime upgrade**
    - Added production Stripe key support and mode-matched webhook checks.
@@ -453,7 +454,9 @@ Status snapshot as of 2026-11-23:
      product option selection with server-validated order snapshots.
    - Per-variant pricing and SKU overrides are implemented; inventory tracking
      and checkout reservation are implemented.
-   - Extend basic fulfillment tracking with carrier integrations.
+   - Shiprocket tracking webhooks are normalized into the shared carrier-event
+     workflow. Direct carrier APIs for shipment booking, labels, and broader
+     multi-carrier automation remain future work.
 
 6. **P3 — Platform operations and scale**
    - CI, migration validation, dependency audit, SBOM generation, health
@@ -513,7 +516,7 @@ Status snapshot as of 2026-11-23:
       health testing, catalog adapter, and authenticated product API routes are
       implemented. Playwright covers tenant-scoped product create, edit, API
       verification, delete, and isolation against a local mock backend. The
-      reference SQLite backend reports schema version 9 and supports catalog
+      reference SQLite backend reports schema version 10 and supports catalog
       schema version 7 fields, idempotent reservation restoration, and
       Delivered order status.
 - [x] Implement tenant Supabase and MongoDB data adapters, reference schemas,
@@ -570,6 +573,15 @@ Status snapshot as of 2026-11-23:
       repeat-event handling. Carrier events are reconciled monotonically so
       older Processing events cannot regress an already Shipped or Delivered order.
       Tracking-number mismatches and premature Delivered events are rejected.
+- [x] Shiprocket tracking webhooks use the provider's `x-api-key` security token
+      and published tracking payload format at the neutral
+      `/api/webhooks/logistics` callback. Configure the callback per tenant with
+      `?tenantId=<tenant-uuid>` and use the platform order ID as Shiprocket's
+      `order_id`. Provider statuses are normalized and reconciled through the
+      shared carrier-event flow. Direct Shiprocket shipment creation and labels
+      are not included. See the
+      [Shiprocket API documentation](https://apidocs.shiprocket.in/) for provider
+      webhook setup and payload details.
 - [x] Show Customers an accessible order-progress timeline from confirmation
       through delivery in English, French, and Hindi; cancelled orders are
       displayed as a separately localized terminal state.
@@ -676,7 +688,8 @@ implemented by selecting a platform-store option.
 | `NEXT_PUBLIC_PLATFORM_DOMAIN`   | Optional                                             | Public platform hostname setting. It is not a tenant-domain resolver; the current setup flow persists the platform domain that is entered during bootstrap. |
 | `RESEND_API_KEY`                | Optional for invitation email                        | Server-only API key used to deliver Host/Tenant invitations through Resend.                                                                                 |
 | `INVITATION_EMAIL_FROM`         | With `RESEND_API_KEY`                                | Verified sender address/name, such as `Platform <noreply@example.com>`. Leave both values blank for manual invitation links.                                |
-| `CARRIER_WEBHOOK_SECRET`        | Optional for live carrier events                     | HMAC-SHA256 signing secret for `POST /api/webhooks/carrier`; use `sha256=<hex>` or raw hex in `x-carrier-signature`.                                        |
+| `CARRIER_WEBHOOK_SECRET`        | Optional for generic carrier events                 | HMAC-SHA256 signing secret for `POST /api/webhooks/carrier`; use `sha256=<hex>` or raw hex in `x-carrier-signature`.                                        |
+| `SHIPROCKET_WEBHOOK_TOKEN`      | Optional for Shiprocket tracking events              | At least 16 characters; sent by Shiprocket in `x-api-key` to `POST /api/webhooks/logistics?tenantId=<tenant-uuid>`.                                        |
 | `OBSERVABILITY_METRICS_TOKEN`   | Optional for metrics scraping                        | Bearer token required to access `GET /api/metrics` Prometheus-text output.                                                                                  |
 | `NODE_ENV`                      | Set by Next.js                                       | Use the standard `development`, `test`, or `production` values.                                                                                             |
 
@@ -849,8 +862,10 @@ NEXT_PUBLIC_PLATFORM_DOMAIN=<your-platform-hostname>
 # Optional; both are required for automated invitations via Resend.
 RESEND_API_KEY=<server-only-resend-api-key>
 INVITATION_EMAIL_FROM=Platform <noreply@example.com>
-# Optional HMAC secret for signed carrier tracking events.
+# Optional HMAC secret for the generic signed carrier webhook.
 CARRIER_WEBHOOK_SECRET=<at-least-16-random-characters>
+# Optional Shiprocket webhook token (set the same value as its x-api-key security token).
+SHIPROCKET_WEBHOOK_TOKEN=<at-least-16-random-characters>
 # Optional bearer token for protected Prometheus metrics scraping.
 OBSERVABILITY_METRICS_TOKEN=<at-least-16-random-characters>
 ```

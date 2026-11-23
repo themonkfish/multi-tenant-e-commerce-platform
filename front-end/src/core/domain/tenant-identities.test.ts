@@ -49,6 +49,9 @@ describe("OrderFulfillmentSchema", () => {
     expect(buildCarrierTrackingUrl("Delhivery", "DLV123")).toBe(
       "https://www.delhivery.com/track/package/DLV123",
     );
+    expect(buildCarrierTrackingUrl("Delhivery Surface", "DLV123")).toBe(
+      "https://www.delhivery.com/track/package/DLV123",
+    );
     expect(
       buildCarrierTrackingUrl("Custom carrier", "TRACK123"),
     ).toBeUndefined();

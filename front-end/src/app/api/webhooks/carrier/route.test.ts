@@ -103,6 +103,7 @@ describe("POST /api/webhooks/carrier", () => {
       expect.objectContaining({
         carrier: "FedEx",
         trackingNumber: "TRACK-123",
+        trackingUrl: "https://www.fedex.com/fedextrack/?trknbr=TRACK-123",
       }),
     );
     expect(updateCustomerOrderStatus).toHaveBeenCalledWith(
@@ -114,11 +115,62 @@ describe("POST /api/webhooks/carrier", () => {
     );
   });
 
+  it("moves a confirmed order through Processing when a carrier skips pickup events", async () => {
+    vi.stubEnv("CARRIER_WEBHOOK_SECRET", secret);
+    const platformOrder = {
+      id: orderId,
+      tenantId,
+      customerId: "550e8400-e29b-41d4-a716-446655440020",
+      status: "Confirmed",
+      fulfillment: undefined,
+    };
+    getPlatformStore.mockReturnValue({
+      listTenantOrders: vi.fn().mockResolvedValue([platformOrder]),
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId, status: "active" }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId, status: "active" }]),
+      updateCustomerOrderStatus: vi.fn().mockResolvedValue({
+        ...platformOrder,
+        status: "Shipped",
+      }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    });
+    const updateOrderStatus = vi.fn().mockResolvedValue({});
+    createTenantOrderAdapter.mockResolvedValue({ updateOrderStatus });
+
+    const response = await POST(
+      carrierRequest({
+        eventId: "evt-in-transit-without-pickup",
+        tenantId,
+        orderId,
+        trackingNumber: "TRACK-123",
+        carrier: "FedEx",
+        status: "in_transit",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateOrderStatus).toHaveBeenNthCalledWith(
+      1,
+      orderId,
+      "Processing",
+      expect.objectContaining({ trackingNumber: "TRACK-123" }),
+    );
+    expect(updateOrderStatus).toHaveBeenNthCalledWith(
+      2,
+      orderId,
+      "Shipped",
+      expect.objectContaining({ trackingNumber: "TRACK-123" }),
+    );
+  });
+
   it("treats an identical carrier event as already received", async () => {
     vi.stubEnv("CARRIER_WEBHOOK_SECRET", secret);
     const fulfillment = {
       carrier: "FedEx",
       trackingNumber: "TRACK-123",
+      trackingUrl: "https://www.fedex.com/fedextrack/?trknbr=TRACK-123",
     };
     getPlatformStore.mockReturnValue({
       listTenantOrders: vi.fn().mockResolvedValue([
