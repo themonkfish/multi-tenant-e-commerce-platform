@@ -825,7 +825,9 @@
     "cname": "CNAME",
     "txt": "TXT",
     "txtValue": "TXT value",
-    "verifyDns": "Verify DNS"
+    "verifyDns": "Verify DNS",
+    "cancelDomainClaim": "Cancel claim",
+    "cancelDomainClaimConfirm": "Cancel the pending domain claim {domain}? It will be available to claim again."
   },
   "SuperAdminSettings": {
     "saveFailed": "The settings could not be saved. Check the values and try again.",

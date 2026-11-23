@@ -350,6 +350,12 @@ export interface PlatformStore
     updatedAt: string;
     auditEvent: AuditEvent;
   }): Promise<TenantRecord | null>;
+  removeTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    auditEvent: AuditEvent;
+  }): Promise<boolean>;
   removeTenantDomain(input: {
     hostId: string;
     tenantId: string;

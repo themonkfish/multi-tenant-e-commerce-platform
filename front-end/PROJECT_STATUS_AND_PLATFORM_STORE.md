@@ -214,6 +214,9 @@ Status snapshot as of 2026-11-23:
 - [x] Host Owners can add tenant custom domains, receive DNS verification
       instructions, and activate exact-domain routing only after TXT ownership
       and platform CNAME records resolve.
+- [x] Host Owners can cancel pending tenant-domain claims before verification.
+      Cancellation removes the claim, frees custom-domain usage, and records an
+      audited host-scoped event.
 - [x] Host Owners can check verified domains for public HTTPS reachability and
       a valid, unexpired TLS certificate without provider-specific credentials.
 - [x] Custom-domain/SSL strategy: exact-domain ownership uses TXT/CNAME

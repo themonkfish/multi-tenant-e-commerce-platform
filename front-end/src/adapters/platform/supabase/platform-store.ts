@@ -2144,6 +2144,25 @@ export class SupabasePlatformStore implements PlatformStore {
     );
   }
 
+  async removeTenantDomainClaim(input: {
+    hostId: string;
+    tenantId: string;
+    domain: string;
+    auditEvent: AuditEvent;
+  }): Promise<boolean> {
+    const { error } = await this.client
+      .from("platform_tenant_domain_claims")
+      .delete()
+      .eq("host_id", input.hostId)
+      .eq("tenant_id", input.tenantId)
+      .eq("domain", input.domain);
+    if (error) {
+      throw new Error(`Could not remove tenant domain claim: ${error.message}`);
+    }
+    await this.appendAuditEvent(input.auditEvent);
+    return true;
+  }
+
   async removeTenantDomain(input: {
     hostId: string;
     tenantId: string;

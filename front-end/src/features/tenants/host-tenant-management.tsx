@@ -350,6 +350,38 @@ export function HostTenantManagement({
     }
   }
 
+  async function cancelDomainClaim(claim: TenantDomainClaim) {
+    if (
+      !window.confirm(t("cancelDomainClaimConfirm", { domain: claim.domain }))
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/host/tenants/${claim.tenantId}/domains/claims`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain: claim.domain }),
+        },
+      );
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(describeTenantError(errorCode(body), t));
+        return;
+      }
+      setDomainClaims((current) =>
+        current.filter((item) => item.domain !== claim.domain),
+      );
+    } catch {
+      setError(t("requestUnavailable"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createTenant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -603,6 +635,7 @@ export function HostTenantManagement({
                         busy={busy}
                         platformDomain={platformDomain}
                         onVerify={() => void verifyDomain(claim)}
+                        onCancel={() => void cancelDomainClaim(claim)}
                       />
                     ))}
                   {tenant.status === "active" && (
@@ -818,11 +851,13 @@ function DomainVerificationControl({
   busy,
   platformDomain,
   onVerify,
+  onCancel,
 }: {
   claim: TenantDomainClaim;
   busy: boolean;
   platformDomain: string;
   onVerify: () => void;
+  onCancel: () => void;
 }) {
   const t = useTranslations("HostTenants");
   return (
@@ -857,6 +892,14 @@ function DomainVerificationControl({
         type="button"
       >
         {t("verifyDns")}
+      </button>
+      <button
+        className="ml-2 rounded border border-rose-300 px-3 py-1.5 font-medium text-rose-800 hover:bg-rose-50 disabled:opacity-60"
+        disabled={busy}
+        onClick={onCancel}
+        type="button"
+      >
+        {t("cancelDomainClaim")}
       </button>
     </div>
   );
