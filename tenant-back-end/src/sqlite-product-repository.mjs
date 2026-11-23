@@ -1,8 +1,9 @@
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { isDeepStrictEqual } from "node:util";
 
-const SCHEMA_VERSION = "8";
+const SCHEMA_VERSION = "9";
 
 function toProduct(row) {
   if (!row) return null;
@@ -97,7 +98,9 @@ export async function createSqliteProductRepository(databaseFile) {
     );
   `);
   const orderTable = database
-    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'orders'")
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'orders'",
+    )
     .get();
   if (
     !orderTable.sql.includes("'Cancelled'") ||
@@ -134,7 +137,10 @@ export async function createSqliteProductRepository(databaseFile) {
     `);
   }
   const productColumns = new Set(
-    database.prepare("PRAGMA table_info(products)").all().map((row) => row.name),
+    database
+      .prepare("PRAGMA table_info(products)")
+      .all()
+      .map((row) => row.name),
   );
   const productColumnDefinitions = [
     ["category", "TEXT"],
@@ -146,6 +152,45 @@ export async function createSqliteProductRepository(databaseFile) {
   for (const [column, definition] of productColumnDefinitions) {
     if (!productColumns.has(column)) {
       database.exec(`ALTER TABLE products ADD COLUMN ${column} ${definition}`);
+    }
+  }
+  const orderColumns = new Set(
+    database
+      .prepare("PRAGMA table_info(orders)")
+      .all()
+      .map((row) => row.name),
+  );
+  const orderColumnDefinitions = [
+    ["subtotal", "INTEGER CHECK (subtotal IS NULL OR subtotal >= 0)"],
+    [
+      "shipping_amount",
+      "INTEGER CHECK (shipping_amount IS NULL OR shipping_amount >= 0)",
+    ],
+    [
+      "discount_code",
+      "TEXT CHECK (discount_code IS NULL OR length(trim(discount_code)) BETWEEN 3 AND 40)",
+    ],
+    [
+      "discount_amount",
+      "INTEGER CHECK (discount_amount IS NULL OR discount_amount >= 0)",
+    ],
+    [
+      "tax_rate_basis_points",
+      "INTEGER CHECK (tax_rate_basis_points IS NULL OR tax_rate_basis_points BETWEEN 0 AND 10000)",
+    ],
+    ["tax_amount", "INTEGER CHECK (tax_amount IS NULL OR tax_amount >= 0)"],
+    [
+      "payment_method",
+      "TEXT CHECK (payment_method IS NULL OR payment_method IN ('stripe', 'cash_on_delivery'))",
+    ],
+    [
+      "delivery_address_json",
+      "TEXT CHECK (delivery_address_json IS NULL OR (json_valid(delivery_address_json) AND json_type(delivery_address_json) = 'object'))",
+    ],
+  ];
+  for (const [column, definition] of orderColumnDefinitions) {
+    if (!orderColumns.has(column)) {
+      database.exec(`ALTER TABLE orders ADD COLUMN ${column} ${definition}`);
     }
   }
   database
@@ -245,11 +290,7 @@ export async function createSqliteProductRepository(databaseFile) {
     }
   }
 
-  function transitionInventoryReservation({
-    tenantId,
-    reservationId,
-    action,
-  }) {
+  function transitionInventoryReservation({ tenantId, reservationId, action }) {
     database.exec("BEGIN IMMEDIATE");
     try {
       const reservation = selectReservation.get(tenantId, reservationId);
@@ -306,6 +347,26 @@ export async function createSqliteProductRepository(databaseFile) {
       total: row.total,
       currency: row.currency,
       itemCount: row.item_count,
+      ...(row.subtotal === null ? {} : { subtotal: row.subtotal }),
+      ...(row.shipping_amount === null
+        ? {}
+        : { shippingAmount: row.shipping_amount }),
+      ...(row.discount_code === null
+        ? {}
+        : { discountCode: row.discount_code }),
+      ...(row.discount_amount === null
+        ? {}
+        : { discountAmount: row.discount_amount }),
+      ...(row.tax_rate_basis_points === null
+        ? {}
+        : { taxRateBasisPoints: row.tax_rate_basis_points }),
+      ...(row.tax_amount === null ? {} : { taxAmount: row.tax_amount }),
+      ...(row.payment_method === null
+        ? {}
+        : { paymentMethod: row.payment_method }),
+      ...(row.delivery_address_json === null
+        ? {}
+        : { deliveryAddress: JSON.parse(row.delivery_address_json) }),
     };
   }
 
@@ -342,8 +403,10 @@ export async function createSqliteProductRepository(databaseFile) {
       const result = database
         .prepare(
           `INSERT OR IGNORE INTO orders
-           (tenant_id, id, customer_id, status, created_at, items_json, total, currency, item_count)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (tenant_id, id, customer_id, status, created_at, items_json, total, currency, item_count,
+            subtotal, shipping_amount, discount_code, discount_amount, tax_rate_basis_points,
+            tax_amount, payment_method, delivery_address_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           order.tenantId,
@@ -355,6 +418,14 @@ export async function createSqliteProductRepository(databaseFile) {
           order.total,
           order.currency,
           order.itemCount,
+          order.subtotal ?? null,
+          order.shippingAmount ?? null,
+          order.discountCode ?? null,
+          order.discountAmount ?? null,
+          order.taxRateBasisPoints ?? null,
+          order.taxAmount ?? null,
+          order.paymentMethod ?? null,
+          order.deliveryAddress ? JSON.stringify(order.deliveryAddress) : null,
         );
       const saved = toOrder(selectOrder.get(order.tenantId, order.id));
       if (!saved) {
@@ -364,7 +435,7 @@ export async function createSqliteProductRepository(databaseFile) {
       return {
         order: saved,
         created: result.changes > 0,
-        conflict: JSON.stringify(originalSnapshot) !== JSON.stringify(order),
+        conflict: !isDeepStrictEqual(originalSnapshot, order),
       };
     },
 
@@ -399,9 +470,7 @@ export async function createSqliteProductRepository(databaseFile) {
       const current = toOrder(selectOrder.get(tenantId, id));
       if (!current) return null;
       database
-        .prepare(
-          "UPDATE orders SET status = ? WHERE tenant_id = ? AND id = ?",
-        )
+        .prepare("UPDATE orders SET status = ? WHERE tenant_id = ? AND id = ?")
         .run(status, tenantId, id);
       return toOrder(selectOrder.get(tenantId, id));
     },

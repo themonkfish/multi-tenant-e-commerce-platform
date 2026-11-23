@@ -104,7 +104,7 @@ Status snapshot as of 2026-11-23:
   in repository order, and lints the resulting schema.
 - CI generates a sorted dependency-notices JSON manifest from the frontend
   package lock and uploads it alongside the SBOM and dependency audit artifacts.
-- The tenant reference SQLite backend reports schema version 8, supporting
+- The tenant reference SQLite backend reports schema version 9, supporting
   catalog schema version 7 fields for categories, images, options, inventory
   variants, and variant pricing, plus idempotent reservation restoration,
   cancellation, and manual delivery status.
@@ -513,7 +513,7 @@ Status snapshot as of 2026-11-23:
       health testing, catalog adapter, and authenticated product API routes are
       implemented. Playwright covers tenant-scoped product create, edit, API
       verification, delete, and isolation against a local mock backend. The
-      reference SQLite backend reports schema version 8 and supports catalog
+      reference SQLite backend reports schema version 9 and supports catalog
       schema version 7 fields, idempotent reservation restoration, and
       Delivered order status.
 - [x] Implement tenant Supabase and MongoDB data adapters, reference schemas,

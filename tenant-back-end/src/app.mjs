@@ -110,9 +110,17 @@ function parseOrder(input, tenantId) {
           "status",
           "createdAt",
           "items",
+          "subtotal",
+          "shippingAmount",
+          "discountCode",
+          "discountAmount",
+          "taxRateBasisPoints",
+          "taxAmount",
           "total",
           "currency",
           "itemCount",
+          "paymentMethod",
+          "deliveryAddress",
         ].includes(key),
     )
   ) {
@@ -148,15 +156,37 @@ function parseOrder(input, tenantId) {
   let computedTotal = 0;
   let computedItemCount = 0;
   const items = input.items.map((item) => {
+    const validSelections =
+      item?.variantSelections === undefined ||
+      (typeof item.variantSelections === "object" &&
+        item.variantSelections !== null &&
+        !Array.isArray(item.variantSelections) &&
+        Object.keys(item.variantSelections).length <= 3 &&
+        Object.entries(item.variantSelections).every(
+          ([name, value]) =>
+            name.trim().length > 0 &&
+            name.trim().length <= 40 &&
+            typeof value === "string" &&
+            value.trim().length > 0 &&
+            value.trim().length <= 40,
+        ));
     if (
       typeof item !== "object" ||
       item === null ||
       Array.isArray(item) ||
       Object.keys(item).some(
         (key) =>
-          !["productId", "title", "slug", "quantity", "unitPrice", "currency"].includes(
-            key,
-          ),
+          ![
+            "productId",
+            "title",
+            "slug",
+            "quantity",
+            "variantSelections",
+            "sku",
+            "inventoryTracked",
+            "unitPrice",
+            "currency",
+          ].includes(key),
       ) ||
       typeof item.productId !== "string" ||
       !PRODUCT_ID_PATTERN.test(item.productId) ||
@@ -170,7 +200,14 @@ function parseOrder(input, tenantId) {
       item.quantity > 100 ||
       !Number.isSafeInteger(item.unitPrice) ||
       item.unitPrice < 0 ||
-      item.currency !== input.currency
+      item.currency !== input.currency ||
+      !validSelections ||
+      (item.sku !== undefined &&
+        (typeof item.sku !== "string" ||
+          item.sku.trim().length < 1 ||
+          item.sku.length > 100)) ||
+      (item.inventoryTracked !== undefined &&
+        typeof item.inventoryTracked !== "boolean")
     ) {
       throw new InputError("Order item fields are invalid");
     }
@@ -181,13 +218,120 @@ function parseOrder(input, tenantId) {
       title: item.title.trim(),
       slug: item.slug,
       quantity: item.quantity,
+      ...(item.variantSelections
+        ? { variantSelections: item.variantSelections }
+        : {}),
+      ...(item.sku !== undefined ? { sku: item.sku.trim() } : {}),
+      ...(item.inventoryTracked !== undefined
+        ? { inventoryTracked: item.inventoryTracked }
+        : {}),
       unitPrice: item.unitPrice,
       currency: item.currency,
     };
   });
+  const amountSnapshotPresent = [
+    input.subtotal,
+    input.shippingAmount,
+    input.discountCode,
+    input.discountAmount,
+    input.taxRateBasisPoints,
+    input.taxAmount,
+  ].some((value) => value !== undefined);
+  const subtotal = input.subtotal ?? computedTotal;
+  const shippingAmount = input.shippingAmount ?? 0;
+  const discountAmount = input.discountAmount ?? 0;
+  const taxRateBasisPoints = input.taxRateBasisPoints ?? 0;
+  const taxAmount = input.taxAmount ?? 0;
+  const validOptionalAmount = (value) =>
+    value === undefined ||
+    (Number.isSafeInteger(value) && value >= 0 && value <= 2_147_483_647);
+  let deliveryAddress;
+  if (input.deliveryAddress !== undefined) {
+    const address = input.deliveryAddress;
+    if (
+      typeof address !== "object" ||
+      address === null ||
+      Array.isArray(address) ||
+      Object.keys(address).some(
+        (key) =>
+          ![
+            "fullName",
+            "line1",
+            "line2",
+            "city",
+            "state",
+            "postalCode",
+            "country",
+            "phone",
+          ].includes(key),
+      ) ||
+      typeof address.fullName !== "string" ||
+      address.fullName.trim().length < 1 ||
+      address.fullName.length > 120 ||
+      typeof address.line1 !== "string" ||
+      address.line1.trim().length < 1 ||
+      address.line1.length > 200 ||
+      (address.line2 !== undefined &&
+        (typeof address.line2 !== "string" || address.line2.length > 200)) ||
+      typeof address.city !== "string" ||
+      address.city.trim().length < 1 ||
+      address.city.length > 100 ||
+      typeof address.state !== "string" ||
+      address.state.trim().length < 1 ||
+      address.state.length > 100 ||
+      typeof address.postalCode !== "string" ||
+      !/^\d{6}$/.test(address.postalCode) ||
+      address.country !== "IN" ||
+      typeof address.phone !== "string" ||
+      !/^\+91[6-9]\d{9}$/.test(address.phone)
+    ) {
+      throw new InputError("Order delivery address is invalid");
+    }
+    deliveryAddress = {
+      fullName: address.fullName.trim(),
+      line1: address.line1.trim(),
+      ...(address.line2 !== undefined ? { line2: address.line2.trim() } : {}),
+      city: address.city.trim(),
+      state: address.state.trim(),
+      postalCode: address.postalCode,
+      country: address.country,
+      phone: address.phone,
+    };
+  }
+  if (
+    (input.paymentMethod !== undefined &&
+      !["stripe", "cash_on_delivery"].includes(input.paymentMethod)) ||
+    (input.discountCode !== undefined &&
+      (typeof input.discountCode !== "string" ||
+        input.discountCode.trim().length < 3 ||
+        input.discountCode.trim().length > 40)) ||
+    !validOptionalAmount(input.subtotal) ||
+    !validOptionalAmount(input.shippingAmount) ||
+    !validOptionalAmount(input.discountAmount) ||
+    !validOptionalAmount(input.taxAmount) ||
+    (input.taxRateBasisPoints !== undefined &&
+      (!Number.isSafeInteger(input.taxRateBasisPoints) ||
+        input.taxRateBasisPoints < 0 ||
+        input.taxRateBasisPoints > 10_000)) ||
+    (input.taxRateBasisPoints === undefined) !==
+      (input.taxAmount === undefined) ||
+    discountAmount > subtotal ||
+    (discountAmount > 0 && input.discountCode === undefined) ||
+    (input.discountCode !== undefined && discountAmount === 0) ||
+    (input.paymentMethod === "cash_on_delivery" &&
+      (input.currency !== "INR" || deliveryAddress === undefined)) ||
+    !Number.isSafeInteger(subtotal - discountAmount) ||
+    taxAmount !==
+      Math.round(((subtotal - discountAmount) * taxRateBasisPoints) / 10_000)
+  ) {
+    throw new InputError("Order amount or payment fields are invalid");
+  }
   if (
     new Set(items.map((item) => item.productId)).size !== items.length ||
-    computedTotal !== input.total ||
+    subtotal !== computedTotal ||
+    (amountSnapshotPresent &&
+      subtotal - discountAmount + taxAmount + shippingAmount !== input.total) ||
+    (!amountSnapshotPresent && computedTotal !== input.total) ||
     computedItemCount !== input.itemCount ||
     !Number.isSafeInteger(computedTotal)
   ) {
@@ -201,9 +345,21 @@ function parseOrder(input, tenantId) {
     status: input.status,
     createdAt: new Date(input.createdAt).toISOString(),
     items,
+    ...(input.subtotal !== undefined ? { subtotal } : {}),
+    ...(input.shippingAmount !== undefined ? { shippingAmount } : {}),
+    ...(input.discountCode !== undefined
+      ? { discountCode: input.discountCode.trim() }
+      : {}),
+    ...(input.discountAmount !== undefined ? { discountAmount } : {}),
+    ...(input.taxRateBasisPoints !== undefined ? { taxRateBasisPoints } : {}),
+    ...(input.taxAmount !== undefined ? { taxAmount } : {}),
     total: input.total,
     currency: input.currency,
     itemCount: input.itemCount,
+    ...(input.paymentMethod !== undefined
+      ? { paymentMethod: input.paymentMethod }
+      : {}),
+    ...(deliveryAddress ? { deliveryAddress } : {}),
   };
 }
 
@@ -293,11 +449,9 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
         try {
           body = await readJsonBody(request);
         } catch (error) {
-          sendJson(
-            response,
-            error.status ?? 400,
-            { error: error.status === 413 ? "payload_too_large" : "invalid_json" },
-          );
+          sendJson(response, error.status ?? 400, {
+            error: error.status === 413 ? "payload_too_large" : "invalid_json",
+          });
           return;
         }
         if (
@@ -400,7 +554,9 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
           } catch (error) {
             sendJson(
               response,
-              error instanceof InputError ? (error.status ?? 400) : (error.status ?? 400),
+              error instanceof InputError
+                ? (error.status ?? 400)
+                : (error.status ?? 400),
               {
                 error:
                   error instanceof InputError && error.status === 403
@@ -446,11 +602,10 @@ export function createTenantApiServer({ tenantApiKeys, repository }) {
           try {
             body = await readJsonBody(request);
           } catch (error) {
-            sendJson(
-              response,
-              error.status ?? 400,
-              { error: error.status === 413 ? "payload_too_large" : "invalid_json" },
-            );
+            sendJson(response, error.status ?? 400, {
+              error:
+                error.status === 413 ? "payload_too_large" : "invalid_json",
+            });
             return;
           }
           if (

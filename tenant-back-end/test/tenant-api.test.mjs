@@ -74,7 +74,7 @@ test("health check returns the contract required by the frontend", async () => {
     status: "healthy",
     db: "up",
     storage: "up",
-    schemaVersion: "8",
+    schemaVersion: "9",
   });
 
   const unauthorized = await fetch(`${baseUrl}/health`);
@@ -329,13 +329,32 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
         title: "Canvas Bag",
         slug: "canvas-bag",
         quantity: 2,
+        variantSelections: { Color: "Blue" },
+        sku: "BAG-BLUE",
+        inventoryTracked: true,
         unitPrice: 1250,
         currency: "USD",
       },
     ],
-    total: 2500,
+    subtotal: 2500,
+    shippingAmount: 100,
+    discountCode: "SAVE10",
+    discountAmount: 200,
+    taxRateBasisPoints: 800,
+    taxAmount: 184,
+    total: 2584,
     currency: "USD",
     itemCount: 2,
+    paymentMethod: "stripe",
+    deliveryAddress: {
+      fullName: "Test Customer",
+      line1: "1 Market Road",
+      city: "Pune",
+      state: "Maharashtra",
+      postalCode: "411001",
+      country: "IN",
+      phone: "+919876543210",
+    },
   };
   const create = (body, key = apiKey) =>
     fetch(`${baseUrl}/orders`, {
@@ -351,6 +370,13 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
   const replay = await create(order);
   assert.equal(replay.status, 200);
   assert.deepEqual((await replay.json()).order, order);
+
+  const invalidAmounts = await create({
+    ...order,
+    id: "ORD-550e8400-e29b-41d4-a716-446655440002",
+    taxAmount: 185,
+  });
+  assert.equal(invalidAmounts.status, 400);
 
   const conflict = await create({
     ...order,
@@ -509,6 +535,14 @@ test("upgrades an existing SQLite order status constraint", async () => {
 
   const upgraded = await createSqliteProductRepository(databaseFile);
   try {
+    assert.equal(upgraded.health().schemaVersion, "9");
+    assert.equal(
+      upgraded.getOrder(
+        "tenant-upgrade",
+        "ORD-550e8400-e29b-41d4-a716-446655440099",
+      ).subtotal,
+      undefined,
+    );
     assert.equal(
       upgraded.updateOrderStatus(
         "tenant-upgrade",

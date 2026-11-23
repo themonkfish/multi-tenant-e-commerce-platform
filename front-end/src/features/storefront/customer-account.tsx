@@ -255,19 +255,19 @@ export function StorefrontCustomerAccount({
                         order.currency,
                         locale,
                       )}
-                      {customer &&
-                        "taxAmount" in order &&
-                        (order.taxAmount ?? 0) > 0 && (
-                          <p className="mt-2 text-sm text-slate-600">
-                            {t("includesTax", {
-                              amount: formatCurrencyAmount(
-                                order.taxAmount ?? 0,
-                                order.currency,
-                                locale,
-                              ),
-                            })}
-                          </p>
-                        )}
+                    </p>
+                  )}
+                {customer &&
+                  "taxAmount" in order &&
+                  (order.taxAmount ?? 0) > 0 && (
+                    <p className="mt-2 text-sm text-slate-600">
+                      {t("includesTax", {
+                        amount: formatCurrencyAmount(
+                          order.taxAmount ?? 0,
+                          order.currency,
+                          locale,
+                        ),
+                      })}
                     </p>
                   )}
                 {"deliveryAddress" in order && order.deliveryAddress && (
