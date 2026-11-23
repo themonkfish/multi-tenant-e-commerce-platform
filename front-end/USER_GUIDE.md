@@ -393,6 +393,17 @@ export/migration, backup, schema/data validation, cutover approval, and rollback
 plan. Select an approved data region before launch and keep backups and audit
 records within it unless compliance review approves transfer.
 
+For a secret-free file-store migration handoff, run:
+
+```powershell
+npm run platform-store:migrate:export -- --dry-run
+npm run platform-store:migrate:export -- .local/platform-store.json .local/platform-migration.json
+```
+
+The dry run validates parent-host and tenant scope and reports counts. The export
+excludes password hashes and encrypted secret records; import and credential
+re-encryption require a separate reviewed migration workflow.
+
 ## Current limitations
 
 - The website is a frontend platform foundation, not a complete production

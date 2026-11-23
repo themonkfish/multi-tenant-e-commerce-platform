@@ -642,9 +642,10 @@ Status snapshot as of 2026-11-23:
       delete their platform account and Customer-owned order history; external
       provider or carrier records require separate deletion workflows.
 - [ ] Tenant host/provider migration tooling: the policy requires reviewed
-      backup/export, validation, cutover, rollback, and regional approval, but
-      automated migration jobs and a platform data export/import command remain
-      future implementation work.
+      backup/export, validation, cutover, rollback, and regional approval.
+      Secret-free file-store export, checksum verification, and scope
+      preflight are implemented; automated file-to-Supabase import, credential
+      re-encryption, cutover, and rollback tooling remain future work.
 
 ## Platform store options: implementation reality
 
@@ -914,6 +915,15 @@ switching production to the local file store.
   reviewed migration/export plan, a protected pre-migration backup, secret
   rotation as needed, schema/data validation, cutover approval, and rollback
   coverage. Tenant host moves must preserve parent-host scope and domain ownership.
+- Platform migration export is available for the file store:
+  `npm run platform-store:migrate:export -- --dry-run` validates scope and
+  reports counts without writing a file. Supplying a destination writes a
+  checksummed, secret-free JSON envelope; raw password hashes and encrypted
+  secret records are excluded. This is an export handoff, not a direct
+  file-to-Supabase import or automated cutover. `npm run
+platform-store:migrate:preflight -- <export-file>` verifies checksum and
+  host/tenant/domain scope before a reviewed cutover. Automated import,
+  credential re-encryption, and production cutover remain future work.
 - Select an approved deployment region and keep platform/audit records and
   backups in that region unless a compliance review approves transfer. Design
   GDPR/DPDP export/deletion, PCI SAQ-A boundaries, tax retention, and provider

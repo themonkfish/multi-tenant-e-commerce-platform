@@ -22,7 +22,10 @@
     "platform-store:backup": "node scripts/platform-store-backup.mjs backup",
     "platform-store:restore": "node scripts/platform-store-backup.mjs restore",
     "platform-store:rotate": "node scripts/platform-store-backup.mjs rotate",
+    "platform-store:migrate:export": "node scripts/platform-store-migration.mjs export",
+    "platform-store:migrate:preflight": "node scripts/platform-store-migration.mjs preflight",
     "test:platform-backup": "node --test scripts/platform-store-backup.test.mjs",
+    "test:platform-migration": "node --test scripts/platform-store-migration.test.mjs",
     "format": "prettier --write src supabase README.md package.json next.config.ts vitest.config.mts",
     "format:check": "prettier --check src supabase README.md package.json next.config.ts vitest.config.mts"
   },
