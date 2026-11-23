@@ -119,6 +119,9 @@ Status snapshot as of 2026-11-23:
 - Locale switching is now consistently rendered inside the active
   `next-intl` client provider, allowing localized pages and footers to start
   without missing-intl-context errors.
+- Order status reconciliation is monotonic across Tenant routes and platform
+  stores: retries are idempotent, backward transitions are rejected, and
+  cancelled/delivered terminal states cannot regress.
 - Carrier webhook reconciliation rejects tracking-number mismatches and
   Delivered events that arrive before an order is shipped. Monotonic
   Processing/Shipped/Delivered transitions, replay handling, and signature

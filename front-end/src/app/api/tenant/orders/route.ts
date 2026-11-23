@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
 import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
 import { canAccessPermission } from "@/core/tenancy/scope";
-import { OrderFulfillmentSchema } from "@/core/domain/tenant-identities";
+import {
+  canTransitionTenantOrderStatus,
+  OrderFulfillmentSchema,
+} from "@/core/domain/tenant-identities";
 import { buildCarrierTrackingUrl } from "@/core/domain/tenant-identities";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -167,14 +170,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ order: result.order });
     }
 
-    if (parsed.data.status === "Delivered") {
+    if (typeof store.listTenantOrders === "function") {
       const platformOrder = (
         await store.listTenantOrders(session.scope.id)
       ).find((order) => order.id === parsed.data.orderId);
+      if (!platformOrder) {
+        return NextResponse.json({ error: "order_not_found" }, { status: 404 });
+      }
       if (
-        !platformOrder ||
-        (platformOrder.status !== "Shipped" &&
-          platformOrder.status !== "Delivered")
+        !canTransitionTenantOrderStatus(
+          platformOrder.status,
+          parsed.data.status,
+        )
       ) {
         return NextResponse.json(
           { error: "invalid_status_transition" },

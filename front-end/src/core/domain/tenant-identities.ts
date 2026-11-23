@@ -266,3 +266,20 @@ export const TenantOrderSchema = CustomerOrderBaseSchema.omit({
   }
 });
 export type TenantOrder = z.infer<typeof TenantOrderSchema>;
+
+export function canTransitionTenantOrderStatus(
+  current: TenantOrder["status"],
+  next: TenantOrder["status"],
+): boolean {
+  if (current === next) return true;
+  if (current === "Cancelled" || current === "Delivered") return false;
+
+  switch (current) {
+    case "Confirmed":
+      return next === "Processing" || next === "Shipped";
+    case "Processing":
+      return next === "Shipped";
+    case "Shipped":
+      return next === "Delivered";
+  }
+}

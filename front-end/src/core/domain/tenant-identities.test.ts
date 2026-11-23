@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCarrierTrackingUrl,
+  canTransitionTenantOrderStatus,
   OrderFulfillmentSchema,
 } from "./tenant-identities";
 
@@ -17,6 +18,7 @@ describe("OrderFulfillmentSchema", () => {
       trackingNumber: "TRACK-123",
       trackingUrl: "https://tracking.example.com/TRACK-123",
     });
+
     expect(
       OrderFulfillmentSchema.parse({ trackingNumber: "TRACK-123" }),
     ).toEqual({ trackingNumber: "TRACK-123" });
@@ -50,5 +52,27 @@ describe("OrderFulfillmentSchema", () => {
     expect(
       buildCarrierTrackingUrl("Custom carrier", "TRACK123"),
     ).toBeUndefined();
+  });
+});
+
+describe("canTransitionTenantOrderStatus", () => {
+  it("allows only forward operational transitions", () => {
+    expect(canTransitionTenantOrderStatus("Confirmed", "Processing")).toBe(
+      true,
+    );
+    expect(canTransitionTenantOrderStatus("Confirmed", "Shipped")).toBe(true);
+    expect(canTransitionTenantOrderStatus("Processing", "Shipped")).toBe(true);
+    expect(canTransitionTenantOrderStatus("Shipped", "Delivered")).toBe(true);
+  });
+
+  it("allows idempotent retries and rejects backward or terminal transitions", () => {
+    expect(canTransitionTenantOrderStatus("Processing", "Processing")).toBe(
+      true,
+    );
+    expect(canTransitionTenantOrderStatus("Shipped", "Processing")).toBe(false);
+    expect(canTransitionTenantOrderStatus("Delivered", "Shipped")).toBe(false);
+    expect(canTransitionTenantOrderStatus("Cancelled", "Processing")).toBe(
+      false,
+    );
   });
 });

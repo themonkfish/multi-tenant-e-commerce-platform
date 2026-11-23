@@ -30,6 +30,7 @@ import {
   type TenantStatus,
 } from "@/core/domain/host-portal";
 import {
+  canTransitionTenantOrderStatus,
   CustomerAccountSchema,
   CustomerOrderSchema,
   TenantStaffSchema,
@@ -1320,6 +1321,9 @@ export class FilePlatformStore implements PlatformStore {
       );
       if (!order) return null;
       if (order.status === "Cancelled" && input.status !== "Cancelled") {
+        return null;
+      }
+      if (!canTransitionTenantOrderStatus(order.status, input.status)) {
         return null;
       }
       order.status = input.status;

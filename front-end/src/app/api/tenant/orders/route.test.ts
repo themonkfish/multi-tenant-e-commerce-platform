@@ -399,6 +399,42 @@ describe("PATCH /api/tenant/orders recovery", () => {
     });
   });
 
+  it("rejects backward status transitions", async () => {
+    getTenantPortalSession.mockResolvedValue({
+      userId: customerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["orders:read", "orders:write"],
+    });
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      listTenantOrders: vi.fn().mockResolvedValue([
+        {
+          id: orderId,
+          status: "Shipped",
+        },
+      ]),
+    });
+
+    const response = await PATCH(
+      new Request("http://store.localhost:3000/api/tenant/orders", {
+        method: "PATCH",
+        headers: {
+          host: "store.localhost:3000",
+          origin: "http://store.localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ orderId, status: "Processing" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "invalid_status_transition",
+    });
+    expect(createTenantOrderAdapter).not.toHaveBeenCalled();
+  });
+
   it("rejects Delivered when the platform order has not been Shipped", async () => {
     getTenantPortalSession.mockResolvedValue({
       userId: customerId,

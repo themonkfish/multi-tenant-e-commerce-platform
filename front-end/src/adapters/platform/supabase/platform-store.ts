@@ -26,6 +26,7 @@ import {
   type UpdateTenantInput,
 } from "@/core/domain/host-portal";
 import {
+  canTransitionTenantOrderStatus,
   CustomerAccountSchema,
   CustomerOrderSchema,
   TenantStaffPermissionSchema,
@@ -1440,6 +1441,26 @@ export class SupabasePlatformStore implements PlatformStore {
     status: CustomerOrder["status"];
     fulfillment?: CustomerOrder["fulfillment"];
   }): Promise<CustomerOrder | null> {
+    const { data: current, error: currentError } = await this.client
+      .from("platform_customer_orders")
+      .select("status")
+      .eq("tenant_id", input.tenantId)
+      .eq("id", input.orderId)
+      .maybeSingle();
+    if (currentError) {
+      throw new Error(
+        `Could not load customer order status: ${currentError.message}`,
+      );
+    }
+    if (
+      !current ||
+      !canTransitionTenantOrderStatus(
+        current.status as CustomerOrder["status"],
+        input.status,
+      )
+    ) {
+      return null;
+    }
     const { data, error } = await this.client
       .from("platform_customer_orders")
       .update({
