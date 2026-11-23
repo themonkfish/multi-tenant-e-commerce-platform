@@ -609,8 +609,11 @@ Status snapshot as of 2026-11-23:
       handling, and production checkout orchestration.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
-- [ ] Later growth work: CMS, reporting, expanded staff roles, webhooks,
+- [ ] Later growth work: CMS, broader reporting, expanded staff roles, webhooks,
       offline commerce behavior, and theming tools.
+- [x] Tenant order reporting: the Tenant Owner portal shows tenant-scoped order
+      volume, gross sales excluding cancelled orders, paid and COD due counts,
+      refund/cancellation counts, and shipped/delivered fulfillment counts.
 - [x] Product reviews: authenticated Customers with a paid tenant order
       containing the product can submit one tenant-scoped review per product;
       missing or inactive products are rejected, and active storefront product

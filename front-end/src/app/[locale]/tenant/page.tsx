@@ -17,6 +17,7 @@ import { TenantStaffManagement } from "@/features/tenant-auth/tenant-staff-manag
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantOwnerSession } from "@/lib/server/session";
 import { getStripeConfiguration } from "@/lib/server/stripe-payments";
+import { summarizeTenantOrders } from "@/features/tenants/tenant-order-report";
 
 type TenantDashboardPageProps = {
   params: Promise<{ locale: string }>;
@@ -52,12 +53,13 @@ export default async function TenantDashboardPage({
   if (!tenant || !hostRecord) {
     redirect(`/${locale}/tenant/login`);
   }
-  const [settings, restConnection, databaseProvider, storageProvider] =
+  const [settings, restConnection, databaseProvider, storageProvider, orders] =
     await Promise.all([
       store.getTenantStoreSettings(tenant.id, hostId, tenant.name),
       store.getTenantRestConnection(tenant.id, hostId),
       store.getTenantDatabaseProvider(tenant.id, hostId),
       store.getTenantStorageProvider(tenant.id, hostId),
+      store.listTenantOrders(tenant.id),
     ]);
   const databaseConnection = databaseProvider
     ? TenantDatabaseConnectionViewSchema.parse(
@@ -115,6 +117,7 @@ export default async function TenantDashboardPage({
     staffCount: staff.length,
     customDomainCount: tenant.domains.length,
   });
+  const orderReport = summarizeTenantOrders(orders);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
@@ -217,6 +220,79 @@ export default async function TenantDashboardPage({
               </li>
             ))}
           </ul>
+        </section>
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="text-lg font-semibold">
+            {portalT("orderReportTitle")}
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {portalT("orderReportDescription")}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportOrders")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.orderCount}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportGrossSales")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.grossSalesMinor.toLocaleString("en")}{" "}
+                {settings.locale.currency}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">{portalT("reportPaid")}</p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.paidCount}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportCodDue")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.codDueCount}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportRefunded")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.refundedCount}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportCancelled")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.cancelledCount}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportShipped")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.shippedCount}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportDelivered")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.deliveredCount}
+              </p>
+            </article>
+          </div>
         </section>
         <h2 className="pt-4 text-xl font-semibold">{staffT("teamAccess")}</h2>
         <TenantStaffManagement initialStaff={staff} />
