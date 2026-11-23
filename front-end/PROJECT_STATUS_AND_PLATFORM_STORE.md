@@ -400,6 +400,8 @@ Status snapshot as of 2026-11-19:
      newer schemas are rejected with a platform upgrade-required response.
    - Add schema-version checks and upgrade prompts for tenant data providers.
    - Continue credential rotation and connection-validation workflows.
+     Provider save, provider-switch, stale-secret cleanup, test, initialization,
+     upgrade, and removal routes have route-level regression coverage.
 
 4. **P2 — Commerce backend and fulfillment**
    - Added Stripe test/live key support and mode-matched signed webhook
