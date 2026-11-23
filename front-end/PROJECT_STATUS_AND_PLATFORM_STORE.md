@@ -81,6 +81,9 @@ Status snapshot as of 2026-11-23:
   credentials. Catalog writers can upload signature-validated JPEG, PNG, and
   WebP images up to 10 MB; the server generates tenant-scoped object keys and
   proxies uploads to storage.
+- Tenant Owners can also configure Supabase Storage with an encrypted service
+  key. Supabase and S3 adapters share the tenant-scoped key and health-check
+  contract.
 - Baseline security response headers are configured globally for pages and API
   routes. HSTS is enabled only in production.
 - The file platform store has checksummed timestamped backup and guarded restore
@@ -565,6 +568,8 @@ Status snapshot as of 2026-11-23:
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove
       product images; storefront cards and detail pages render saved images.
 - [ ] Add additional storage providers based on the v1 scope.
+      Supabase Storage is implemented alongside S3-compatible storage. GCS,
+      Azure, Cloudinary, OAuth-backed providers, and custom storage remain future work.
 
 #### Commerce experiences
 

@@ -95,3 +95,30 @@ export function assertTenantStorageKey(tenantId: string, key: string): void {
 export function extensionForImageType(contentType: AllowedImageMimeType) {
   return MIME_EXTENSIONS[contentType];
 }
+
+export async function readUploadStream(
+  stream: ReadableStream<Uint8Array>,
+  expectedSize: number,
+): Promise<Buffer> {
+  const reader = stream.getReader();
+  const chunks: Buffer[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_UPLOAD_BYTES || size > expectedSize) {
+        await reader.cancel();
+        throw new Error("Upload stream exceeds the configured size limit");
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (size !== expectedSize) {
+    throw new Error("Upload stream size does not match the request metadata");
+  }
+  return Buffer.concat(chunks, size);
+}

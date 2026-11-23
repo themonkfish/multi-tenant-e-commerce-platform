@@ -20,7 +20,7 @@ import { resolvePublicAddress } from "@/adapters/data/rest/health-check";
 import {
   assertTenantStorageKey,
   extensionForImageType,
-  MAX_UPLOAD_BYTES,
+  readUploadStream,
   validateImageContent,
   validateUploadMeta,
 } from "./upload-validation";
@@ -49,33 +49,6 @@ const publicLookup: LookupFunction = (hostname, _options, callback) => {
     });
 };
 
-async function readUploadStream(
-  stream: ReadableStream<Uint8Array>,
-  expectedSize: number,
-): Promise<Buffer> {
-  const reader = stream.getReader();
-  const chunks: Buffer[] = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_UPLOAD_BYTES || size > expectedSize) {
-        await reader.cancel();
-        throw new Error("Upload exceeded its validated size");
-      }
-      chunks.push(Buffer.from(value));
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  if (size !== expectedSize) {
-    throw new Error("Upload size changed while it was being read");
-  }
-  return Buffer.concat(chunks, size);
-}
-
 export class TenantS3StorageAdapter implements StoragePort {
   readonly capabilities = {
     presignedUploads: false,
@@ -87,7 +60,10 @@ export class TenantS3StorageAdapter implements StoragePort {
   private readonly client: S3Client;
 
   constructor(
-    private readonly config: TenantStorageProviderConfig,
+    private readonly config: Extract<
+      TenantStorageProviderConfig,
+      { type: "s3" }
+    >,
     private readonly tenantId: string,
     credentials: S3Credentials,
   ) {

@@ -17,14 +17,26 @@ export function TenantStorageProviderForm({
 }) {
   const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
-  const [endpoint, setEndpoint] = useState(initialConnection?.endpoint ?? "");
-  const [region, setRegion] = useState(initialConnection?.region ?? "");
+  const [provider, setProvider] = useState<"s3" | "supabase">(
+    initialConnection?.type === "supabase" ? "supabase" : "s3",
+  );
+  const [endpoint, setEndpoint] = useState(
+    initialConnection?.type === "s3" ? (initialConnection.endpoint ?? "") : "",
+  );
+  const [region, setRegion] = useState(
+    initialConnection?.type === "s3" ? initialConnection.region : "",
+  );
   const [bucket, setBucket] = useState(initialConnection?.bucket ?? "");
+  const [projectUrl, setProjectUrl] = useState(
+    initialConnection?.type === "supabase" ? initialConnection.projectUrl : "",
+  );
   const [publicBaseUrl, setPublicBaseUrl] = useState(
-    initialConnection?.publicBaseUrl ?? "",
+    initialConnection?.type === "s3" ? initialConnection.publicBaseUrl : "",
   );
   const [pathStyle, setPathStyle] = useState(
-    initialConnection?.pathStyle ?? false,
+    initialConnection?.type === "s3"
+      ? (initialConnection.pathStyle ?? false)
+      : false,
   );
   const [accessKeyId, setAccessKeyId] = useState("");
   const [secretAccessKey, setSecretAccessKey] = useState("");
@@ -38,17 +50,25 @@ export function TenantStorageProviderForm({
     setError("");
     setNotice("");
     try {
-      const body = {
-        type: "s3",
-        ...(endpoint ? { endpoint } : {}),
-        region,
-        bucket,
-        publicBaseUrl,
-        pathStyle,
-        ...(accessKeyId ? { accessKeyId } : {}),
-        ...(secretAccessKey ? { secretAccessKey } : {}),
-        ...(sessionToken ? { sessionToken } : {}),
-      } satisfies Partial<z.infer<typeof TenantStorageConnectionInputSchema>>;
+      const body =
+        provider === "supabase"
+          ? {
+              type: "supabase",
+              projectUrl,
+              bucket,
+              ...(accessKeyId ? { serviceKey: accessKeyId } : {}),
+            }
+          : ({
+              type: "s3",
+              ...(endpoint ? { endpoint } : {}),
+              region,
+              bucket,
+              publicBaseUrl,
+              pathStyle,
+              ...(accessKeyId ? { accessKeyId } : {}),
+              ...(secretAccessKey ? { secretAccessKey } : {}),
+              ...(sessionToken ? { sessionToken } : {}),
+            } satisfies z.infer<typeof TenantStorageConnectionInputSchema>);
       const response = await fetch("/api/tenant/storage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -161,76 +181,163 @@ export function TenantStorageProviderForm({
       )}
       {connection && (
         <p className="text-sm text-slate-600">
-          {t.rich("configuredBucket", {
-            bucket: connection.bucket,
-            region: connection.region,
-            strong: (chunks) => <strong>{chunks}</strong>,
-          })}
+          {connection.type === "s3"
+            ? t.rich("configuredBucket", {
+                bucket: connection.bucket,
+                region: connection.region,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })
+            : t("configuredSupabaseBucket", {
+                bucket: connection.bucket,
+                projectUrl: connection.projectUrl,
+              })}
         </p>
       )}
       <p className="text-sm text-slate-600">{t("publicAccessHelp")}</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[
-          {
-            label: t("endpointLabel"),
-            value: endpoint,
-            set: setEndpoint,
-            placeholder: "https://s3.example.com",
-            type: "url",
-          },
-          {
-            label: t("regionLabel"),
-            value: region,
-            set: setRegion,
-            placeholder: "ap-south-1",
-            type: "text",
-          },
-          {
-            label: t("bucketLabel"),
-            value: bucket,
-            set: setBucket,
-            placeholder: "tenant-assets",
-            type: "text",
-          },
-          {
-            label: t("publicBaseUrlLabel"),
-            value: publicBaseUrl,
-            set: setPublicBaseUrl,
-            placeholder: "https://cdn.example.com",
-            type: "url",
-          },
-        ].map((field) => (
-          <label
-            className="space-y-1 text-sm font-medium text-slate-700"
-            key={field.label}
-          >
-            {field.label}
+      <label className="block max-w-xs space-y-1 text-sm font-medium text-slate-700">
+        {t("providerLabel")}
+        <select
+          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          disabled={busy}
+          value={provider}
+          onChange={(event) =>
+            setProvider(event.target.value === "supabase" ? "supabase" : "s3")
+          }
+        >
+          <option value="s3">{t("providerS3")}</option>
+          <option value="supabase">{t("providerSupabase")}</option>
+        </select>
+      </label>
+      {provider === "supabase" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("projectUrlLabel")}
             <input
               className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
               disabled={busy}
-              onChange={(event) => field.set(event.target.value)}
-              placeholder={field.placeholder}
-              type={field.type}
-              value={field.value}
+              onChange={(event) => setProjectUrl(event.target.value)}
+              placeholder="https://tenant-project.supabase.co"
+              type="url"
+              value={projectUrl}
             />
           </label>
-        ))}
-      </div>
-      <label className="flex items-center gap-2 text-sm text-slate-700">
-        <input
-          checked={pathStyle}
-          disabled={busy}
-          onChange={(event) => setPathStyle(event.target.checked)}
-          type="checkbox"
-        />
-        {t("pathStyleLabel")}
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-sm font-medium text-slate-700">
-          {t("accessKeyIdLabel")}
-          {connection ? ` ${t("keepKeyHint")}` : ""}
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("bucketLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setBucket(event.target.value)}
+              placeholder="tenant-assets"
+              type="text"
+              value={bucket}
+            />
+          </label>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            {
+              label: t("endpointLabel"),
+              value: endpoint,
+              set: setEndpoint,
+              placeholder: "https://s3.example.com",
+              type: "url",
+            },
+            {
+              label: t("regionLabel"),
+              value: region,
+              set: setRegion,
+              placeholder: "ap-south-1",
+              type: "text",
+            },
+            {
+              label: t("bucketLabel"),
+              value: bucket,
+              set: setBucket,
+              placeholder: "tenant-assets",
+              type: "text",
+            },
+            {
+              label: t("publicBaseUrlLabel"),
+              value: publicBaseUrl,
+              set: setPublicBaseUrl,
+              placeholder: "https://cdn.example.com",
+              type: "url",
+            },
+          ].map((field) => (
+            <label
+              className="space-y-1 text-sm font-medium text-slate-700"
+              key={field.label}
+            >
+              {field.label}
+              <input
+                className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+                disabled={busy}
+                onChange={(event) => field.set(event.target.value)}
+                placeholder={field.placeholder}
+                type={field.type}
+                value={field.value}
+              />
+            </label>
+          ))}
+        </div>
+      )}
+      {provider === "s3" && (
+        <>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              checked={pathStyle}
+              disabled={busy}
+              onChange={(event) => setPathStyle(event.target.checked)}
+              type="checkbox"
+            />
+            {t("pathStyleLabel")}
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-sm font-medium text-slate-700">
+              {t("accessKeyIdLabel")}
+              {connection ? ` ${t("keepKeyHint")}` : ""}
+              <input
+                autoComplete="off"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+                disabled={busy}
+                onChange={(event) => setAccessKeyId(event.target.value)}
+                type="password"
+                value={accessKeyId}
+              />
+            </label>
+            <label className="space-y-1 text-sm font-medium text-slate-700">
+              {t("secretAccessKeyLabel")}
+              {connection ? ` ${t("keepKeyHint")}` : ""}
+              <input
+                autoComplete="new-password"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+                disabled={busy}
+                onChange={(event) => setSecretAccessKey(event.target.value)}
+                type="password"
+                value={secretAccessKey}
+              />
+            </label>
+          </div>
+          <label className="block space-y-1 text-sm font-medium text-slate-700">
+            {t("sessionTokenLabel")}
+            <input
+              autoComplete="off"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setSessionToken(event.target.value)}
+              type="password"
+              value={sessionToken}
+            />
+          </label>
+        </>
+      )}
+      {provider === "supabase" && (
+        <label className="block space-y-1 text-sm font-medium text-slate-700">
+          {t("serviceKeyLabel")}
+          {connection?.type === "supabase" ? ` ${t("keepKeyHint")}` : ""}
           <input
-            autoComplete="off"
+            autoComplete="new-password"
             className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
             disabled={busy}
             onChange={(event) => setAccessKeyId(event.target.value)}
@@ -238,30 +345,7 @@ export function TenantStorageProviderForm({
             value={accessKeyId}
           />
         </label>
-        <label className="space-y-1 text-sm font-medium text-slate-700">
-          {t("secretAccessKeyLabel")}
-          {connection ? ` ${t("keepKeyHint")}` : ""}
-          <input
-            autoComplete="new-password"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
-            disabled={busy}
-            onChange={(event) => setSecretAccessKey(event.target.value)}
-            type="password"
-            value={secretAccessKey}
-          />
-        </label>
-      </div>
-      <label className="block space-y-1 text-sm font-medium text-slate-700">
-        {t("sessionTokenLabel")}
-        <input
-          autoComplete="off"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
-          disabled={busy}
-          onChange={(event) => setSessionToken(event.target.value)}
-          type="password"
-          value={sessionToken}
-        />
-      </label>
+      )}
       <div className="flex flex-wrap gap-2">
         <button
           className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"

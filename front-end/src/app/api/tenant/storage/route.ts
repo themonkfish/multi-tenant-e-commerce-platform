@@ -14,15 +14,22 @@ import { getTenantOwnerSession } from "@/lib/server/session";
 
 function storageView(config: TenantStorageProviderConfig | null) {
   if (!config) return null;
-  return TenantStorageConnectionViewSchema.parse({
-    type: config.type,
-    endpoint: config.endpoint,
-    region: config.region,
-    bucket: config.bucket,
-    publicBaseUrl: config.publicBaseUrl,
-    pathStyle: config.pathStyle,
-    credentialsConfigured: true,
-  });
+  return config.type === "supabase"
+    ? TenantStorageConnectionViewSchema.parse({
+        type: "supabase",
+        projectUrl: config.projectUrl,
+        bucket: config.bucket,
+        credentialsConfigured: true,
+      })
+    : TenantStorageConnectionViewSchema.parse({
+        type: "s3",
+        endpoint: config.endpoint,
+        region: config.region,
+        bucket: config.bucket,
+        publicBaseUrl: config.publicBaseUrl,
+        pathStyle: config.pathStyle,
+        credentialsConfigured: true,
+      });
 }
 
 async function isPublicHttpsUrl(value: string): Promise<boolean> {
@@ -73,10 +80,13 @@ export async function PUT(request: Request) {
       { status: 400 },
     );
   }
-  const targets = [
-    ...(parsed.data.endpoint ? [parsed.data.endpoint] : []),
-    parsed.data.publicBaseUrl,
-  ];
+  const targets =
+    parsed.data.type === "supabase"
+      ? [parsed.data.projectUrl]
+      : [
+          ...(parsed.data.endpoint ? [parsed.data.endpoint] : []),
+          parsed.data.publicBaseUrl,
+        ];
   if (!(await Promise.all(targets.map(isPublicHttpsUrl))).every(Boolean)) {
     return NextResponse.json({ error: "unsafe_storage_url" }, { status: 400 });
   }
@@ -87,15 +97,19 @@ export async function PUT(request: Request) {
     session.scope.hostId,
   );
   const suppliedCredentials =
-    parsed.data.accessKeyId && parsed.data.secretAccessKey
-      ? JSON.stringify({
-          accessKeyId: parsed.data.accessKeyId,
-          secretAccessKey: parsed.data.secretAccessKey,
-          ...(parsed.data.sessionToken
-            ? { sessionToken: parsed.data.sessionToken }
-            : {}),
-        })
-      : undefined;
+    parsed.data.type === "supabase"
+      ? parsed.data.serviceKey
+        ? JSON.stringify({ serviceKey: parsed.data.serviceKey })
+        : undefined
+      : parsed.data.accessKeyId && parsed.data.secretAccessKey
+        ? JSON.stringify({
+            accessKeyId: parsed.data.accessKeyId,
+            secretAccessKey: parsed.data.secretAccessKey,
+            ...(parsed.data.sessionToken
+              ? { sessionToken: parsed.data.sessionToken }
+              : {}),
+          })
+        : undefined;
   if (!suppliedCredentials && !existing) {
     return NextResponse.json(
       { error: "storage_credentials_required" },
@@ -120,7 +134,10 @@ export async function PUT(request: Request) {
   const credentialsRef = suppliedCredentials
     ? await vault.putSecret({
         tenantId: session.scope.id,
-        name: "tenant-s3-storage-credentials",
+        name:
+          parsed.data.type === "supabase"
+            ? "tenant-supabase-storage-service-key"
+            : "tenant-s3-storage-credentials",
         value: suppliedCredentials,
       })
     : existing?.credentialsRef;
@@ -130,15 +147,24 @@ export async function PUT(request: Request) {
       { status: 400 },
     );
   }
-  const config = TenantStorageProviderConfigSchema.parse({
-    type: "s3",
-    endpoint: parsed.data.endpoint,
-    region: parsed.data.region,
-    bucket: parsed.data.bucket,
-    publicBaseUrl: parsed.data.publicBaseUrl,
-    pathStyle: parsed.data.pathStyle,
-    credentialsRef,
-  });
+  const config = TenantStorageProviderConfigSchema.parse(
+    parsed.data.type === "supabase"
+      ? {
+          type: "supabase",
+          projectUrl: parsed.data.projectUrl,
+          bucket: parsed.data.bucket,
+          credentialsRef,
+        }
+      : {
+          type: "s3",
+          endpoint: parsed.data.endpoint,
+          region: parsed.data.region,
+          bucket: parsed.data.bucket,
+          publicBaseUrl: parsed.data.publicBaseUrl,
+          pathStyle: parsed.data.pathStyle,
+          credentialsRef,
+        },
+  );
   const now = new Date().toISOString();
   let saved: TenantStorageProviderConfig | null;
   try {

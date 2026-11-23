@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { TenantS3StorageAdapter } from "./s3/tenant-s3-storage";
+import { TenantSupabaseStorageAdapter } from "./supabase/tenant-supabase-storage";
 import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 
 const S3CredentialsSchema = z
@@ -11,10 +12,14 @@ const S3CredentialsSchema = z
   })
   .strict();
 
+const SupabaseStorageCredentialsSchema = z
+  .object({ serviceKey: z.string().min(1) })
+  .strict();
+
 export async function createTenantStorageAdapter(
   tenantId: string,
   hostId: string,
-): Promise<TenantS3StorageAdapter> {
+): Promise<TenantS3StorageAdapter | TenantSupabaseStorageAdapter> {
   const store = getPlatformStore();
   const [hosts, tenants, config] = await Promise.all([
     store.listHosts(),
@@ -36,8 +41,13 @@ export async function createTenantStorageAdapter(
   if (!config) {
     throw new Error("Tenant storage provider is not configured");
   }
-  const credentials = S3CredentialsSchema.parse(
-    JSON.parse(await getSecretVault().getSecret(config.credentialsRef)),
+  const secret = JSON.parse(
+    await getSecretVault().getSecret(config.credentialsRef),
   );
+  if (config.type === "supabase") {
+    const credentials = SupabaseStorageCredentialsSchema.parse(secret);
+    return new TenantSupabaseStorageAdapter(config, tenantId, credentials);
+  }
+  const credentials = S3CredentialsSchema.parse(secret);
   return new TenantS3StorageAdapter(config, tenantId, credentials);
 }

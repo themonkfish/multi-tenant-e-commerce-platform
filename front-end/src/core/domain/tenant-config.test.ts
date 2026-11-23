@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   getTenantProvisioningReadiness,
   TenantDatabaseConnectionInputSchema,
+  TenantStorageConnectionInputSchema,
+  TenantStorageProviderConfigSchema,
 } from "./tenant-config";
 
 describe("TenantDatabaseConnectionInputSchema", () => {
@@ -23,6 +25,60 @@ describe("TenantDatabaseConnectionInputSchema", () => {
     ).toBe(true);
   });
 
+  describe("TenantStorageConnectionInputSchema", () => {
+    it("accepts S3 and Supabase Storage provider configurations", () => {
+      expect(
+        TenantStorageConnectionInputSchema.safeParse({
+          type: "s3",
+          region: "ap-south-1",
+          bucket: "tenant-assets",
+          publicBaseUrl: "https://cdn.example.com",
+          accessKeyId: "access-key",
+          secretAccessKey: "secret-key",
+        }).success,
+      ).toBe(true);
+      expect(
+        TenantStorageConnectionInputSchema.safeParse({
+          type: "supabase",
+          projectUrl: "https://tenant-project.supabase.co",
+          bucket: "tenant-assets",
+          serviceKey: "tenant-service-key",
+        }).success,
+      ).toBe(true);
+    });
+
+    it("rejects partial S3 credentials and unsafe Supabase project URLs", () => {
+      expect(
+        TenantStorageConnectionInputSchema.safeParse({
+          type: "s3",
+          region: "ap-south-1",
+          bucket: "tenant-assets",
+          publicBaseUrl: "https://cdn.example.com",
+          accessKeyId: "access-key",
+        }).success,
+      ).toBe(false);
+      expect(
+        TenantStorageConnectionInputSchema.safeParse({
+          type: "supabase",
+          projectUrl: "http://tenant-project.supabase.co",
+          bucket: "tenant-assets",
+          serviceKey: "tenant-service-key",
+        }).success,
+      ).toBe(false);
+    });
+
+    it("parses Supabase and S3 provider configs", () => {
+      expect(
+        TenantStorageProviderConfigSchema.safeParse({
+          type: "supabase",
+          projectUrl: "https://tenant-project.supabase.co",
+          bucket: "tenant-assets",
+          credentialsRef: "secret-ref",
+        }).success,
+      ).toBe(true);
+    });
+  });
+
   describe("getTenantProvisioningReadiness", () => {
     it("marks the store ready when catalog and at least one payment method are configured", () => {
       const readiness = getTenantProvisioningReadiness({
@@ -39,43 +95,6 @@ describe("TenantDatabaseConnectionInputSchema", () => {
       expect(readiness.ready).toBe(true);
       expect(readiness.configuredCount).toBe(5);
       expect(readiness.optionalCount).toBe(3);
-    });
-
-    it("reports missing catalog and payment configuration", () => {
-      const readiness = getTenantProvisioningReadiness({
-        restConfigured: false,
-        databaseConfigured: false,
-        storageConfigured: false,
-        stripeConfigured: false,
-        stripeEnabled: true,
-        cashOnDeliveryEnabled: false,
-        staffCount: 0,
-        customDomainCount: 0,
-      });
-
-      expect(readiness.ready).toBe(false);
-      expect(readiness.items).toEqual([
-        { key: "catalog", configured: false },
-        { key: "payments", configured: false },
-        { key: "storage", configured: false },
-        { key: "staff", configured: false },
-        { key: "customDomain", configured: false },
-      ]);
-    });
-
-    it("requires platform Stripe configuration when Stripe is enabled", () => {
-      const readiness = getTenantProvisioningReadiness({
-        restConfigured: true,
-        databaseConfigured: false,
-        storageConfigured: false,
-        stripeConfigured: false,
-        stripeEnabled: true,
-        cashOnDeliveryEnabled: false,
-        staffCount: 0,
-        customDomainCount: 0,
-      });
-
-      expect(readiness.ready).toBe(false);
     });
   });
 

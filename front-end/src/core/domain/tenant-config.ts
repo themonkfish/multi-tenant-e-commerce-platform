@@ -252,14 +252,24 @@ const TenantStorageBaseSchema = z.object({
   pathStyle: z.boolean().default(false),
 });
 
-export const TenantStorageProviderConfigSchema = TenantStorageBaseSchema.extend(
-  {
-    credentialsRef: SecretRefSchema,
-  },
-);
-
-export const TenantStorageConnectionInputSchema =
+export const TenantStorageProviderConfigSchema = z.discriminatedUnion("type", [
   TenantStorageBaseSchema.extend({
+    type: z.literal("s3"),
+    credentialsRef: SecretRefSchema,
+  }),
+  z.object({
+    type: z.literal("supabase"),
+    projectUrl: z
+      .url({ protocol: /^https$/ })
+      .refine(isTenantSupabaseProjectUrl),
+    bucket: S3BucketNameSchema,
+    credentialsRef: SecretRefSchema,
+  }),
+]);
+
+export const TenantStorageConnectionInputSchema = z.discriminatedUnion("type", [
+  TenantStorageBaseSchema.extend({
+    type: z.literal("s3"),
     accessKeyId: z
       .string()
       .min(1)
@@ -294,11 +304,34 @@ export const TenantStorageConnectionInputSchema =
         message: "A session token requires access key credentials",
       });
     }
-  });
+  }),
+  z.object({
+    type: z.literal("supabase"),
+    projectUrl: z
+      .url({ protocol: /^https$/ })
+      .refine(isTenantSupabaseProjectUrl),
+    bucket: S3BucketNameSchema,
+    serviceKey: z
+      .string()
+      .min(1)
+      .max(4096)
+      .refine((value) => !/[\x00-\x1f\x7f]/.test(value))
+      .optional(),
+  }),
+]);
 
-export const TenantStorageConnectionViewSchema = TenantStorageBaseSchema.extend(
-  { credentialsConfigured: z.boolean() },
-);
+export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
+  TenantStorageBaseSchema.extend({
+    type: z.literal("s3"),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("supabase"),
+    projectUrl: z.string(),
+    bucket: z.string(),
+    credentialsConfigured: z.boolean(),
+  }),
+]);
 
 export const TenantConfigSchema = z.object({
   id: z.string().min(1),
