@@ -7,7 +7,7 @@ automatically implemented just because they are listed there.
 
 ## Current status
 
-Status snapshot as of 2026-11-19:
+Status snapshot as of 2026-11-23:
 
 - The frontend platform bootstrap, Super Admin onboarding, host/tenant
   lifecycle management, scoped portal auth flows, and tenant-scoped cache
@@ -119,6 +119,19 @@ Status snapshot as of 2026-11-19:
 - Locale switching is now consistently rendered inside the active
   `next-intl` client provider, allowing localized pages and footers to start
   without missing-intl-context errors.
+- Carrier webhook reconciliation rejects tracking-number mismatches and
+  Delivered events that arrive before an order is shipped. Monotonic
+  Processing/Shipped/Delivered transitions, replay handling, and signature
+  rejection remain covered by focused route tests.
+- P1 scope-hardening regression coverage now rejects mismatched domains,
+  suspended hosts and tenants, removed tenant owners and customers, and disabled
+  tenant staff in live session revalidation tests.
+- The Tenant Owner dashboard includes a localized provisioning-readiness
+  summary for catalog, payment, storage, staff, and custom-domain setup.
+- Tenant database-provider route coverage now includes credential replacement,
+  provider switching, missing credentials, stale-secret cleanup, cleanup
+  failures, connection testing, schema initialization, upgrade confirmation,
+  and provider removal.
 
 ### Completed
 
@@ -388,18 +401,18 @@ Status snapshot as of 2026-11-19:
    - Setup verification, theme/legal settings, first-host guidance, and
      Resend-backed Host/Tenant invitation emails are implemented.
      Reserved-domain validation is centralized.
-     - The Tenant Owner dashboard includes a localized provisioning-readiness
-       summary for catalog, payment, storage, staff, and custom-domain setup.
-   - Extend the Tenant Owner portal with storage, payment, catalog, and staff
-     configuration controls.
+   - The Tenant Owner dashboard includes a localized provisioning-readiness
+     summary for catalog, payment, storage, staff, and custom-domain setup.
+   - Storage, payment, catalog, and staff configuration controls are available;
+     provisioning readiness is shown in the Tenant Owner portal.
 
 3. **P1 — Provider data layer**
    - Completed: tenant Supabase and MongoDB adapters, reference schemas, and
      provider testing/initialization flows.
    - Older tenant database schemas now require an explicit upgrade confirmation;
      newer schemas are rejected with a platform upgrade-required response.
-   - Add schema-version checks and upgrade prompts for tenant data providers.
-   - Continue credential rotation and connection-validation workflows.
+   - Schema-version checks and upgrade prompts are implemented for tenant data
+     providers, with credential replacement and connection-validation workflows.
      Provider save, provider-switch, stale-secret cleanup, test, initialization,
      upgrade, and removal routes have route-level regression coverage.
 
@@ -534,6 +547,7 @@ Status snapshot as of 2026-11-19:
       events, rejects invalid signatures and transitions, and provides idempotent
       repeat-event handling. Carrier events are reconciled monotonically so
       older Processing events cannot regress an already Shipped or Delivered order.
+      Tracking-number mismatches and premature Delivered events are rejected.
 - [x] Show Customers an accessible order-progress timeline from confirmation
       through delivery in English, French, and Hindi; cancelled orders are
       displayed as a separately localized terminal state.

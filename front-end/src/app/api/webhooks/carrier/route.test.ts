@@ -181,4 +181,69 @@ describe("POST /api/webhooks/carrier", () => {
     expect(await response.json()).toEqual({ received: true });
     expect(createTenantOrderAdapter).not.toHaveBeenCalled();
   });
+
+  it("rejects a tracking-number mismatch for an existing shipment", async () => {
+    vi.stubEnv("CARRIER_WEBHOOK_SECRET", secret);
+    getPlatformStore.mockReturnValue({
+      listTenantOrders: vi.fn().mockResolvedValue([
+        {
+          id: orderId,
+          tenantId,
+          status: "Shipped",
+          fulfillment: {
+            carrier: "FedEx",
+            trackingNumber: "TRACK-EXPECTED",
+          },
+        },
+      ]),
+    });
+
+    const response = await POST(
+      carrierRequest({
+        eventId: "evt-wrong-tracking",
+        tenantId,
+        orderId,
+        trackingNumber: "TRACK-OTHER",
+        carrier: "FedEx",
+        status: "delivered",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "tracking_number_mismatch",
+    });
+    expect(createTenantOrderAdapter).not.toHaveBeenCalled();
+  });
+
+  it("rejects Delivered events unless the order is already shipped or delivered", async () => {
+    vi.stubEnv("CARRIER_WEBHOOK_SECRET", secret);
+    getPlatformStore.mockReturnValue({
+      listTenantOrders: vi.fn().mockResolvedValue([
+        {
+          id: orderId,
+          tenantId,
+          status: "Confirmed",
+          fulfillment: undefined,
+        },
+      ]),
+    });
+
+    const response = await POST(
+      carrierRequest({
+        eventId: "evt-delivered-too-early",
+        tenantId,
+        orderId,
+        trackingNumber: "TRACK-123",
+        carrier: "FedEx",
+        status: "delivered",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "invalid_status_transition",
+    });
+    expect(createTenantOrderAdapter).not.toHaveBeenCalled();
+  });
 });

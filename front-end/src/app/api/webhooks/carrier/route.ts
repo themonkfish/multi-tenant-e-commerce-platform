@@ -116,6 +116,15 @@ export async function POST(request: Request) {
   if (!platformOrder) {
     return NextResponse.json({ error: "order_not_found" }, { status: 404 });
   }
+  if (
+    platformOrder.fulfillment?.trackingNumber &&
+    platformOrder.fulfillment.trackingNumber !== parsed.data.trackingNumber
+  ) {
+    return NextResponse.json(
+      { error: "tracking_number_mismatch" },
+      { status: 409 },
+    );
+  }
   const fulfillment = {
     carrier: parsed.data.carrier ?? platformOrder.fulfillment?.carrier,
     trackingNumber:
@@ -149,17 +158,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  const hosts = await store.listHosts();
-  const tenantRecords = await Promise.all(
-    hosts.map((host) => store.listTenantsForHost(host.id)),
-  );
-  const hostId =
-    tenantRecords.flat().find((tenant) => tenant.id === parsed.data.tenantId)
-      ?.hostId ?? "";
-  if (!hostId) {
-    return NextResponse.json({ error: "tenant_not_found" }, { status: 404 });
-  }
-
   if (
     normalizedStatus === "Delivered" &&
     platformOrder.status !== "Shipped" &&
@@ -169,6 +167,17 @@ export async function POST(request: Request) {
       { error: "invalid_status_transition" },
       { status: 409 },
     );
+  }
+
+  const hosts = await store.listHosts();
+  const tenantRecords = await Promise.all(
+    hosts.map((host) => store.listTenantsForHost(host.id)),
+  );
+  const hostId =
+    tenantRecords.flat().find((tenant) => tenant.id === parsed.data.tenantId)
+      ?.hostId ?? "";
+  if (!hostId) {
+    return NextResponse.json({ error: "tenant_not_found" }, { status: 404 });
   }
 
   try {
