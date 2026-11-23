@@ -479,9 +479,13 @@ Status snapshot as of 2026-11-23:
 
 #### Foundation and tenancy
 
-- [ ] Choose a separate host/tenant configuration persistence owner if these
-      records need to move outside the platform store; lookup ports currently
-      use the platform store as their source of truth.
+- [x] Configuration ownership: `PlatformStore` remains the source of truth for
+      hosts, tenants, plans, limits, domains, settings, users, audit events,
+      and secret references. Runtime domain lookup continues to validate host
+      and tenant scope. Tenant external backends/storage/payment providers remain
+      separate infrastructure with secret references stored in the platform
+      store. Host or provider moves require a reviewed backup/migration/cutover
+      procedure and are not implicit runtime switches.
 - [x] Apply trusted domain scopes across localized pages and authenticated
       platform, host, and tenant requests.
 - [x] Add tenant-aware cache invalidation and prevent cross-tenant cache reuse
@@ -637,8 +641,10 @@ Status snapshot as of 2026-11-23:
 - [x] Customer self-service account deletion: authenticated Customers can
       delete their platform account and Customer-owned order history; external
       provider or carrier records require separate deletion workflows.
-- [ ] Decide whether tenants may move between hosts or data providers, how
-      migrations work, and which compliance regions/data residency are required.
+- [ ] Tenant host/provider migration tooling: the policy requires reviewed
+      backup/export, validation, cutover, rollback, and regional approval, but
+      automated migration jobs and a platform data export/import command remain
+      future implementation work.
 
 ## Platform store options: implementation reality
 
@@ -904,6 +910,15 @@ switching production to the local file store.
 - Re-running `/setup` is intentionally not supported once the store is
   initialized. There is not yet a Super Admin recovery/reset CLI. Do not delete
   the platform state as a substitute for an account recovery process.
+- Host or tenant provider moves are not automatic. Require an explicit,
+  reviewed migration/export plan, a protected pre-migration backup, secret
+  rotation as needed, schema/data validation, cutover approval, and rollback
+  coverage. Tenant host moves must preserve parent-host scope and domain ownership.
+- Select an approved deployment region and keep platform/audit records and
+  backups in that region unless a compliance review approves transfer. Design
+  GDPR/DPDP export/deletion, PCI SAQ-A boundaries, tax retention, and provider
+  residency controls for the selected region; do not imply that the application
+  provides legal or tax compliance by configuration alone.
 - Rotating `PLATFORM_SECRET_KEY` without re-encrypting stored secrets can make
   them undecryptable. Plan a proper key rotation/migration before changing it.
 

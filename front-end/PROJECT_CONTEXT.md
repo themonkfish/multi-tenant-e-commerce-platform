@@ -316,6 +316,30 @@ NEXT_PUBLIC_PLATFORM_SUPABASE_ANON_KEY=
 - **Performance:** `middleware.ts` resolves host/tenant on every request, so do **not** query Supabase each time. Cache domain → host/tenant lookups (Edge Config/KV or Next.js cache with tag revalidation) and invalidate on change.
 - **Migrations:** keep platform schema in `supabase/migrations/` (versioned, reviewed). Run them in CI/CD, not from the browser.
 
+**Configuration ownership decision**
+
+- `PlatformStore` remains the source of truth for hosts, tenants, parent-host
+  relationships, plans and limits, domains, settings, users, audit events, and
+  encrypted secret references.
+- Tenant external backends, storage buckets, and payment accounts remain tenant
+  infrastructure. Their connection configuration and secret references remain
+  in `PlatformStore`; raw tenant credentials never belong in source control or
+  browser-visible configuration.
+- Do not separate host/tenant configuration lookup into a second store unless
+  a reviewed adapter and migration prove parity. Runtime domain lookups must
+  continue to validate the tenant, parent host, and active status.
+- Production configuration is deployment-scoped: the platform operator chooses
+  a dedicated project in each environment. Moving data or credentials between
+  environments is a protected migration, not an implicit provider switch.
+- Tenant host moves and data-provider moves require an explicit operator
+  procedure, a pre-migration backup/export, authorization, schema/data
+  validation, cutover approval, and rollback coverage. Partial or silent moves
+  are unsupported.
+- Store and back up platform records only in the selected deployment region.
+  Cross-region transfer requires compliance approval. GDPR/DPDP, PCI SAQ-A,
+  tax, and local retention duties apply to the region selected for the
+  deployment and any connected provider.
+
 ### 6.1 Host Dashboard (`/host`)
 
 _Scope: only tenants where `tenant.hostId === currentHost.id`._
@@ -801,10 +825,11 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 ## 16. Open Questions (decide before building the related area)
 
 - Do tenant staff dashboards use the user's JWT + RLS or the server service role? (default: server layer with scope guards)
-- Which `PlatformStore` is the production default (SQL vs KV)? Is SSO/OIDC required for Super Admin login?
-- Host and tenant domain lookups currently use `PlatformStore`; should runtime
-  configuration be separated from platform-owned records, and who would own
-  that store?
+- `PlatformStore` production default is the dedicated Supabase project (not KV).
+  Is SSO/OIDC required for Super Admin login?
+- Host and tenant domain lookups use `PlatformStore` as the source of truth.
+  Keep this as the configuration owner; do not introduce a separate runtime
+  store until a reviewed migration provides parity and revalidation.
 - Does the Super Admin bill hosts, and do hosts bill their tenants (two-level billing)?
 - Can a host fully white-label (own domain, logo, emails) or only brand its tenants?
 - Can a tenant ever move between hosts?
@@ -813,7 +838,10 @@ Tenant-specific values (backend URL, storage, gateways) are **configured in the 
 - Per-tenant storage quotas: enforced by the platform or left to the provider?
 - Default tenancy mode for Supabase/MongoDB (dedicated project/DB per tenant vs shared with `tenant_id`)?
 - Should Supabase Auth be usable for customer login, or keep auth provider-independent?
-- Can tenants switch data provider later, and is a data migration tool needed?
+- Tenants may not switch hosts or data providers implicitly. A move requires
+  a reviewed export/import or provider-migration run, a backup, an explicit
+  confirmation, and a rollback plan. Secrets and tenant data must not be copied
+  without authorization and data-residency approval.
 - Will the Super Admin or hosts provide a **reference backend** tenants can deploy, or only the API contract?
 - Multi-vendor marketplace needed later (many sellers per tenant)?
 - Required compliance regions (GDPR, India DPDP, PCI SAQ-A)?

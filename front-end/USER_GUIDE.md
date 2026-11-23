@@ -386,6 +386,12 @@ Before launch:
 
 Applying migrations and deploying the platform do not migrate records from a
 local file store. There is no built-in platform data export/import tool.
+Platform host/tenant configuration remains owned by `PlatformStore`; tenant
+backends, storage, and payment providers remain separate infrastructure.
+Moving a tenant between hosts or providers requires an explicit reviewed
+export/migration, backup, schema/data validation, cutover approval, and rollback
+plan. Select an approved data region before launch and keep backups and audit
+records within it unless compliance review approves transfer.
 
 ## Current limitations
 
