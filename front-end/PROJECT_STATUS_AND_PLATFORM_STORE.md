@@ -128,6 +128,9 @@ Status snapshot as of 2026-11-23:
 - Fully refunded Stripe orders reconcile inventory, discount commitments, the
   Tenant backend snapshot, platform order status, and audit events. Refund
   replay remains safe after partial cleanup.
+- Customer order sync retries now cover paid card orders and accepted
+  cash-on-delivery orders. Pending or otherwise unconfirmed payments remain
+  blocked from Tenant delivery.
 - Order status reconciliation is monotonic across Tenant routes and platform
   stores: retries are idempotent, backward transitions are rejected, and
   cancelled/delivered terminal states cannot regress.

@@ -29,7 +29,13 @@ export async function POST(request: Request, { params }: SyncOrderRouteProps) {
   if (!order) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (order.paymentStatus !== "paid") {
+  if (
+    order.paymentStatus !== "paid" &&
+    !(
+      order.paymentMethod === "cash_on_delivery" &&
+      order.paymentStatus === "cod_due"
+    )
+  ) {
     return NextResponse.json({ error: "payment_required" }, { status: 409 });
   }
   if (order.backendSyncStatus === "synced") {
