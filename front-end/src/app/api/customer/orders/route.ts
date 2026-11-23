@@ -268,6 +268,8 @@ export async function POST(request: Request) {
         (item, index) =>
           item.productId === parsed.data.items[index].productId &&
           item.quantity === parsed.data.items[index].quantity &&
+          (parsed.data.items[index].expectedUnitPrice === undefined ||
+            item.unitPrice === parsed.data.items[index].expectedUnitPrice) &&
           sameVariantSelections(
             item.variantSelections,
             parsed.data.items[index].variantSelections,
@@ -711,6 +713,8 @@ export async function POST(request: Request) {
         (item, index) =>
           item.productId === parsed.data.items[index].productId &&
           item.quantity === parsed.data.items[index].quantity &&
+          (parsed.data.items[index].expectedUnitPrice === undefined ||
+            item.unitPrice === parsed.data.items[index].expectedUnitPrice) &&
           sameVariantSelections(
             item.variantSelections,
             parsed.data.items[index].variantSelections,

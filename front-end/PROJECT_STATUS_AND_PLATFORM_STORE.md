@@ -119,6 +119,9 @@ Status snapshot as of 2026-11-23:
 - Locale switching is now consistently rendered inside the active
   `next-intl` client provider, allowing localized pages and footers to start
   without missing-intl-context errors.
+- Checkout idempotency replays now compare persisted cart unit prices and
+  expected client prices, preventing a reused order key from accepting stale
+  or changed checkout pricing.
 - Order status reconciliation is monotonic across Tenant routes and platform
   stores: retries are idempotent, backward transitions are rejected, and
   cancelled/delivered terminal states cannot regress.

@@ -732,6 +732,54 @@ describe("POST /api/customer/orders Stripe checkout", () => {
     expect(createTenantCatalogAdapter).not.toHaveBeenCalled();
   });
 
+  it("rejects reuse of an idempotency key with stale expected unit prices", async () => {
+    getCustomerSession.mockResolvedValue({
+      userId: customerId,
+      role: "customer",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["customer:orders:read"],
+    });
+    getPlatformStore.mockReturnValue({
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      getTenantStoreSettings: vi.fn().mockResolvedValue({
+        payments: { stripe: true, cashOnDelivery: true },
+      }),
+      getCustomerOrder: vi.fn().mockResolvedValue(
+        makeOrder({
+          items: [
+            {
+              productId: product.id,
+              title: product.title,
+              slug: product.slug,
+              quantity: 1,
+              unitPrice: 1250,
+              currency: "USD",
+            },
+          ],
+          total: 1250,
+          subtotal: 1250,
+          itemCount: 1,
+        }),
+      ),
+    });
+
+    const response = await POST(
+      checkoutRequest([
+        {
+          productId: product.id,
+          quantity: 1,
+          expectedUnitPrice: 1200,
+        },
+      ]),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "idempotency_key_conflict",
+    });
+    expect(createTenantCatalogAdapter).not.toHaveBeenCalled();
+  });
+
   it("creates and syncs an unpaid INR cash-on-delivery order without Stripe", async () => {
     const codProduct = {
       ...product,
