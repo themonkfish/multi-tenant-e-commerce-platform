@@ -5,6 +5,7 @@ import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantOwnerSession } from "@/lib/server/session";
+import { invalidateTenantSettingsCache } from "@/lib/server/tenant-cache";
 
 export async function GET() {
   const session = await getTenantOwnerSession();
@@ -89,5 +90,6 @@ export async function PUT(request: Request) {
   if (!settings) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+  invalidateTenantSettingsCache(session.scope.hostId, session.scope.id);
   return NextResponse.json({ settings });
 }

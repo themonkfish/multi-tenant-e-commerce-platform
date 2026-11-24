@@ -653,10 +653,12 @@ Status snapshot as of 2026-11-23:
 #### Production decisions and hardening
 
 - [ ] Choose background jobs, email delivery, custom-domain/SSL strategy,
-      tenant-aware caching, and customer identity model.
+      and customer identity model.
       Inngest retrying email and carrier-event jobs are implemented. Vercel
-      Domains API attachment/removal and readiness status are implemented,
-      while wildcard/apex policy and customer identity decisions remain.
+      Domains API attachment/removal and readiness status are implemented.
+      Tenant-aware catalog/settings cache keys and tag invalidation are
+      implemented, including host, tenant, locale, and operation isolation.
+      Wildcard/apex policy and customer identity decisions remain.
 - [x] Define inventory reservation and payment-failure behavior. Reservations
       occur at checkout; failed/expired card payments release them, and COD
       orders consume stock when placed.

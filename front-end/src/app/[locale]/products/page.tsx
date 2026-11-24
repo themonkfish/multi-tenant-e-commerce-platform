@@ -10,6 +10,7 @@ import {
 } from "@/features/storefront/cart-button";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
+import { cachedTenantCatalogRead, cachedTenantSettingsRead } from "@/lib/server/tenant-cache";
 
 type CataloguePageProps = {
   params: Promise<{ locale: string }>;
@@ -38,11 +39,17 @@ export default async function TenantProductCatalogPage({
     notFound();
   }
 
-  const settings = await getPlatformStore().getTenantStoreSettings(
-    requestScope.tenant.id,
+  const settings = await cachedTenantSettingsRead(
     requestScope.host.id,
-    requestScope.tenant.name,
-  );
+    requestScope.tenant.id,
+    locale,
+    () =>
+      getPlatformStore().getTenantStoreSettings(
+        requestScope.tenant.id,
+        requestScope.host.id,
+        requestScope.tenant.name,
+      ),
+  )();
 
   let products: Array<{
     id: string;
@@ -70,25 +77,39 @@ export default async function TenantProductCatalogPage({
       requestScope.tenant.id,
       requestScope.host.id,
     );
-    let result = await catalog.listProducts({
-      tenantId: requestScope.tenant.id,
-      page,
-      limit: 24,
-      status: "active",
-      ...(search ? { search } : {}),
-      ...(category ? { category } : {}),
-    });
+    let result = await cachedTenantCatalogRead(
+      requestScope.host.id,
+      requestScope.tenant.id,
+      locale,
+      `catalog-list:${page}:${search}:${category}`,
+      () =>
+        catalog.listProducts({
+          tenantId: requestScope.tenant.id,
+          page,
+          limit: 24,
+          status: "active",
+          ...(search ? { search } : {}),
+          ...(category ? { category } : {}),
+        }),
+    )();
     pageCount = Math.max(1, Math.ceil(result.meta.total / result.meta.limit));
     if (page > pageCount) {
       currentPage = pageCount;
-      result = await catalog.listProducts({
-        tenantId: requestScope.tenant.id,
-        page: currentPage,
-        limit: 24,
-        status: "active",
-        ...(search ? { search } : {}),
-        ...(category ? { category } : {}),
-      });
+      result = await cachedTenantCatalogRead(
+        requestScope.host.id,
+        requestScope.tenant.id,
+        locale,
+        `catalog-list:${currentPage}:${search}:${category}`,
+        () =>
+          catalog.listProducts({
+            tenantId: requestScope.tenant.id,
+            page: currentPage,
+            limit: 24,
+            status: "active",
+            ...(search ? { search } : {}),
+            ...(category ? { category } : {}),
+          }),
+      )();
     }
     products = result.data.filter((product) => product.status === "active");
     total = result.meta.total;

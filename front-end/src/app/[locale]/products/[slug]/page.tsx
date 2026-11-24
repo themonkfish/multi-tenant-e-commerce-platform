@@ -11,6 +11,7 @@ import {
 import { ProductReviews } from "@/features/storefront/product-reviews";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
+import { cachedTenantCatalogRead, cachedTenantSettingsRead } from "@/lib/server/tenant-cache";
 
 type ProductDetailPageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -27,11 +28,17 @@ export default async function TenantProductDetailPage({
     notFound();
   }
 
-  const settings = await getPlatformStore().getTenantStoreSettings(
-    requestScope.tenant.id,
+  const settings = await cachedTenantSettingsRead(
     requestScope.host.id,
-    requestScope.tenant.name,
-  );
+    requestScope.tenant.id,
+    locale,
+    () =>
+      getPlatformStore().getTenantStoreSettings(
+        requestScope.tenant.id,
+        requestScope.host.id,
+        requestScope.tenant.name,
+      ),
+  )();
 
   let product: {
     id: string;
@@ -56,11 +63,18 @@ export default async function TenantProductDetailPage({
       requestScope.tenant.id,
       requestScope.host.id,
     );
-    const result = await catalog.listProducts({
-      tenantId: requestScope.tenant.id,
-      page: 1,
-      limit: 24,
-    });
+    const result = await cachedTenantCatalogRead(
+      requestScope.host.id,
+      requestScope.tenant.id,
+      locale,
+      `product-detail:${slug}`,
+      () =>
+        catalog.listProducts({
+          tenantId: requestScope.tenant.id,
+          page: 1,
+          limit: 24,
+        }),
+    )();
     product =
       result.data.find(
         (candidate) => candidate.slug === slug && candidate.status === "active",

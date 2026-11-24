@@ -11,6 +11,7 @@ import {
   validateTenantUploadedImageUrl,
 } from "@/lib/server/product-images";
 import { TenantDataBackendError } from "@/core/ports/data";
+import { invalidateTenantCatalogCache } from "@/lib/server/tenant-cache";
 
 function backendError(error: unknown) {
   if (error instanceof TenantDataBackendError) {
@@ -185,6 +186,7 @@ export async function POST(request: Request) {
       ...parsed.data,
       tenantId: session.scope.id,
     });
+    invalidateTenantCatalogCache(session.scope.hostId, session.scope.id);
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {
     if (

@@ -11,6 +11,7 @@ import {
   getTenantUploadedImageKey,
   validateTenantUploadedImageUrl,
 } from "@/lib/server/product-images";
+import { invalidateTenantCatalogCache } from "@/lib/server/tenant-cache";
 
 type ProductRouteContext = {
   params: Promise<{ productId: string }>;
@@ -161,6 +162,7 @@ export async function PATCH(request: Request, context: ProductRouteContext) {
       productId,
       parsed.data,
     );
+    invalidateTenantCatalogCache(session.scope.hostId, session.scope.id);
     const oldKey =
       existing.imageUrl &&
       getTenantUploadedImageKey(session.scope.id, existing.imageUrl);
@@ -229,6 +231,7 @@ export async function DELETE(request: Request, context: ProductRouteContext) {
     );
     const existing = await catalog.getProduct(session.scope.id, productId);
     await catalog.deleteProduct(session.scope.id, productId);
+    invalidateTenantCatalogCache(session.scope.hostId, session.scope.id);
     if (
       existing.imageUrl &&
       getTenantUploadedImageKey(session.scope.id, existing.imageUrl)

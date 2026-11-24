@@ -12,6 +12,7 @@ import {
 } from "@/features/storefront/cart-button";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getRequestDomainScope } from "@/lib/server/request-scope";
+import { cachedTenantCatalogRead, cachedTenantSettingsRead } from "@/lib/server/tenant-cache";
 
 type HomePageProps = {
   params: Promise<{ locale: string }>;
@@ -27,11 +28,17 @@ export default async function HomePage({ params }: HomePageProps) {
   }
 
   if (requestScope?.kind === "tenant") {
-    const settings = await getPlatformStore().getTenantStoreSettings(
-      requestScope.tenant.id,
+    const settings = await cachedTenantSettingsRead(
       requestScope.host.id,
-      requestScope.tenant.name,
-    );
+      requestScope.tenant.id,
+      locale,
+      () =>
+        getPlatformStore().getTenantStoreSettings(
+          requestScope.tenant.id,
+          requestScope.host.id,
+          requestScope.tenant.name,
+        ),
+    )();
 
     let catalogProducts: Array<{
       id: string;
@@ -56,11 +63,18 @@ export default async function HomePage({ params }: HomePageProps) {
         requestScope.tenant.id,
         requestScope.host.id,
       );
-      const page = await catalog.listProducts({
-        tenantId: requestScope.tenant.id,
-        page: 1,
-        limit: 6,
-      });
+      const page = await cachedTenantCatalogRead(
+        requestScope.host.id,
+        requestScope.tenant.id,
+        locale,
+        "home-products",
+        () =>
+          catalog.listProducts({
+            tenantId: requestScope.tenant.id,
+            page: 1,
+            limit: 6,
+          }),
+      )();
       catalogProducts = page.data.filter(
         (product) => product.status === "active",
       );
