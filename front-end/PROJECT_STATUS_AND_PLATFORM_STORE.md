@@ -578,8 +578,10 @@ Status snapshot as of 2026-11-23:
       `/api/webhooks/logistics` callback. Configure the callback per tenant with
       `?tenantId=<tenant-uuid>` and use the platform order ID as Shiprocket's
       `order_id`. Provider statuses are normalized and reconciled through the
-      shared carrier-event flow. Direct Shiprocket shipment creation and labels
-      are not included. See the
+       shared carrier-event flow. Direct ad-hoc shipment creation and AWB/label
+       generation are available through the Tenant order portal. Configure
+       Shiprocket API email, password, and pickup location in deployment settings.
+       Creation is guarded against duplicate shipment/AWB creation. See the
       [Shiprocket API documentation](https://apidocs.shiprocket.in/) for provider
       webhook setup and payload details.
 - [x] Show Customers an accessible order-progress timeline from confirmation

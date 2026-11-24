@@ -38,6 +38,18 @@ function errorMessage(body: unknown, t: (key: string) => string): string {
       return t("backendUnavailable");
     case "rate_limited":
       return t("tooManyRequests");
+    case "shiprocket_credentials_required":
+      return t("shiprocketCredentialsRequired");
+    case "shipment_already_created":
+      return t("shipmentAlreadyCreated");
+    case "delivery_address_required":
+      return t("deliveryAddressRequired");
+    case "shiprocket_auth_failed":
+    case "shiprocket_create_failed":
+    case "shiprocket_awb_failed":
+    case "shiprocket_awb_missing":
+    case "tenant_order_sync_failed":
+      return t("shiprocketFailed");
     default:
       return t("loadFailed");
   }
@@ -67,6 +79,10 @@ export function TenantOrderManagement({
   const [carrier, setCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
+  const [weightKg, setWeightKg] = useState("0.5");
+  const [lengthCm, setLengthCm] = useState("20");
+  const [breadthCm, setBreadthCm] = useState("15");
+  const [heightCm, setHeightCm] = useState("10");
 
   const loadOrders = useCallback(
     async (pageNumber: number) => {
@@ -207,6 +223,48 @@ export function TenantOrderManagement({
             : t("statusUpdated", { status: parsed.data.status }),
       );
       await loadOrders(page);
+    } catch {
+      setError(t("backendReachFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createShiprocketShipment(order: TenantOrder) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/tenant/shipments/shiprocket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          package: {
+            weightKg: Number(weightKg),
+            lengthCm: Number(lengthCm),
+            breadthCm: Number(breadthCm),
+            heightCm: Number(heightCm),
+          },
+        }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(errorMessage(body, t));
+        return;
+      }
+      const parsed =
+        typeof body === "object" && body !== null && "order" in body
+          ? CustomerOrderSchema.safeParse(body.order)
+          : null;
+      if (!parsed?.success) {
+        setError(t("invalidOrder"));
+        return;
+      }
+      setSelected(null);
+      setNotice(t("orderShipped"));
+      await loadOrders(page);
+      await loadCashOrders(cashPage);
     } catch {
       setError(t("backendReachFailed"));
     } finally {
@@ -698,6 +756,40 @@ export function TenantOrderManagement({
               <h3 className="font-medium text-slate-900">
                 {t("shipmentDetails")}
               </h3>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {[
+                  ["weightKg", weightKg, setWeightKg],
+                  ["lengthCm", lengthCm, setLengthCm],
+                  ["breadthCm", breadthCm, setBreadthCm],
+                  ["heightCm", heightCm, setHeightCm],
+                ].map(([key, value, setValue]) => (
+                  <label className="space-y-1 text-sm" key={String(key)}>
+                    <span className="block font-medium">{t(String(key))}</span>
+                    <input
+                      className="w-full rounded border px-3 py-2"
+                      min="0.01"
+                      step="0.01"
+                      type="number"
+                      value={String(value)}
+                      onChange={(event) =>
+                        (setValue as (value: string) => void)(
+                          event.target.value,
+                        )
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+              {!selected.fulfillment && (
+                <button
+                  className="rounded-md border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-800 disabled:opacity-60"
+                  disabled={busy}
+                  onClick={() => void createShiprocketShipment(selected)}
+                  type="button"
+                >
+                  {busy ? t("updating") : t("createShiprocketShipment")}
+                </button>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="space-y-1 text-sm">
                   <span className="block font-medium">{t("carrier")}</span>
