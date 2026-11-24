@@ -22,6 +22,8 @@
     "platform-store:backup": "node scripts/platform-store-backup.mjs backup",
     "platform-store:restore": "node scripts/platform-store-backup.mjs restore",
     "platform-store:rotate": "node scripts/platform-store-backup.mjs rotate",
+    "platform-store:verify": "node scripts/platform-store-backup.mjs verify",
+    "platform-store:restore-drill": "node scripts/platform-store-backup.mjs drill",
     "platform-store:migrate:export": "node scripts/platform-store-migration.mjs export",
     "platform-store:migrate:preflight": "node scripts/platform-store-migration.mjs preflight",
     "test:platform-backup": "node --test scripts/platform-store-backup.test.mjs",

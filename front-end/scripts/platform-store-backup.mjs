@@ -4,11 +4,14 @@ import {
   readFile,
   rename,
   stat,
+  mkdtemp,
+  rm,
   writeFile,
   unlink,
   readdir,
 } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 
 const REQUIRED_STATE_FIELDS = [
@@ -35,6 +38,8 @@ function usage() {
     "  node scripts/platform-store-backup.mjs backup [target-directory]",
     "  node scripts/platform-store-backup.mjs restore <backup-file> --force",
     "  node scripts/platform-store-backup.mjs rotate [target-directory] --keep=<count>",
+    "  node scripts/platform-store-backup.mjs drill <backup-file>",
+    "  node scripts/platform-store-backup.mjs verify <backup-file>",
   ].join("\n");
 }
 
@@ -202,6 +207,51 @@ export async function rotatePlatformStoreBackups({
   return removed;
 }
 
+export async function verifyPlatformStoreBackup(sourceBackup) {
+  const backup = resolve(sourceBackup);
+  const envelope = JSON.parse(await readFile(backup, "utf8"));
+  const state = verifyBackupEnvelope(envelope);
+  return {
+    backup,
+    backupId: envelope.backupId,
+    createdAt: envelope.createdAt,
+    initialized: state.initialized,
+  };
+}
+
+export async function drillPlatformStoreRestore({
+  sourceBackup,
+  temporaryDirectory,
+  now = new Date(),
+}) {
+  const verified = await verifyPlatformStoreBackup(sourceBackup);
+  const directory =
+    temporaryDirectory ??
+    (await mkdtemp(join(tmpdir(), "platform-store-restore-drill-")));
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const targetFile = join(directory, "platform-store.json");
+  await restorePlatformStore({
+    sourceBackup: verified.backup,
+    targetFile,
+    force: true,
+  });
+  const restored = validateFileState(
+    JSON.parse(await readFile(targetFile, "utf8")),
+  );
+  if (restored.initialized !== verified.initialized) {
+    throw new Error("Restore drill integrity mismatch");
+  }
+  if (!temporaryDirectory) {
+    await rm(directory, { recursive: true, force: true });
+  }
+  return {
+    verified: true,
+    backupId: verified.backupId,
+    createdAt: verified.createdAt,
+    drillAt: now.toISOString(),
+  };
+}
+
 const isDirectRun =
   process.argv[1] &&
   pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
@@ -234,6 +284,20 @@ if (isDirectRun) {
         keep,
       });
       console.log(`Removed ${removed.length} old platform-store backup(s)`);
+    } else if (command === "verify") {
+      if (!argument) throw new Error("Backup file is required");
+      console.log(
+        JSON.stringify(await verifyPlatformStoreBackup(argument), null, 2),
+      );
+    } else if (command === "drill") {
+      if (!argument) throw new Error("Backup file is required");
+      console.log(
+        JSON.stringify(
+          await drillPlatformStoreRestore({ sourceBackup: argument }),
+          null,
+          2,
+        ),
+      );
     } else {
       throw new Error(usage());
     }

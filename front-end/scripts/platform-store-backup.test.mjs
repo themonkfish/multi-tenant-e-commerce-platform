@@ -12,8 +12,10 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   backupPlatformStore,
+  drillPlatformStoreRestore,
   restorePlatformStore,
   rotatePlatformStoreBackups,
+  verifyPlatformStoreBackup,
   verifyBackupEnvelope,
 } from "./platform-store-backup.mjs";
 
@@ -102,4 +104,28 @@ test("rotates platform-store backups by retained count", async (context) => {
   });
   assert.equal(removed.length, 1);
   assert.equal((await readdir(backupDirectory)).length, 2);
+});
+
+test("verifies and drills an isolated restore", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "platform-store-drill-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const source = join(directory, "platform-store.json");
+  const backupDirectory = join(directory, "backups");
+  await writeFile(source, JSON.stringify(state()), "utf8");
+  const backup = await backupPlatformStore({
+    sourceFile: source,
+    targetDirectory: backupDirectory,
+    now: new Date("2026-11-24T12:00:00.000Z"),
+  });
+
+  const verified = await verifyPlatformStoreBackup(backup);
+  assert.equal(verified.initialized, true);
+
+  const drill = await drillPlatformStoreRestore({
+    sourceBackup: backup,
+    temporaryDirectory: join(directory, "drill"),
+    now: new Date("2026-11-24T12:30:00.000Z"),
+  });
+  assert.equal(drill.verified, true);
+  assert.equal(drill.backupId, verified.backupId);
 });

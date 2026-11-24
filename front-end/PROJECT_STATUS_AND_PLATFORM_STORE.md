@@ -91,6 +91,12 @@ Status snapshot as of 2026-11-23:
   checksum or format mismatches.
 - Platform-store backup rotation retains a configurable newest backup count
   and removes older timestamped backup files without touching restore copies.
+- Restore verification and isolated restore drills are available through
+  `platform-store:verify` and `platform-store:restore-drill`; drills restore
+  to a temporary file and never replace the live PlatformStore.
+- A scheduled GitHub Actions restore-drill workflow runs the guarded checksum,
+  backup, restore, and isolated drill tests each Monday. Production restores
+  remain manual and require `--force` plus a pre-restore copy.
 - Tenant Owners can export tenant metadata, settings, staff, connection
   metadata, orders, and scoped audit events as secret-free JSON. Export requests
   are origin-checked, rate-limited, and audited.
