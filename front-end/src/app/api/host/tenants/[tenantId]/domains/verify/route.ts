@@ -7,6 +7,7 @@ import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getHostOwnerSession } from "@/lib/server/session";
 import { verifyTenantDomainDns } from "@/lib/server/tenant-domain-verification";
+import { attachVercelDomain } from "@/lib/server/vercel-domains";
 
 const VerifyDomainSchema = z.object({
   domain: z.string().min(1).max(253),
@@ -102,6 +103,20 @@ export async function POST(
     return NextResponse.json(
       { error: "domain_dns_not_ready" },
       { status: 409 },
+    );
+  }
+
+  try {
+    await attachVercelDomain(domain);
+  } catch (error) {
+    console.error("Vercel tenant-domain attachment failed", {
+      domain,
+      tenantId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json(
+      { error: "provider_domain_attach_failed" },
+      { status: 502 },
     );
   }
 

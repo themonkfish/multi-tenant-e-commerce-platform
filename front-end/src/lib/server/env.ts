@@ -29,6 +29,18 @@ const ServerEnvSchema = z.object({
     .transform((value) => value?.trim() || undefined),
   INNGEST_EVENT_KEY: z.string().min(1).optional(),
   INNGEST_SIGNING_KEY: z.string().min(1).optional(),
+  VERCEL_ACCESS_TOKEN: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  VERCEL_PROJECT_ID: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  VERCEL_TEAM_ID: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
   DEMO_CHECKOUT_ENABLED: z
     .enum(["true", "false"])
     .default("false")

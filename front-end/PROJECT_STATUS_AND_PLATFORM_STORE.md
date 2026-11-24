@@ -654,8 +654,9 @@ Status snapshot as of 2026-11-23:
 
 - [ ] Choose background jobs, email delivery, custom-domain/SSL strategy,
       tenant-aware caching, and customer identity model.
-      Inngest retrying email and carrier-event jobs are implemented, while
-      domain/SSL and customer identity decisions remain.
+      Inngest retrying email and carrier-event jobs are implemented. Vercel
+      Domains API attachment/removal and readiness status are implemented,
+      while wildcard/apex policy and customer identity decisions remain.
 - [x] Define inventory reservation and payment-failure behavior. Reservations
       occur at checkout; failed/expired card payments release them, and COD
       orders consume stock when placed.

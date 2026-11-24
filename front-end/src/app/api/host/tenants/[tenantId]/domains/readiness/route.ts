@@ -5,6 +5,7 @@ import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getHostOwnerSession } from "@/lib/server/session";
 import { checkTenantDomainReadiness } from "@/lib/server/tenant-domain-readiness";
+import { getVercelDomainStatus } from "@/lib/server/vercel-domains";
 
 const ReadinessSchema = z.object({
   domain: z.string().min(1).max(253),
@@ -77,5 +78,21 @@ export async function POST(
   }
 
   const readiness = await checkTenantDomainReadiness(parsed.data.domain);
-  return NextResponse.json({ domain: parsed.data.domain, readiness });
+  let provider;
+  try {
+    provider = await getVercelDomainStatus(parsed.data.domain);
+  } catch (error) {
+    provider = {
+      configured: true,
+      attached: false,
+      verified: false,
+      status: "error" as const,
+      verification: [],
+    };
+  }
+  return NextResponse.json({
+    domain: parsed.data.domain,
+    readiness,
+    provider,
+  });
 }

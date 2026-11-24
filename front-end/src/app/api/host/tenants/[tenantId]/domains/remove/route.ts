@@ -6,6 +6,7 @@ import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getHostOwnerSession } from "@/lib/server/session";
+import { removeVercelDomain } from "@/lib/server/vercel-domains";
 
 const RemoveDomainSchema = z
   .object({ domain: z.string().min(1).max(253) })
@@ -60,6 +61,19 @@ export async function POST(request: Request, { params }: RouteProps) {
   });
   if (!allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+  try {
+    await removeVercelDomain(domain);
+  } catch (error) {
+    console.error("Vercel tenant-domain removal failed", {
+      domain,
+      tenantId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json(
+      { error: "provider_domain_remove_failed" },
+      { status: 502 },
+    );
   }
   const now = new Date().toISOString();
   const tenant = await store.removeTenantDomain({
