@@ -291,6 +291,11 @@ export class FilePlatformStore implements PlatformStore {
     );
   }
 
+  async getSuperAdminById(id: string): Promise<SuperAdminRecord | null> {
+    const state = await this.readState();
+    return state.superAdmins.find((admin) => admin.id === id) ?? null;
+  }
+
   async consumeRecoveryCode(
     adminId: string,
     codeHash: string,
@@ -660,6 +665,13 @@ export class FilePlatformStore implements PlatformStore {
   async getHostOwnerByEmail(email: string): Promise<HostOwner | null> {
     const owner = (await this.readState()).hostOwners.find(
       (candidate) => candidate.email === email.trim().toLowerCase(),
+    );
+    return owner ?? null;
+  }
+
+  async getHostOwnerById(id: string): Promise<HostOwner | null> {
+    const owner = (await this.readState()).hostOwners.find(
+      (candidate) => candidate.id === id,
     );
     return owner ?? null;
   }

@@ -88,6 +88,7 @@ export interface PlatformStore
   ): Promise<SuperAdminRecord | null>;
   createInitialSuperAdmin(input: BootstrapInput): Promise<void>;
   getSuperAdminByEmail(email: string): Promise<SuperAdminRecord | null>;
+  getSuperAdminById(id: string): Promise<SuperAdminRecord | null>;
   consumeRecoveryCode(adminId: string, codeHash: string): Promise<boolean>;
   completeBootstrap(input: {
     setupTokenHash: string;
@@ -133,6 +134,7 @@ export interface PlatformStore
     auditEvent: AuditEvent;
   }): Promise<HostOwner | null>;
   getHostOwnerByEmail(email: string): Promise<HostOwner | null>;
+  getHostOwnerById(id: string): Promise<HostOwner | null>;
   createTenantOwnerInvite(
     invite: TenantOwnerInvite,
     auditEvent: AuditEvent,

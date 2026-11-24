@@ -110,6 +110,14 @@ describe("session boundary hardening", () => {
     platformStoreMock.getPlatformStore.mockReturnValue({
       listHosts: vi.fn(async () => [host]),
       listTenantsForHost: vi.fn(async () => [tenant]),
+      getSuperAdminById: vi.fn(async () => ({
+        id: userId,
+        email: "admin@example.com",
+      })),
+      getHostOwnerById: vi.fn(async () => ({
+        id: userId,
+        hostId,
+      })),
       getTenantOwnerForTenant: vi.fn(async () => ({
         id: userId,
         tenantId,
@@ -154,6 +162,32 @@ describe("session boundary hardening", () => {
     } as never);
     platformStoreMock.getPlatformStore.mockReturnValue({
       listHosts: vi.fn(async () => [{ ...host, status: "suspended" }]),
+      getHostOwnerById: vi.fn(async () => ({
+        id: userId,
+        hostId,
+      })),
+    });
+
+    await expect(getHostOwnerSession()).resolves.toBeNull();
+  });
+
+  it("rejects a host-owner JWT after the owner account is removed", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "host",
+      domain: "host.example.com",
+      host,
+      scope: { kind: "host", id: hostId },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: userId,
+        role: "host_owner",
+        scope: { kind: "host", id: hostId },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      listHosts: vi.fn(async () => [host]),
+      getHostOwnerById: vi.fn(async () => null),
     });
 
     await expect(getHostOwnerSession()).resolves.toBeNull();
@@ -273,6 +307,32 @@ describe("session boundary hardening", () => {
     await expect(getCustomerSession()).resolves.toBeNull();
   });
 
+  it("rejects a customer JWT after the tenant is suspended", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "tenant",
+      domain: "store.example.com",
+      host,
+      tenant,
+      scope: { kind: "tenant", id: tenantId, hostId },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: customerId,
+        role: "customer",
+        scope: { kind: "tenant", id: tenantId, hostId },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      getCustomerAccountForTenant: vi.fn(async () => customerRecord),
+      listHosts: vi.fn(async () => [host]),
+      listTenantsForHost: vi.fn(async () => [
+        { ...tenant, status: "suspended" },
+      ]),
+    });
+
+    await expect(getCustomerSession()).resolves.toBeNull();
+  });
+
   it("accepts a valid tenant-staff session on the matching tenant scope", async () => {
     requestScopeMock.getRequestDomainScope.mockResolvedValue({
       kind: "tenant",
@@ -358,6 +418,27 @@ describe("session boundary hardening", () => {
         scope: { kind: "platform", id: "platform" },
       },
     } as never);
+
+    await expect(getSuperAdminSession()).resolves.toBeNull();
+  });
+
+  it("rejects a super-admin JWT after the admin account is removed", async () => {
+    requestScopeMock.getRequestDomainScope.mockResolvedValue({
+      kind: "platform",
+      domain: "platform.example.com",
+      scope: { kind: "platform", id: "platform" },
+    });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: userId,
+        role: "super_admin",
+        twoFactorVerified: true,
+        scope: { kind: "platform", id: "platform" },
+      },
+    } as never);
+    platformStoreMock.getPlatformStore.mockReturnValue({
+      getSuperAdminById: vi.fn(async () => null),
+    });
 
     await expect(getSuperAdminSession()).resolves.toBeNull();
   });

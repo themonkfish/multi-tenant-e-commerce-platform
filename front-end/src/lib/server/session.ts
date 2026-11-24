@@ -180,6 +180,11 @@ export async function getSuperAdminSession(): Promise<Principal | null> {
       return null;
     }
 
+    const admin = await getPlatformStore().getSuperAdminById(claims.data.sub);
+    if (!admin || admin.id !== claims.data.sub) {
+      return null;
+    }
+
     return {
       userId: claims.data.sub,
       role: "super_admin",
@@ -234,7 +239,14 @@ export async function getHostOwnerSession(): Promise<Principal | null> {
   const host = (await getPlatformStore().listHosts()).find(
     (candidate) => candidate.id === claims.data.scope.id,
   );
-  if (!host || host.status !== "active") {
+  const owner = await getPlatformStore().getHostOwnerById(claims.data.sub);
+  if (
+    !owner ||
+    owner.id !== claims.data.sub ||
+    owner.hostId !== claims.data.scope.id ||
+    !host ||
+    host.status !== "active"
+  ) {
     return null;
   }
 
@@ -443,6 +455,27 @@ export async function getCustomerSession(): Promise<Principal | null> {
   );
   if (!account || account.tenantId !== claims.data.scope.id) return null;
   if (!requestScope || requestScope.kind !== "tenant") return null;
+  const store = getPlatformStore();
+  const [hosts, tenants] = await Promise.all([
+    store.listHosts(),
+    store.listTenantsForHost(claims.data.scope.hostId),
+  ]);
+  const host = hosts.find(
+    (candidate) => candidate.id === claims.data.scope.hostId,
+  );
+  const tenant = tenants.find(
+    (candidate) =>
+      candidate.id === claims.data.scope.id &&
+      candidate.hostId === claims.data.scope.hostId,
+  );
+  if (
+    !host ||
+    host.status !== "active" ||
+    !tenant ||
+    tenant.status !== "active"
+  ) {
+    return null;
+  }
   return {
     userId: claims.data.sub,
     role: "customer",

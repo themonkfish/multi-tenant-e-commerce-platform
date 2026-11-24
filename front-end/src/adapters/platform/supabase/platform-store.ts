@@ -174,6 +174,19 @@ export class SupabasePlatformStore implements PlatformStore {
     return data ? fromAdminRow(data) : null;
   }
 
+  async getSuperAdminById(id: string): Promise<SuperAdminRecord | null> {
+    const { data, error } = await this.client
+      .from("platform_super_admins")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load Super Admin account: ${error.message}`);
+    }
+
+    return data ? fromAdminRow(data) : null;
+  }
+
   async consumeRecoveryCode(
     adminId: string,
     codeHash: string,
@@ -594,6 +607,26 @@ export class SupabasePlatformStore implements PlatformStore {
       .from("platform_host_owners")
       .select("*")
       .eq("email", email.trim().toLowerCase())
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Could not load host owner: ${error.message}`);
+    }
+    return data
+      ? HostOwnerSchema.parse({
+          id: data.id,
+          hostId: data.host_id,
+          email: data.email,
+          passwordHash: data.password_hash,
+          createdAt: data.created_at,
+        })
+      : null;
+  }
+
+  async getHostOwnerById(id: string): Promise<HostOwner | null> {
+    const { data, error } = await this.client
+      .from("platform_host_owners")
+      .select("*")
+      .eq("id", id)
       .maybeSingle();
     if (error) {
       throw new Error(`Could not load host owner: ${error.message}`);
