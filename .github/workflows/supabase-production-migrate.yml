@@ -1,0 +1,62 @@
+name: Supabase production migration deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type APPLY to deploy migrations'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-production-migrations
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Preflight and deploy platform migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    defaults:
+      run:
+        working-directory: front-end
+    env:
+      MIGRATION_DEPLOY_CONFIRM: ${{ inputs.confirmation }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: v2.stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate migration order
+        run: npm run supabase:migration:preflight
+
+      - name: Refuse missing confirmation
+        if: inputs.confirmation != 'APPLY'
+        run: |
+          echo "Migration deployment requires confirmation input APPLY."
+          exit 1
+
+      - name: Dry-run migration deployment
+        run: npm run supabase:migration:deploy -- --dry-run
+
+      - name: Apply migrations
+        run: npm run supabase:migration:deploy

@@ -508,7 +508,10 @@ Status snapshot as of 2026-11-23:
       delivery fails.
 - [x] Add CI validation that applies all platform Supabase migrations to a
       clean local database and lints the resulting schema. Production migration
-      deployment remains a reviewed manual operation.
+      deployment is available through the manual
+      `Supabase production migration deploy` GitHub Actions workflow. It requires
+      an explicit `APPLY` confirmation and `SUPABASE_DB_URL`, preflights ordered
+      migration filenames, runs a dry-run, then applies migrations.
 
 #### Tenant data and integrations
 

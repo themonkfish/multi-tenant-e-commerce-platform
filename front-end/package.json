@@ -26,6 +26,9 @@
     "platform-store:migrate:preflight": "node scripts/platform-store-migration.mjs preflight",
     "test:platform-backup": "node --test scripts/platform-store-backup.test.mjs",
     "test:platform-migration": "node --test scripts/platform-store-migration.test.mjs",
+    "test:supabase-migrations": "node --test scripts/supabase-production-migration.test.mjs",
+    "supabase:migration:preflight": "node scripts/supabase-production-migration.mjs preflight",
+    "supabase:migration:deploy": "node scripts/supabase-production-migration.mjs deploy",
     "format": "prettier --write src supabase README.md package.json next.config.ts vitest.config.mts",
     "format:check": "prettier --check src supabase README.md package.json next.config.ts vitest.config.mts"
   },
