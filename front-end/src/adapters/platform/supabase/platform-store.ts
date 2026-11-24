@@ -1112,6 +1112,85 @@ export class SupabasePlatformStore implements PlatformStore {
     });
   }
 
+  async createCustomerPasswordReset(input: {
+    id: string;
+    tenantId: string;
+    customerId: string;
+    tokenHash: string;
+    expiresAt: string;
+    createdAt: string;
+  }): Promise<void> {
+    await this.client
+      .from("platform_customer_password_resets")
+      .delete()
+      .eq("tenant_id", input.tenantId)
+      .eq("customer_id", input.customerId);
+    const { error } = await this.client
+      .from("platform_customer_password_resets")
+      .insert({
+        id: input.id,
+        tenant_id: input.tenantId,
+        customer_id: input.customerId,
+        token_hash: input.tokenHash,
+        expires_at: input.expiresAt,
+        created_at: input.createdAt,
+      });
+    if (error) {
+      throw new Error(
+        `Could not create customer password reset: ${error.message}`,
+      );
+    }
+  }
+
+  async consumeCustomerPasswordReset(input: {
+    tenantId: string;
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+  }): Promise<CustomerAccount | null> {
+    const { data: reset, error: resetError } = await this.client
+      .from("platform_customer_password_resets")
+      .select("customer_id")
+      .eq("tenant_id", input.tenantId)
+      .eq("token_hash", input.tokenHash)
+      .gt("expires_at", input.now)
+      .maybeSingle();
+    if (resetError) {
+      throw new Error(
+        `Could not verify customer password reset: ${resetError.message}`,
+      );
+    }
+    if (!reset) {
+      return null;
+    }
+    const { data: account, error: accountError } = await this.client
+      .from("platform_customers")
+      .update({ password_hash: input.passwordHash })
+      .eq("tenant_id", input.tenantId)
+      .eq("id", reset.customer_id)
+      .select("*")
+      .maybeSingle();
+    if (accountError) {
+      throw new Error(
+        `Could not update customer password: ${accountError.message}`,
+      );
+    }
+    await this.client
+      .from("platform_customer_password_resets")
+      .delete()
+      .eq("tenant_id", input.tenantId)
+      .eq("customer_id", reset.customer_id);
+    return account
+      ? CustomerAccountSchema.parse({
+          id: account.id,
+          tenantId: account.tenant_id,
+          email: account.email,
+          passwordHash: account.password_hash,
+          createdAt: account.created_at,
+        })
+      : null;
+  }
+
   async deleteCustomerAccount(
     tenantId: string,
     customerId: string,

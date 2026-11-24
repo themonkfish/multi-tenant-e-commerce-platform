@@ -10,6 +10,31 @@ export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
   const [register, setRegister] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resetRequested, setResetRequested] = useState(false);
+
+  async function requestPasswordReset(email: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        "/api/customer/auth/password-reset/request",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        },
+      );
+      if (response.ok) {
+        setResetRequested(true);
+      } else {
+        setError(t("resetRequestFailed"));
+      }
+    } catch {
+      setError(t("serverUnreachable"));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,6 +134,31 @@ export function CustomerAuthForm({ redirectTo }: { redirectTo: string }) {
       >
         {register ? t("existingAccountPrompt") : t("newAccountPrompt")}
       </button>
+      {!register && (
+        <button
+          className="w-full text-sm font-medium text-indigo-700 underline"
+          disabled={busy}
+          onClick={() => {
+            const form = document.querySelector<HTMLFormElement>(
+              "form:has(#customer-email)",
+            );
+            const email = form?.elements.namedItem("email");
+            if (email instanceof HTMLInputElement && email.checkValidity()) {
+              void requestPasswordReset(email.value);
+            } else {
+              setError(t("emailRequired"));
+            }
+          }}
+          type="button"
+        >
+          {t("forgotPassword")}
+        </button>
+      )}
+      {resetRequested && (
+        <p className="text-sm text-emerald-700" role="status">
+          {t("resetRequested")}
+        </p>
+      )}
     </form>
   );
 }

@@ -658,7 +658,9 @@ Status snapshot as of 2026-11-23:
       Domains API attachment/removal and readiness status are implemented.
       Tenant-aware catalog/settings cache keys and tag invalidation are
       implemented, including host, tenant, locale, and operation isolation.
-      Wildcard/apex policy and customer identity decisions remain.
+      Tenant-scoped customer accounts support password reset with one-time,
+      expiring links and generic account-existence responses. Wildcard/apex
+      policy remains.
 - [x] Define inventory reservation and payment-failure behavior. Reservations
       occur at checkout; failed/expired card payments release them, and COD
       orders consume stock when placed.

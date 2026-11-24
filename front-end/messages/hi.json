@@ -85,7 +85,11 @@
     "createAccount": "खाता बनाएँ",
     "signIn": "साइन इन करें",
     "existingAccountPrompt": "पहले से खाता है? साइन इन करें",
-    "newAccountPrompt": "यहाँ नए हैं? खाता बनाएँ"
+    "newAccountPrompt": "यहाँ नए हैं? खाता बनाएँ",
+    "forgotPassword": "पासवर्ड भूल गए?",
+    "emailRequired": "पहले अपना खाते का ईमेल दर्ज करें।",
+    "resetRequested": "यदि इस स्टोर में वह खाता मौजूद है, तो रीसेट लिंक भेज दिया गया है।",
+    "resetRequestFailed": "पासवर्ड रीसेट का अनुरोध नहीं किया जा सका। फिर कोशिश करें."
   },
   "CustomerCart": {
     "cart": "कार्ट",

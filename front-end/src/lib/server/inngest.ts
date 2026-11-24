@@ -25,6 +25,14 @@ export type BackgroundEvent =
         carrier?: string;
         eventId: string;
       };
+    }
+  | {
+      name: "email/password-reset.requested";
+      data: {
+        to: string;
+        resetUrl: string;
+        expiresAt: string;
+      };
     };
 
 export async function enqueueBackgroundEvent(event: BackgroundEvent) {

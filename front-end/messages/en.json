@@ -85,7 +85,11 @@
     "createAccount": "Create account",
     "signIn": "Sign in",
     "existingAccountPrompt": "Already have an account? Sign in",
-    "newAccountPrompt": "New here? Create an account"
+    "newAccountPrompt": "New here? Create an account",
+    "forgotPassword": "Forgot password?",
+    "emailRequired": "Enter your account email first.",
+    "resetRequested": "If that account exists for this store, a reset link has been sent.",
+    "resetRequestFailed": "Could not request a password reset. Try again."
   },
   "CustomerCart": {
     "cart": "Cart",

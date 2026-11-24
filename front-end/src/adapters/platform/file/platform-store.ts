@@ -32,6 +32,7 @@ import {
 import {
   canTransitionTenantOrderStatus,
   CustomerAccountSchema,
+  CustomerPasswordResetSchema,
   CustomerOrderSchema,
   TenantStaffSchema,
   TenantStaffViewSchema,
@@ -114,6 +115,9 @@ const FileStateSchema = z.object({
   tenantOwners: z.array(TenantOwnerSchema).default([]),
   tenantStaff: z.array(TenantStaffSchema).default([]),
   customerAccounts: z.array(CustomerAccountSchema).default([]),
+  customerPasswordResets: z
+    .array(CustomerPasswordResetSchema)
+    .default([]),
   customerOrders: z.array(CustomerOrderSchema).default([]),
   productReviews: z.array(ProductReviewSchema).default([]),
   tenants: z.array(TenantRecordSchema).default([]),
@@ -193,6 +197,7 @@ const EMPTY_STATE: FileState = {
   tenantOwners: [],
   tenantStaff: [],
   customerAccounts: [],
+  customerPasswordResets: [],
   customerOrders: [],
   productReviews: [],
   tenants: [],
@@ -1008,6 +1013,70 @@ export class FilePlatformStore implements PlatformStore {
         throw new Error("A customer account already exists for this email");
       }
       state.customerAccounts.push(account);
+      await this.writeState(state);
+      return account;
+    });
+  }
+
+  async createCustomerPasswordReset(input: {
+    id: string;
+    tenantId: string;
+    customerId: string;
+    tokenHash: string;
+    expiresAt: string;
+    createdAt: string;
+  }): Promise<void> {
+    await this.withLock(async () => {
+      const state = await this.readState();
+      const account = state.customerAccounts.find(
+        (candidate) =>
+          candidate.id === input.customerId &&
+          candidate.tenantId === input.tenantId,
+      );
+      if (!account) {
+        throw new Error("Customer account not found");
+      }
+      state.customerPasswordResets = state.customerPasswordResets.filter(
+        (reset) =>
+          reset.tenantId !== input.tenantId ||
+          reset.customerId !== input.customerId,
+      );
+      state.customerPasswordResets.push(
+        CustomerPasswordResetSchema.parse(input),
+      );
+      await this.writeState(state);
+    });
+  }
+
+  async consumeCustomerPasswordReset(input: {
+    tenantId: string;
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+  }): Promise<CustomerAccount | null> {
+    return this.withLock(async () => {
+      const state = await this.readState();
+      const reset = state.customerPasswordResets.find(
+        (candidate) =>
+          candidate.tenantId === input.tenantId &&
+          candidate.tokenHash === input.tokenHash &&
+          Date.parse(candidate.expiresAt) > Date.parse(input.now),
+      );
+      if (!reset) {
+        return null;
+      }
+      const account = state.customerAccounts.find(
+        (candidate) =>
+          candidate.id === reset.customerId &&
+          candidate.tenantId === input.tenantId,
+      );
+      if (!account) {
+        return null;
+      }
+      account.passwordHash = input.passwordHash;
+      state.customerPasswordResets = state.customerPasswordResets.filter(
+        (candidate) => candidate.id !== reset.id,
+      );
       await this.writeState(state);
       return account;
     });

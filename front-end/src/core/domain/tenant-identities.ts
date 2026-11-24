@@ -47,6 +47,18 @@ export const CustomerAccountSchema = z.object({
 
 export type CustomerAccount = z.infer<typeof CustomerAccountSchema>;
 
+export const CustomerPasswordResetSchema = z.object({
+  id: z.uuid(),
+  tenantId: z.uuid(),
+  customerId: z.uuid(),
+  tokenHash: z.string().length(64),
+  expiresAt: z.iso.datetime(),
+  createdAt: z.iso.datetime(),
+});
+export type CustomerPasswordReset = z.infer<
+  typeof CustomerPasswordResetSchema
+>;
+
 export const CustomerOrderItemSchema = z.object({
   productId: z.string().min(1).max(128),
   title: z.string().min(1),

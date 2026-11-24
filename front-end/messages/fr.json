@@ -85,7 +85,11 @@
     "createAccount": "Créer un compte",
     "signIn": "Se connecter",
     "existingAccountPrompt": "Vous avez déjà un compte ? Connectez-vous",
-    "newAccountPrompt": "Nouveau ici ? Créez un compte"
+    "newAccountPrompt": "Nouveau ici ? Créez un compte",
+    "forgotPassword": "Mot de passe oublié ?",
+    "emailRequired": "Saisissez d’abord votre adresse e-mail.",
+    "resetRequested": "Si ce compte existe dans cette boutique, un lien de réinitialisation a été envoyé.",
+    "resetRequestFailed": "Impossible de demander une réinitialisation. Réessayez."
   },
   "CustomerCart": {
     "cart": "Panier",

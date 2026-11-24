@@ -344,6 +344,28 @@ export type PlatformDatabase = {
           password_hash: string;
           created_at: string;
         };
+        Update: {
+          password_hash?: string;
+        };
+        Relationships: [];
+      };
+      platform_customer_password_resets: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          customer_id: string;
+          token_hash: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          tenant_id: string;
+          customer_id: string;
+          token_hash: string;
+          expires_at: string;
+          created_at: string;
+        };
         Update: never;
         Relationships: [];
       };

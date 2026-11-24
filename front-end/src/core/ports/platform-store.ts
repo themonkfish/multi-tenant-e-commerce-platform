@@ -199,6 +199,20 @@ export interface PlatformStore
     createdAt: string;
   }): Promise<CustomerAccount>;
   deleteCustomerAccount(tenantId: string, customerId: string): Promise<boolean>;
+  createCustomerPasswordReset(input: {
+    id: string;
+    tenantId: string;
+    customerId: string;
+    tokenHash: string;
+    expiresAt: string;
+    createdAt: string;
+  }): Promise<void>;
+  consumeCustomerPasswordReset(input: {
+    tenantId: string;
+    tokenHash: string;
+    passwordHash: string;
+    now: string;
+  }): Promise<CustomerAccount | null>;
   createProductReview(review: ProductReview): Promise<ProductReview>;
   listProductReviews(
     tenantId: string,

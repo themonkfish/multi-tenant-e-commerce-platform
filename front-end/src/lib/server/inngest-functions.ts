@@ -2,6 +2,7 @@ import { Inngest } from "inngest";
 import { sendInvitationEmail } from "./invitation-email";
 import { applyCarrierEvent } from "./carrier-event-handler";
 import type { CarrierEventStatus } from "./carrier-webhooks";
+import { sendPasswordResetEmail } from "./password-reset-email";
 
 export const inngest = new Inngest({
   id: "multi-tenant-e-commerce-platform",
@@ -62,5 +63,25 @@ export const retryCarrierEventFunction = inngest.createFunction(
       throw new Error(`Carrier event retry failed: ${response.status}`);
     }
     return { status: "processed" };
+  },
+);
+
+export const sendPasswordResetEmailFunction = inngest.createFunction(
+  {
+    id: "send-password-reset-email",
+    retries: 5,
+    triggers: [{ event: "email/password-reset.requested" }],
+  },
+  async ({ event }) => {
+    const data = event.data as {
+      to: string;
+      resetUrl: string;
+      expiresAt: string;
+    };
+    const result = await sendPasswordResetEmail(data);
+    if (result === "failed") {
+      throw new Error("Password reset email delivery failed");
+    }
+    return { status: result };
   },
 );
