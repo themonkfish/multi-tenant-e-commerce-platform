@@ -27,6 +27,11 @@ source named `Prometheus`. The dashboard covers uptime, metrics scraping,
 Stripe events and sync failures, carrier events and sync failures, and
 unauthorized/rate-limited activity.
 
+The metrics endpoint also exposes `ecommerce_scoped_event_total` with sanitized
+`host_id` and `tenant_id` labels for tenant-filtered operational views. Use
+Alertmanager configuration from `observability/alertmanager.yml` and replace
+the example webhook receiver before production use.
+
 The metrics are process-local counters. With multiple application processes,
 scrape every replica and use Prometheus aggregation. Counters reset on process
 restart; rates should therefore use `increase()` over a bounded window.

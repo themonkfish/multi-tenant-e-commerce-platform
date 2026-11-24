@@ -1,14 +1,20 @@
 import "server-only";
 import { getServerEnv } from "@/lib/server/env";
+import { enqueueBackgroundEvent } from "@/lib/server/inngest";
 
 export type InvitationRole = "host_owner" | "tenant_owner";
-export type InvitationEmailStatus = "sent" | "not_configured" | "failed";
+export type InvitationEmailStatus =
+  | "sent"
+  | "queued"
+  | "not_configured"
+  | "failed";
 
 export async function sendInvitationEmail(input: {
   role: InvitationRole;
   to: string;
   inviteUrl: string;
   expiresAt: string;
+  queueDelivery?: boolean;
 }): Promise<InvitationEmailStatus> {
   const env = getServerEnv();
   if (!env.RESEND_API_KEY && !env.INVITATION_EMAIL_FROM) {
@@ -17,6 +23,20 @@ export async function sendInvitationEmail(input: {
   if (!env.RESEND_API_KEY || !env.INVITATION_EMAIL_FROM) {
     console.error("Invitation email configuration is incomplete");
     return "failed";
+  }
+  if (
+    input.queueDelivery !== false &&
+    await enqueueBackgroundEvent({
+      name: "email/invitation.requested",
+      data: {
+        role: input.role,
+        to: input.to,
+        inviteUrl: input.inviteUrl,
+        expiresAt: input.expiresAt,
+      },
+    })
+  ) {
+    return "queued";
   }
 
   const roleName = input.role === "host_owner" ? "Host owner" : "Tenant owner";

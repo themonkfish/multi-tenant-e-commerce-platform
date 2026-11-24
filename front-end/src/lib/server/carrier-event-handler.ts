@@ -16,7 +16,9 @@ import { RestBackendError } from "@/adapters/data/rest/catalog-adapter";
 import {
   createStructuredLogger,
   recordObservabilityMetric,
+  recordScopedObservabilityMetric,
 } from "@/lib/server/observability";
+import { enqueueBackgroundEvent } from "@/lib/server/inngest";
 
 export type CarrierEventInput = {
   eventId: string;
@@ -31,6 +33,7 @@ export type CarrierEventInput = {
 export async function applyCarrierEvent(
   event: CarrierEventInput,
   requestId: string,
+  options: { queueRetries?: boolean } = {},
 ) {
   const logger = createStructuredLogger({
     requestId,
@@ -142,8 +145,27 @@ export async function applyCarrierEvent(
     }
   } catch (error) {
     recordObservabilityMetric("carrier.webhook.sync_failed");
+    recordScopedObservabilityMetric(
+      "carrier.webhook.sync_failed",
+      { hostId, tenantId: event.tenantId },
+    );
     logger.error("carrier.webhook.sync_failed", error, {
       orderId: event.orderId,
+    });
+    if (options.queueRetries !== false) await enqueueBackgroundEvent({
+      name: "carrier/event.retry",
+      data: {
+        tenantId: event.tenantId,
+        orderId: event.orderId,
+        trackingNumber: event.trackingNumber,
+        status: normalizedStatus,
+        eventId: event.eventId,
+        ...(event.carrier ? { carrier: event.carrier } : {}),
+      },
+    }).catch((queueError) => {
+      logger.error("carrier.webhook.retry_enqueue_failed", queueError, {
+        orderId: event.orderId,
+      });
     });
     if (error instanceof RestBackendError && error.status === 409) {
       return NextResponse.json(

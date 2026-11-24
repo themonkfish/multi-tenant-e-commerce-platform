@@ -33,3 +33,14 @@ groups:
           severity: warning
         annotations:
           summary: "Webhook signature rejections are elevated"
+
+      - alert: EcommerceTenantWebhookSyncFailure
+        expr: |
+          increase(ecommerce_scoped_event_total{event="carrier_webhook_sync_failed"}[10m]) > 5
+          or
+          increase(ecommerce_scoped_event_total{event="stripe_order_sync_failed"}[10m]) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Tenant webhook synchronization failures exceeded 5 in 10 minutes"

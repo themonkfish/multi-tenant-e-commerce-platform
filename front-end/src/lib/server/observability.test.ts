@@ -4,7 +4,9 @@ import {
   getRequestCorrelationId,
   getObservabilityMetrics,
   recordObservabilityMetric,
+  recordScopedObservabilityMetric,
   resetObservabilityMetricsForTests,
+  formatPrometheusMetrics,
 } from "./observability";
 
 describe("observability", () => {
@@ -20,6 +22,16 @@ describe("observability", () => {
         "carrier.webhook.failed": 1,
       },
     });
+  });
+  it("formats tenant-scoped Prometheus counters", () => {
+    resetObservabilityMetricsForTests();
+    recordScopedObservabilityMetric(
+      "carrier.webhook.sync_failed",
+      { hostId: "host-1", tenantId: "tenant-1" },
+    );
+    expect(formatPrometheusMetrics()).toContain(
+      'ecommerce_scoped_event_total{event="carrier_webhook_sync_failed",host_id="host-1",tenant_id="tenant-1"} 1',
+    );
   });
   it("reuses a valid request correlation ID", () => {
     const request = new Request("https://store.example.com/api/health", {

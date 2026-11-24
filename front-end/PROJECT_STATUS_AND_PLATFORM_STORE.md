@@ -469,10 +469,13 @@ Status snapshot as of 2026-11-23:
      reporting, structured logging, audit export, file-store backup/restore,
      and application test automation are implemented. In-process uptime and
      webhook/provider counters are exposed through health and structured
-     webhook logs. Add external monitoring dashboards/alerting, automated
-     production migration deployment, backup rotation, and restore automation.
-   - Choose background jobs, email delivery, domain/SSL strategy, and tenant
-     identity model.
+     webhook logs. Prometheus/Grafana examples and Alertmanager routing are
+     included, and production migration deployment plus restore drills are
+     automated. Tenant-labeled metric series support tenant-filtered views.
+   - Inngest background-job integration is available at `/api/inngest`, with
+     retrying invitation-email and carrier-event functions. Resend is used for
+     transactional invitations when configured; manual one-time links remain the
+     fallback. Choose domain/SSL strategy and tenant identity model.
    - Completed: tenant data export, Customer self-service account deletion,
      tenant/host deletion, audit-event coverage, and secret-free export
      boundaries. External provider data and registrar/carrier purge procedures
@@ -651,6 +654,8 @@ Status snapshot as of 2026-11-23:
 
 - [ ] Choose background jobs, email delivery, custom-domain/SSL strategy,
       tenant-aware caching, and customer identity model.
+      Inngest retrying email and carrier-event jobs are implemented, while
+      domain/SSL and customer identity decisions remain.
 - [x] Define inventory reservation and payment-failure behavior. Reservations
       occur at checkout; failed/expired card payments release them, and COD
       orders consume stock when placed.

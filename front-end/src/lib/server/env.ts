@@ -27,6 +27,8 @@ const ServerEnvSchema = z.object({
     .string()
     .optional()
     .transform((value) => value?.trim() || undefined),
+  INNGEST_EVENT_KEY: z.string().min(1).optional(),
+  INNGEST_SIGNING_KEY: z.string().min(1).optional(),
   DEMO_CHECKOUT_ENABLED: z
     .enum(["true", "false"])
     .default("false")

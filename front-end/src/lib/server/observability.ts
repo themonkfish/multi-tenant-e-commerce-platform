@@ -34,10 +34,25 @@ function errorFields(error: unknown) {
 
 const startedAt = Date.now();
 const counters = new Map<string, number>();
+const scopedCounters = new Map<string, number>();
 
 export function recordObservabilityMetric(name: string, increment = 1) {
   if (!name || !Number.isFinite(increment) || increment < 0) return;
   counters.set(name, (counters.get(name) ?? 0) + increment);
+}
+
+export function recordScopedObservabilityMetric(
+  name: string,
+  context: ObservabilityContext,
+  increment = 1,
+) {
+  recordObservabilityMetric(name, increment);
+  if (!name || !Number.isFinite(increment) || increment < 0) return;
+  const tenantId = context.tenantId?.replace(/[^A-Za-z0-9_-]/g, "_");
+  const hostId = context.hostId?.replace(/[^A-Za-z0-9_-]/g, "_");
+  if (!tenantId && !hostId) return;
+  const key = JSON.stringify({ name, tenantId, hostId });
+  scopedCounters.set(key, (scopedCounters.get(key) ?? 0) + increment);
 }
 
 export function getObservabilityMetrics() {
@@ -53,6 +68,7 @@ export function getObservabilityMetrics() {
 
 export function resetObservabilityMetricsForTests() {
   counters.clear();
+  scopedCounters.clear();
 }
 
 export function formatPrometheusMetrics(): string {
@@ -69,6 +85,23 @@ export function formatPrometheusMetrics(): string {
   for (const [name, value] of Object.entries(metrics.counters)) {
     const escapedName = name.replace(/[^A-Za-z0-9_:]/g, "_");
     lines.push(`ecommerce_event_total{event="${escapedName}"} ${value}`);
+  }
+  lines.push(
+    "# HELP ecommerce_scoped_event_total Application event counter with host and tenant labels.",
+    "# TYPE ecommerce_scoped_event_total counter",
+  );
+  for (const [serialized, value] of [...scopedCounters.entries()].sort()) {
+    const { name, tenantId, hostId } = JSON.parse(serialized) as {
+      name: string;
+      tenantId?: string;
+      hostId?: string;
+    };
+    const labels = [
+      `event="${name.replace(/[^A-Za-z0-9_:]/g, "_")}"`,
+      ...(hostId ? [`host_id="${hostId}"`] : []),
+      ...(tenantId ? [`tenant_id="${tenantId}"`] : []),
+    ];
+    lines.push(`ecommerce_scoped_event_total{${labels.join(",")}} ${value}`);
   }
   return `${lines.join("\n")}\n`;
 }
