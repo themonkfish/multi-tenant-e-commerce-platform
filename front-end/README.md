@@ -35,6 +35,21 @@ Add-Content .env.local "SESSION_SECRET=$session"
 Add-Content .env.local "SETUP_TOKEN=$setup"
 ```
 
+For shared rate limits across multiple application instances, configure a Redis
+REST-compatible provider:
+
+```powershell
+Add-Content .env.local "DISTRIBUTED_RATE_LIMIT_URL=https://your-provider.example.com"
+Add-Content .env.local "DISTRIBUTED_RATE_LIMIT_TOKEN=your-rest-token"
+Add-Content .env.local "DISTRIBUTED_RATE_LIMIT_PREFIX=platform"
+Add-Content .env.local "DISTRIBUTED_RATE_LIMIT_FAIL_MODE=closed"
+```
+
+Standard `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` names are also
+accepted. Without this configuration, rate limits continue to use the configured
+PlatformStore. Development defaults to fail-open if the provider is unavailable;
+production defaults to fail-closed.
+
 The local JSON PlatformStore is development-only and writes to `.local/`, which
 is ignored by Git. Open `/en/setup` (or `/setup`, which redirects there) to
 create the first Super Admin and enroll TOTP. Save the recovery codes when

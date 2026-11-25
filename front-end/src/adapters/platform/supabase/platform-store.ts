@@ -64,6 +64,7 @@ import {
   type ProductReview,
 } from "@/core/domain/product-review";
 import { createPlatformSupabaseClient } from "./client";
+import { consumeDistributedRateLimit } from "@/lib/server/distributed-rate-limit";
 
 export class SupabasePlatformStore implements PlatformStore {
   private readonly client = createPlatformSupabaseClient();
@@ -2492,6 +2493,8 @@ export class SupabasePlatformStore implements PlatformStore {
     windowMs: number;
     now: number;
   }): Promise<boolean> {
+    const distributed = await consumeDistributedRateLimit(input);
+    if (distributed !== null) return distributed;
     const { data, error } = await this.client.rpc(
       "consume_platform_rate_limit",
       {

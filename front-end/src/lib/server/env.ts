@@ -19,6 +19,19 @@ const ServerEnvSchema = z.object({
   SHIPROCKET_API_PASSWORD: z.string().min(1).optional(),
   SHIPROCKET_PICKUP_LOCATION: z.string().trim().min(1).max(120).optional(),
   OBSERVABILITY_METRICS_TOKEN: z.string().min(16).optional(),
+  DISTRIBUTED_RATE_LIMIT_URL: z.url().optional(),
+  DISTRIBUTED_RATE_LIMIT_TOKEN: z.string().min(1).optional(),
+  UPSTASH_REDIS_REST_URL: z.url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+  DISTRIBUTED_RATE_LIMIT_PREFIX: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .default("platform"),
+  DISTRIBUTED_RATE_LIMIT_FAIL_MODE: z
+    .enum(["open", "closed"])
+    .optional(),
   RESEND_API_KEY: z
     .string()
     .optional()

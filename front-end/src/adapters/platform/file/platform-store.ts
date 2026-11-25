@@ -68,6 +68,7 @@ import type {
 } from "@/core/ports/platform-store";
 import { timingSafeStringEqual } from "@/lib/server/crypto";
 import { getServerEnv } from "@/lib/server/env";
+import { consumeDistributedRateLimit } from "@/lib/server/distributed-rate-limit";
 
 const SuperAdminSchema = z.object({
   id: z.string().min(1),
@@ -2267,6 +2268,8 @@ export class FilePlatformStore implements PlatformStore {
     windowMs: number;
     now: number;
   }): Promise<boolean> {
+    const distributed = await consumeDistributedRateLimit(input);
+    if (distributed !== null) return distributed;
     return this.withLock(async () => {
       const state = await this.readState();
       const current = state.rateLimits[input.key];

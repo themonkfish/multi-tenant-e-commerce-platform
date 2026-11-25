@@ -402,9 +402,10 @@ Status snapshot as of 2026-11-23:
       SBOM generation, and health reporting are implemented. Production
       in-process webhook/provider counters and uptime are exposed by health;
       bearer-protected Prometheus-text metrics are available at `/api/metrics`.
-      External monitoring dashboards, alerting, a shared distributed rate-limit
-      service, automated migration deployment, restore automation, and full
-      compliance tooling remain.
+      External monitoring dashboards, alerting, and full compliance tooling
+      remain. A Redis REST-compatible distributed rate-limit adapter is
+      implemented for atomic fixed-window counters, with Upstash environment
+      aliases and configurable fail-open/fail-closed behavior.
 
 ### Pending roadmap
 
