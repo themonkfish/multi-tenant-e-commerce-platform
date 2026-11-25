@@ -1099,6 +1099,10 @@ export class FilePlatformStore implements PlatformStore {
         (review) =>
           review.tenantId !== tenantId || review.customerId !== customerId,
       );
+      state.customerPasswordResets = state.customerPasswordResets.filter(
+        (reset) =>
+          reset.tenantId !== tenantId || reset.customerId !== customerId,
+      );
       const deletedOrderIds = new Set(
         state.customerOrders
           .filter(

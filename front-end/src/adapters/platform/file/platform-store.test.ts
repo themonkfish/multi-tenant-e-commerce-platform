@@ -482,6 +482,14 @@ describe("FilePlatformStore", () => {
       createdAt: new Date().toISOString(),
     };
     await store.createProductReview(review);
+    await store.createCustomerPasswordReset({
+      id: "550e8400-e29b-41d4-a716-446655440043",
+      tenantId: tenant.id,
+      customerId: customer.id,
+      tokenHash: "d".repeat(64),
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      createdAt: new Date().toISOString(),
+    });
 
     await expect(
       store.deleteCustomerAccount(tenant.id, customer.id),
@@ -492,6 +500,14 @@ describe("FilePlatformStore", () => {
     await expect(
       store.listProductReviews(tenant.id, "product-1"),
     ).resolves.toEqual([]);
+    await expect(
+      store.consumeCustomerPasswordReset({
+        tenantId: tenant.id,
+        tokenHash: "d".repeat(64),
+        passwordHash: "new-password-hash",
+        now: "2026-11-25T12:53:20.000Z",
+      }),
+    ).resolves.toBeNull();
   });
 
   it("purges platform-owned tenant records when deleting a tenant", async () => {

@@ -22,6 +22,9 @@ export async function POST(request: Request, { params }: SyncOrderRouteProps) {
   }
 
   const { orderId } = await params;
+  if (!/^ORD-[A-Fa-f0-9-]{36}$/.test(orderId)) {
+    return NextResponse.json({ error: "invalid_order_id" }, { status: 400 });
+  }
   const store = getPlatformStore();
   const order = (
     await store.listCustomerOrders(session.scope.id, session.userId)

@@ -157,4 +157,22 @@ describe("POST /api/customer/orders/[orderId]/sync", () => {
     expect(await response.json()).toEqual({ error: "rate_limited" });
     expect(syncCustomerOrderToTenant).not.toHaveBeenCalled();
   });
+
+  it("rejects malformed order IDs", async () => {
+    setupSession();
+    getPlatformStore.mockReturnValue({
+      listCustomerOrders: vi.fn(),
+    });
+
+    const response = await POST(
+      new Request("https://store.example.com/api/customer/orders/not-an-order/sync", {
+        method: "POST",
+        headers: { origin: "https://store.example.com" },
+      }),
+      { params: Promise.resolve({ orderId: "not-an-order" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_order_id" });
+  });
 });

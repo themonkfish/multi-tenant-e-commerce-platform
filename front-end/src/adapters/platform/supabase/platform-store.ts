@@ -1227,6 +1227,17 @@ export class SupabasePlatformStore implements PlatformStore {
         .in("order_id", orderIds);
     }
 
+    const { error: deletePasswordResetsError } = await this.client
+      .from("platform_customer_password_resets")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customerId);
+    if (deletePasswordResetsError) {
+      throw new Error(
+        `Could not delete customer password resets: ${deletePasswordResetsError.message}`,
+      );
+    }
+
     const { error: deleteOrdersError } = await this.client
       .from("platform_customer_orders")
       .delete()

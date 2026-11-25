@@ -636,6 +636,9 @@ Status snapshot as of 2026-11-23:
       Tax configuration now normalizes jurisdiction country/state keys and
       rejects duplicate overrides; tax calculations use overflow-safe integer
       minor-unit rounding and validate fallback and jurisdiction rates.
+      Customer account deletion now purges password-reset records in both
+      file and Supabase stores, and order sync retries validate tenant-scoped
+      order IDs before lookup.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
       confirmation/history.
