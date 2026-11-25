@@ -203,6 +203,15 @@ export const StorageProviderConfigSchema = z.discriminatedUnion("type", [
     credentialsRef: SecretRefSchema,
   }),
   z.object({
+    type: z.literal("cloudinary"),
+    cloudName: z
+      .string()
+      .min(1)
+      .max(63)
+      .regex(/^[A-Za-z0-9_-]+$/),
+    credentialsRef: SecretRefSchema,
+  }),
+  z.object({
     type: z.literal("supabase"),
     bucket: z.string().min(1),
     credentialsRef: SecretRefSchema,
@@ -276,6 +285,15 @@ export const TenantStorageProviderConfigSchema = z.discriminatedUnion("type", [
       .max(63)
       .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/),
     publicBaseUrl: HttpsStorageUrlSchema,
+    credentialsRef: SecretRefSchema,
+  }),
+  z.object({
+    type: z.literal("cloudinary"),
+    cloudName: z
+      .string()
+      .min(1)
+      .max(63)
+      .regex(/^[A-Za-z0-9_-]+$/),
     credentialsRef: SecretRefSchema,
   }),
   z.object({
@@ -392,6 +410,32 @@ export const TenantStorageConnectionInputSchema = z.discriminatedUnion("type", [
       .max(4096)
       .optional(),
   }),
+  z.object({
+    type: z.literal("cloudinary"),
+    cloudName: z
+      .string()
+      .min(1)
+      .max(63)
+      .regex(/^[A-Za-z0-9_-]+$/),
+    apiKey: z
+      .string()
+      .min(1)
+      .max(128)
+      .optional(),
+    apiSecret: z
+      .string()
+      .min(1)
+      .max(4096)
+      .optional(),
+  }).superRefine((input, context) => {
+    if (Boolean(input.apiKey) !== Boolean(input.apiSecret)) {
+      context.addIssue({
+        code: "custom",
+        path: ["apiSecret"],
+        message: "Cloudinary API key and API secret must be supplied together",
+      });
+    }
+  }),
 ]);
 
 export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
@@ -416,6 +460,11 @@ export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
     accountName: z.string(),
     container: z.string(),
     publicBaseUrl: z.string(),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("cloudinary"),
+    cloudName: z.string(),
     credentialsConfigured: z.boolean(),
   }),
 ]);

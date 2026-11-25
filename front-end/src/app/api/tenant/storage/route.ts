@@ -39,6 +39,13 @@ function storageView(config: TenantStorageProviderConfig | null) {
       credentialsConfigured: true,
     });
   }
+  if (config.type === "cloudinary") {
+    return TenantStorageConnectionViewSchema.parse({
+      type: "cloudinary",
+      cloudName: config.cloudName,
+      credentialsConfigured: true,
+    });
+  }
   return TenantStorageConnectionViewSchema.parse({
     type: "s3",
     endpoint: config.endpoint,
@@ -105,6 +112,8 @@ export async function PUT(request: Request) {
         ? [parsed.data.publicBaseUrl]
         : parsed.data.type === "azure"
           ? [parsed.data.publicBaseUrl]
+          : parsed.data.type === "cloudinary"
+            ? [`https://res.cloudinary.com/${parsed.data.cloudName}`]
         : [
             ...(parsed.data.endpoint ? [parsed.data.endpoint] : []),
             parsed.data.publicBaseUrl,
@@ -158,6 +167,13 @@ export async function PUT(request: Request) {
                 accountKey: parsed.data.accountKey,
               })
             : undefined
+          : parsed.data.type === "cloudinary"
+            ? parsed.data.apiKey && parsed.data.apiSecret
+              ? JSON.stringify({
+                  apiKey: parsed.data.apiKey,
+                  apiSecret: parsed.data.apiSecret,
+                })
+              : undefined
           : parsed.data.accessKeyId && parsed.data.secretAccessKey
             ? JSON.stringify({
                 accessKeyId: parsed.data.accessKeyId,
@@ -198,7 +214,9 @@ export async function PUT(request: Request) {
               ? "tenant-gcs-storage-service-account"
               : parsed.data.type === "azure"
                 ? "tenant-azure-storage-account-key"
-                : "tenant-s3-storage-credentials",
+                : parsed.data.type === "cloudinary"
+                  ? "tenant-cloudinary-storage-credentials"
+                  : "tenant-s3-storage-credentials",
         value: suppliedCredentials,
       })
     : existing?.credentialsRef;
@@ -231,15 +249,21 @@ export async function PUT(request: Request) {
               publicBaseUrl: parsed.data.publicBaseUrl,
               credentialsRef,
             }
-          : {
-              type: "s3",
-              endpoint: parsed.data.endpoint,
-              region: parsed.data.region,
-              bucket: parsed.data.bucket,
-              publicBaseUrl: parsed.data.publicBaseUrl,
-              pathStyle: parsed.data.pathStyle,
-              credentialsRef,
-            },
+          : parsed.data.type === "cloudinary"
+            ? {
+                type: "cloudinary",
+                cloudName: parsed.data.cloudName,
+                credentialsRef,
+              }
+            : {
+                type: "s3",
+                endpoint: parsed.data.endpoint,
+                region: parsed.data.region,
+                bucket: parsed.data.bucket,
+                publicBaseUrl: parsed.data.publicBaseUrl,
+                pathStyle: parsed.data.pathStyle,
+                credentialsRef,
+              },
   );
   const now = new Date().toISOString();
   let saved: TenantStorageProviderConfig | null;

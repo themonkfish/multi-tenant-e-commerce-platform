@@ -17,14 +17,18 @@ export function TenantStorageProviderForm({
 }) {
   const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
-  const [provider, setProvider] = useState<"s3" | "supabase" | "gcs" | "azure">(
+  const [provider, setProvider] = useState<
+    "s3" | "supabase" | "gcs" | "azure" | "cloudinary"
+  >(
     initialConnection?.type === "supabase"
       ? "supabase"
       : initialConnection?.type === "gcs"
         ? "gcs"
         : initialConnection?.type === "azure"
           ? "azure"
-          : "s3",
+          : initialConnection?.type === "cloudinary"
+            ? "cloudinary"
+            : "s3",
   );
   const [endpoint, setEndpoint] = useState(
     initialConnection?.type === "s3" ? (initialConnection.endpoint ?? "") : "",
@@ -69,6 +73,13 @@ export function TenantStorageProviderForm({
       : "",
   );
   const [azureAccountKey, setAzureAccountKey] = useState("");
+  const [cloudinaryCloudName, setCloudinaryCloudName] = useState(
+    initialConnection?.type === "cloudinary"
+      ? initialConnection.cloudName
+      : "",
+  );
+  const [cloudinaryApiKey, setCloudinaryApiKey] = useState("");
+  const [cloudinaryApiSecret, setCloudinaryApiSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -102,6 +113,17 @@ export function TenantStorageProviderForm({
                   container: azureContainer,
                   publicBaseUrl,
                   ...(azureAccountKey ? { accountKey: azureAccountKey } : {}),
+                } satisfies z.infer<typeof TenantStorageConnectionInputSchema>)
+            : provider === "cloudinary"
+              ? ({
+                  type: "cloudinary",
+                  cloudName: cloudinaryCloudName,
+                  ...(cloudinaryApiKey
+                    ? { apiKey: cloudinaryApiKey }
+                    : {}),
+                  ...(cloudinaryApiSecret
+                    ? { apiSecret: cloudinaryApiSecret }
+                    : {}),
                 } satisfies z.infer<typeof TenantStorageConnectionInputSchema>)
             : ({
                 type: "s3",
@@ -150,6 +172,11 @@ export function TenantStorageProviderForm({
       setSessionToken("");
       setServiceAccountJson("");
       setAzureAccountKey("");
+      setCloudinaryCloudName("");
+      setCloudinaryApiKey("");
+      setCloudinaryApiSecret("");
+      setCloudinaryApiKey("");
+      setCloudinaryApiSecret("");
       setNotice(t("settingsSaved"));
     } catch {
       setError(t("requestUnavailable"));
@@ -247,10 +274,14 @@ export function TenantStorageProviderForm({
                     accountName: connection.accountName,
                     container: connection.container,
                   })
-                : t("configuredSupabaseBucket", {
-                    bucket: connection.bucket,
-                    projectUrl: connection.projectUrl,
-                  })}
+                : connection.type === "cloudinary"
+                  ? t("configuredCloudinary", {
+                      cloudName: connection.cloudName,
+                    })
+                  : t("configuredSupabaseBucket", {
+                      bucket: connection.bucket,
+                      projectUrl: connection.projectUrl,
+                    })}
         </p>
       )}
       <p className="text-sm text-slate-600">{t("publicAccessHelp")}</p>
@@ -268,7 +299,9 @@ export function TenantStorageProviderForm({
                   ? "gcs"
                   : event.target.value === "azure"
                     ? "azure"
-                    : "s3",
+                    : event.target.value === "cloudinary"
+                      ? "cloudinary"
+                      : "s3",
             )
           }
         >
@@ -276,6 +309,7 @@ export function TenantStorageProviderForm({
           <option value="supabase">{t("providerSupabase")}</option>
           <option value="gcs">{t("providerGcs")}</option>
           <option value="azure">{t("providerAzure")}</option>
+          <option value="cloudinary">{t("providerCloudinary")}</option>
         </select>
       </label>
       {provider === "supabase" ? (
@@ -365,6 +399,22 @@ export function TenantStorageProviderForm({
               placeholder="https://tenantassets.blob.core.windows.net/tenant-assets"
               type="url"
               value={publicBaseUrl}
+            />
+          </label>
+        </div>
+      ) : provider === "cloudinary" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700 sm:col-span-2">
+            {t("cloudNameLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) =>
+                setCloudinaryCloudName(event.target.value)
+              }
+              placeholder="tenant-cloud"
+              type="text"
+              value={cloudinaryCloudName}
             />
           </label>
         </div>
@@ -509,6 +559,42 @@ export function TenantStorageProviderForm({
             value={azureAccountKey}
           />
         </label>
+      )}
+      {provider === "cloudinary" && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("cloudinaryApiKeyLabel")}
+            {connection?.type === "cloudinary"
+              ? ` ${t("keepKeyHint")}`
+              : ""}
+            <input
+              autoComplete="off"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) =>
+                setCloudinaryApiKey(event.target.value)
+              }
+              type="password"
+              value={cloudinaryApiKey}
+            />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("cloudinaryApiSecretLabel")}
+            {connection?.type === "cloudinary"
+              ? ` ${t("keepKeyHint")}`
+              : ""}
+            <input
+              autoComplete="new-password"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) =>
+                setCloudinaryApiSecret(event.target.value)
+              }
+              type="password"
+              value={cloudinaryApiSecret}
+            />
+          </label>
+        </div>
       )}
       <div className="flex flex-wrap gap-2">
         <button

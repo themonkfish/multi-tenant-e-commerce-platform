@@ -147,6 +147,61 @@ describe("PUT /api/tenant/storage", () => {
     expect(getPlatformStore).not.toHaveBeenCalled();
   });
 
+  it("stores Cloudinary account settings and credentials in the vault", async () => {
+    const cloudinaryConfig = {
+      type: "cloudinary" as const,
+      cloudName: "tenant-cloud",
+      credentialsRef,
+    };
+    const store = {
+      getTenantStorageProvider: vi.fn().mockResolvedValue(null),
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      updateTenantStorageProvider: vi
+        .fn()
+        .mockResolvedValue(cloudinaryConfig),
+    };
+    const vault = { putSecret: vi.fn().mockResolvedValue(credentialsRef) };
+    getTenantOwnerSession.mockResolvedValue({
+      userId: ownerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["tenant:read", "tenant:write"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    getSecretVault.mockReturnValue(vault);
+    resolvePublicAddress.mockResolvedValue({
+      address: "203.0.113.1",
+      family: 4,
+    });
+
+    const response = await PUT(
+      saveRequest({
+        type: "cloudinary",
+        endpoint: undefined,
+        region: undefined,
+        accessKeyId: undefined,
+        secretAccessKey: undefined,
+        cloudName: "tenant-cloud",
+        apiKey: "123456789",
+        apiSecret: "test-api-secret",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      connection: {
+        type: "cloudinary",
+        cloudName: "tenant-cloud",
+        credentialsConfigured: true,
+      },
+    });
+    expect(vault.putSecret).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "tenant-cloudinary-storage-credentials",
+      }),
+    );
+  });
+
   it("stores Azure account settings and an account key in the vault", async () => {
     const azureConfig = {
       type: "azure" as const,

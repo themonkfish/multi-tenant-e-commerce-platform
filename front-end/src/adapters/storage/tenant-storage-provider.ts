@@ -4,6 +4,7 @@ import { TenantS3StorageAdapter } from "./s3/tenant-s3-storage";
 import { TenantSupabaseStorageAdapter } from "./supabase/tenant-supabase-storage";
 import { TenantGcsStorageAdapter } from "./gcs/tenant-gcs-storage";
 import { TenantAzureStorageAdapter } from "./azure/tenant-azure-storage";
+import { TenantCloudinaryStorageAdapter } from "./cloudinary/tenant-cloudinary-storage";
 import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 
 const S3CredentialsSchema = z
@@ -30,6 +31,12 @@ const AzureStorageCredentialsSchema = z
     accountKey: z.string().min(16),
   })
   .strict();
+const CloudinaryStorageCredentialsSchema = z
+  .object({
+    apiKey: z.string().min(1),
+    apiSecret: z.string().min(1),
+  })
+  .strict();
 
 export async function createTenantStorageAdapter(
   tenantId: string,
@@ -39,6 +46,7 @@ export async function createTenantStorageAdapter(
   | TenantSupabaseStorageAdapter
   | TenantGcsStorageAdapter
   | TenantAzureStorageAdapter
+  | TenantCloudinaryStorageAdapter
 > {
   const store = getPlatformStore();
   const [hosts, tenants, config] = await Promise.all([
@@ -78,6 +86,10 @@ export async function createTenantStorageAdapter(
       throw new Error("Azure Blob account name does not match storage configuration");
     }
     return new TenantAzureStorageAdapter(config, tenantId, credentials);
+  }
+  if (config.type === "cloudinary") {
+    const credentials = CloudinaryStorageCredentialsSchema.parse(secret);
+    return new TenantCloudinaryStorageAdapter(config, tenantId, credentials);
   }
   const credentials = S3CredentialsSchema.parse(secret);
   return new TenantS3StorageAdapter(config, tenantId, credentials);
