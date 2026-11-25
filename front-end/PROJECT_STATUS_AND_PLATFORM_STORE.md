@@ -572,11 +572,13 @@ Status snapshot as of 2026-11-23:
       processing. The platform records cancellation before synchronizing the
       Tenant backend, restoring tracked inventory, and releasing discount
       redemptions; cleanup can be retried after partial failure. Paid Stripe
-      orders remain non-cancellable until refund API and webhook reconciliation
-      are implemented. The Customer cancellation route has regression coverage
-      for paid rejection and COD success. Tenant order
-      routes have regression coverage for write permissions and COD cleanup
-      handoff.
+      orders remain non-cancellable and must use the authorized full-refund
+      workflow; the signed refund webhook restores inventory, releases discounts,
+      cancels the Tenant snapshot, and is retried safely. The Tenant portal exposes
+      the refund action for paid Stripe orders. The Customer cancellation route
+      has regression coverage for paid rejection and COD success. Tenant order
+      routes have regression coverage for write permissions, COD cleanup handoff,
+      and refund authorization.
 - [x] Let authorized Tenant operators manually mark Shipped orders Delivered.
       Delivered is terminal, is reflected in Customer order history, and does
       not imply carrier confirmation. The Tenant order API rejects Delivered

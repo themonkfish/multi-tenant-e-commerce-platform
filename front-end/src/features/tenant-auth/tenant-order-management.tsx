@@ -44,6 +44,13 @@ function errorMessage(body: unknown, t: (key: string) => string): string {
       return t("shipmentAlreadyCreated");
     case "delivery_address_required":
       return t("deliveryAddressRequired");
+    case "order_not_refundable":
+      return t("notRefundable");
+    case "payment_not_configured":
+      return t("paymentNotConfigured");
+    case "refund_failed":
+    case "refund_update_conflict":
+      return t("refundFailed");
     case "shiprocket_auth_failed":
     case "shiprocket_create_failed":
     case "shiprocket_awb_failed":
@@ -267,6 +274,48 @@ export function TenantOrderManagement({
       await loadCashOrders(cashPage);
     } catch {
       setError(t("backendReachFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refundStripeOrder(order: TenantOrder) {
+    if (!window.confirm(t("refundConfirm"))) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/tenant/orders/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(errorMessage(body, t));
+        return;
+      }
+      const parsed =
+        typeof body === "object" && body !== null && "refund" in body
+          ? z
+              .object({
+                refund: z.object({
+                  id: z.string().min(1),
+                  status: z.string().nullable(),
+                }),
+              })
+              .safeParse(body)
+          : null;
+      if (!parsed?.success) {
+        setError(t("refundFailed"));
+        return;
+      }
+      setNotice(t("refundRequested", { id: order.id }));
+      await loadOrders(page);
+    } catch {
+      setError(t("refundReachFailed"));
     } finally {
       setBusy(false);
     }
@@ -751,6 +800,18 @@ export function TenantOrderManagement({
               {busy ? t("updating") : t("markProcessing")}
             </button>
           )}
+          {canManage &&
+            selected.paymentMethod === "stripe" &&
+            selected.status !== "Cancelled" && (
+              <button
+                className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
+                disabled={busy}
+                onClick={() => void refundStripeOrder(selected)}
+                type="button"
+              >
+                {busy ? t("refunding") : t("refundOrder")}
+              </button>
+            )}
           {canManageShipment && (
             <div className="space-y-3 rounded-md border border-slate-200 p-4">
               <h3 className="font-medium text-slate-900">
