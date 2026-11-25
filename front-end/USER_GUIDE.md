@@ -401,8 +401,38 @@ npm run platform-store:migrate:export -- .local/platform-store.json .local/platf
 ```
 
 The dry run validates parent-host and tenant scope and reports counts. The export
-excludes password hashes and encrypted secret records; import and credential
-re-encryption require a separate reviewed migration workflow.
+excludes password hashes and encrypted secret records.
+
+For a reviewed file-to-Supabase cutover, run from `front-end`:
+
+```powershell
+npm run supabase:migration:preflight
+npm run platform-store:migrate:preflight -- .local/platform-migration.json
+npm run platform-store:migrate:import -- .local/platform-store.json
+```
+
+The staging import requires `NEXT_PUBLIC_PLATFORM_SUPABASE_URL` and
+`PLATFORM_SUPABASE_SERVICE_KEY`. Set `SOURCE_PLATFORM_SECRET_KEY` to the source
+file-store key and keep `PLATFORM_SECRET_KEY` set to the destination key.
+The import decrypts source-encrypted secrets and TOTP values only in memory,
+reencrypts them for the destination, and applies the target data in one
+Supabase transaction.
+
+After staging verification, activate it with:
+
+```powershell
+$env:MIGRATION_CUTOVER_CONFIRM="CUTOVER"
+npm run platform-store:migrate:import -- .local/platform-store.json --cutover
+```
+
+If the staged or cutover migration must be reversed, set
+`PLATFORM_STORE=supabase` and restore the file store deployment configuration
+for application traffic, then clear the migrated Supabase target with:
+
+```powershell
+$env:MIGRATION_ROLLBACK_CONFIRM="ROLLBACK"
+npm run platform-store:migrate:rollback
+```
 
 ## Current limitations
 

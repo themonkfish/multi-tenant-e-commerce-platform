@@ -26,6 +26,8 @@
     "platform-store:restore-drill": "node scripts/platform-store-backup.mjs drill",
     "platform-store:migrate:export": "node scripts/platform-store-migration.mjs export",
     "platform-store:migrate:preflight": "node scripts/platform-store-migration.mjs preflight",
+    "platform-store:migrate:import": "node scripts/platform-store-migration.mjs import",
+    "platform-store:migrate:rollback": "node scripts/platform-store-migration.mjs rollback",
     "test:platform-backup": "node --test scripts/platform-store-backup.test.mjs",
     "test:platform-migration": "node --test scripts/platform-store-migration.test.mjs",
     "test:supabase-migrations": "node --test scripts/supabase-production-migration.test.mjs",

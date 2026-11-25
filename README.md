@@ -53,6 +53,45 @@ connecting through the frontend proxy.
 For complete website usage steps, see
 [`front-end/USER_GUIDE.md`](./front-end/USER_GUIDE.md).
 
+## Platform-store migration
+
+From `front-end`, export and preflight the file platform store before a
+Supabase cutover:
+
+```powershell
+npm run platform-store:migrate:export -- --dry-run
+npm run platform-store:migrate:export -- .local/platform-store.json .local/platform-migration.json
+npm run platform-store:migrate:preflight -- .local/platform-migration.json
+```
+
+Stage the file-store data in a fresh Supabase target. The source and
+destination secret keys must remain available for credential re-encryption:
+
+```powershell
+npm run platform-store:migrate:import -- .local/platform-store.json
+```
+
+After verifying the staged target, require an explicit confirmation and
+activate the cutover:
+
+```powershell
+$env:MIGRATION_CUTOVER_CONFIRM="CUTOVER"
+npm run platform-store:migrate:import -- .local/platform-store.json --cutover
+```
+
+To clear the migrated Supabase target during rollback, explicitly confirm:
+
+```powershell
+$env:MIGRATION_ROLLBACK_CONFIRM="ROLLBACK"
+npm run platform-store:migrate:rollback
+```
+
+The import requires `NEXT_PUBLIC_PLATFORM_SUPABASE_URL` or
+`PLATFORM_SUPABASE_URL`, `PLATFORM_SUPABASE_SERVICE_KEY`,
+`SOURCE_PLATFORM_SECRET_KEY`, and `PLATFORM_SECRET_KEY`. See
+[`front-end/USER_GUIDE.md`](./front-end/USER_GUIDE.md) for the reviewed
+migration and rollback procedure.
+
 ## Complete local demo
 
 The demo command creates an isolated frontend platform store, tenant SQLite
