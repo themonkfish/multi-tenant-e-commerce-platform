@@ -672,8 +672,11 @@ Status snapshot as of 2026-11-23:
       malformed labels, missing TLDs, and unparsable domains. Domain create,
       verify, readiness, claim cancellation, removal, limits, and route tests
       share the normalized domain lifecycle.
-- [ ] Later growth work: CMS, broader reporting, expanded staff roles, webhooks,
-      offline commerce behavior, and theming tools.
+- [ ] Later growth work: expanded staff roles, webhooks, offline commerce
+      behavior, and theming tools.
+      Tenant CMS pages are stored in tenant branding settings and exposed through
+      localized published storefront routes. Tenant order reporting now includes
+      average order value, units sold, and top-product revenue summaries.
 - [x] Tenant order reporting: the Tenant Owner portal shows tenant-scoped order
       volume, gross sales excluding cancelled orders, paid and COD due counts,
       refund/cancellation counts, and shipped/delivered fulfillment counts.

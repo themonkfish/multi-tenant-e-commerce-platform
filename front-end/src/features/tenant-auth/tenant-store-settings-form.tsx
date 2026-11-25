@@ -75,6 +75,9 @@ export function TenantStoreSettingsForm({
   const [discountsText, setDiscountsText] = useState(
     JSON.stringify(initialSettings.discounts, null, 2),
   );
+  const [cmsPagesText, setCmsPagesText] = useState(
+    JSON.stringify(initialSettings.branding.pages ?? [], null, 2),
+  );
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -125,6 +128,14 @@ export function TenantStoreSettingsForm({
       setNotice("");
       return;
     }
+    let pages: unknown;
+    try {
+      pages = JSON.parse(cmsPagesText);
+    } catch {
+      setError(t("invalidCmsPages"));
+      setNotice("");
+      return;
+    }
     const rawSettings = {
       branding: {
         name: form.get("brandName"),
@@ -134,6 +145,7 @@ export function TenantStoreSettingsForm({
           : {}),
         primaryColor: form.get("primaryColor"),
         accentColor: form.get("accentColor"),
+        pages,
       },
       locale: {
         defaultLocale: form.get("defaultLocale"),
@@ -370,6 +382,20 @@ export function TenantStoreSettingsForm({
           maxLength={500}
           rows={3}
         />
+      </label>
+      <label className="space-y-1 text-sm font-medium sm:col-span-2">
+        {t("cmsPages")}
+        <textarea
+          className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs"
+          name="cmsPages"
+          rows={10}
+          value={cmsPagesText}
+          onChange={(event) => setCmsPagesText(event.target.value)}
+          spellCheck={false}
+        />
+        <span className="block font-normal text-slate-600">
+          {t("cmsPagesHelp")}
+        </span>
       </label>
       <label className="space-y-1 text-sm font-medium">
         {t("primaryColor")}

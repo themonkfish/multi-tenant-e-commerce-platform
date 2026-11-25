@@ -38,6 +38,9 @@ describe("summarizeTenantOrders", () => {
     expect(report).toEqual({
       orderCount: 6,
       grossSalesMinor: 3100,
+      averageOrderMinor: 620,
+      unitsSold: 0,
+      topProducts: [],
       paidCount: 4,
       codDueCount: 1,
       refundedCount: 1,
@@ -51,6 +54,9 @@ describe("summarizeTenantOrders", () => {
     expect(summarizeTenantOrders([])).toEqual({
       orderCount: 0,
       grossSalesMinor: 0,
+      averageOrderMinor: 0,
+      unitsSold: 0,
+      topProducts: [],
       paidCount: 0,
       codDueCount: 0,
       refundedCount: 0,

@@ -146,6 +146,27 @@ export default async function HomePage({ params }: HomePageProps) {
             </div>
           </header>
 
+          {settings.branding.pages?.some((page) => page.published) && (
+            <nav
+              aria-label={t("cmsPages")}
+              className="flex flex-wrap gap-3 border-b px-6 py-3"
+              style={{ borderColor: `${settings.branding.primaryColor}22` }}
+            >
+              {settings.branding.pages
+                .filter((page) => page.published)
+                .map((page) => (
+                  <Link
+                    className="text-sm font-medium underline"
+                    href={`/${locale}/${page.slug}`}
+                    key={page.slug}
+                    style={{ color: settings.branding.primaryColor }}
+                  >
+                    {page.title}
+                  </Link>
+                ))}
+            </nav>
+          )}
+
           <section className="grid gap-6 px-6 py-8 lg:grid-cols-[1.2fr_0.8fr]">
             <div>
               <p

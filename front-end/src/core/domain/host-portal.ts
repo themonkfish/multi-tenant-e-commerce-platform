@@ -135,6 +135,35 @@ export const TenantStoreSettingsSchema = z
       logoUrl: z.url({ protocol: /^https$/ }).optional(),
       primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
       accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+      pages: z
+        .array(
+          z
+            .object({
+              slug: z
+                .string()
+                .trim()
+                .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+                .max(80),
+              title: z.string().trim().min(1).max(120),
+              content: z.string().trim().min(1).max(10_000),
+              published: z.boolean(),
+            })
+            .strict(),
+        )
+        .max(50)
+        .optional(),
+    }).superRefine((branding, context) => {
+      const slugs = new Set<string>();
+      (branding.pages ?? []).forEach((page, index) => {
+        if (slugs.has(page.slug)) {
+          context.addIssue({
+            code: "custom",
+            path: ["pages", index, "slug"],
+            message: "CMS page slugs must be unique",
+          });
+        }
+        slugs.add(page.slug);
+      });
     }),
     locale: z.object({
       defaultLocale: LocaleTagSchema,

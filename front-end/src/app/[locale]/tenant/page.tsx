@@ -187,6 +187,29 @@ export default async function TenantDashboardPage({
           <p className="text-sm text-slate-500">{portalT("managingHost")}</p>
           <p className="mt-1 font-semibold">{hostRecord.name}</p>
         </div>
+        {orderReport.topProducts.length > 0 && (
+          <div className="mt-4">
+            <p className="text-sm font-medium text-slate-700">
+              {portalT("reportTopProducts")}
+            </p>
+            <ul className="mt-2 divide-y rounded-md border border-slate-100 text-sm">
+              {orderReport.topProducts.map((product) => (
+                <li
+                  className="flex items-center justify-between gap-4 px-3 py-2"
+                  key={product.productId}
+                >
+                  <span>
+                    {product.title} · {product.units} {portalT("reportUnits")}
+                  </span>
+                  <span className="font-medium">
+                    {product.revenueMinor.toLocaleString("en")}{" "}
+                    {settings.locale.currency}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section className="space-y-4 pb-10">
@@ -265,6 +288,23 @@ export default async function TenantDashboardPage({
               <p className="mt-1 text-xl font-semibold">
                 {orderReport.grossSalesMinor.toLocaleString("en")}{" "}
                 {settings.locale.currency}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportAverageOrder")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.averageOrderMinor.toLocaleString("en")}{" "}
+                {settings.locale.currency}
+              </p>
+            </article>
+            <article className="rounded-md border border-slate-100 p-3">
+              <p className="text-sm text-slate-500">
+                {portalT("reportUnitsSold")}
+              </p>
+              <p className="mt-1 text-xl font-semibold">
+                {orderReport.unitsSold}
               </p>
             </article>
             <article className="rounded-md border border-slate-100 p-3">
