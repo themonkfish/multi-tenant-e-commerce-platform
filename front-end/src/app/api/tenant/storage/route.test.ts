@@ -147,6 +147,65 @@ describe("PUT /api/tenant/storage", () => {
     expect(getPlatformStore).not.toHaveBeenCalled();
   });
 
+  it("stores Azure account settings and an account key in the vault", async () => {
+    const azureConfig = {
+      type: "azure" as const,
+      accountName: "tenantassets",
+      container: "tenant-assets",
+      publicBaseUrl:
+        "https://tenantassets.blob.core.windows.net/tenant-assets",
+      credentialsRef,
+    };
+    const store = {
+      getTenantStorageProvider: vi.fn().mockResolvedValue(null),
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      updateTenantStorageProvider: vi.fn().mockResolvedValue(azureConfig),
+    };
+    const vault = { putSecret: vi.fn().mockResolvedValue(credentialsRef) };
+    getTenantOwnerSession.mockResolvedValue({
+      userId: ownerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["tenant:read", "tenant:write"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    getSecretVault.mockReturnValue(vault);
+    resolvePublicAddress.mockResolvedValue({
+      address: "203.0.113.1",
+      family: 4,
+    });
+
+    const response = await PUT(
+      saveRequest({
+        type: "azure",
+        endpoint: undefined,
+        region: undefined,
+        accessKeyId: undefined,
+        secretAccessKey: undefined,
+        accountName: "tenantassets",
+        container: "tenant-assets",
+        publicBaseUrl:
+          "https://tenantassets.blob.core.windows.net/tenant-assets",
+        accountKey: Buffer.from("test-account-key").toString("base64"),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      connection: {
+        type: "azure",
+        accountName: "tenantassets",
+        container: "tenant-assets",
+        credentialsConfigured: true,
+      },
+    });
+    expect(vault.putSecret).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "tenant-azure-storage-account-key",
+      }),
+    );
+  });
+
   it("stores GCS bucket settings and a service account in the vault", async () => {
     const gcsConfig = {
       type: "gcs" as const,

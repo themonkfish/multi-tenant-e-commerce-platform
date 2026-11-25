@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TenantS3StorageAdapter } from "./s3/tenant-s3-storage";
 import { TenantSupabaseStorageAdapter } from "./supabase/tenant-supabase-storage";
 import { TenantGcsStorageAdapter } from "./gcs/tenant-gcs-storage";
+import { TenantAzureStorageAdapter } from "./azure/tenant-azure-storage";
 import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 
 const S3CredentialsSchema = z
@@ -23,12 +24,21 @@ const GcsStorageCredentialsSchema = z
     token_uri: z.string().url().optional(),
   })
   .strict();
+const AzureStorageCredentialsSchema = z
+  .object({
+    accountName: z.string().min(3).max(24),
+    accountKey: z.string().min(16),
+  })
+  .strict();
 
 export async function createTenantStorageAdapter(
   tenantId: string,
   hostId: string,
 ): Promise<
-  TenantS3StorageAdapter | TenantSupabaseStorageAdapter | TenantGcsStorageAdapter
+  | TenantS3StorageAdapter
+  | TenantSupabaseStorageAdapter
+  | TenantGcsStorageAdapter
+  | TenantAzureStorageAdapter
 > {
   const store = getPlatformStore();
   const [hosts, tenants, config] = await Promise.all([
@@ -61,6 +71,13 @@ export async function createTenantStorageAdapter(
   if (config.type === "gcs") {
     const credentials = GcsStorageCredentialsSchema.parse(secret);
     return new TenantGcsStorageAdapter(config, tenantId, credentials);
+  }
+  if (config.type === "azure") {
+    const credentials = AzureStorageCredentialsSchema.parse(secret);
+    if (credentials.accountName !== config.accountName) {
+      throw new Error("Azure Blob account name does not match storage configuration");
+    }
+    return new TenantAzureStorageAdapter(config, tenantId, credentials);
   }
   const credentials = S3CredentialsSchema.parse(secret);
   return new TenantS3StorageAdapter(config, tenantId, credentials);

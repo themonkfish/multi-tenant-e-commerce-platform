@@ -17,12 +17,14 @@ export function TenantStorageProviderForm({
 }) {
   const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
-  const [provider, setProvider] = useState<"s3" | "supabase" | "gcs">(
+  const [provider, setProvider] = useState<"s3" | "supabase" | "gcs" | "azure">(
     initialConnection?.type === "supabase"
       ? "supabase"
       : initialConnection?.type === "gcs"
         ? "gcs"
-        : "s3",
+        : initialConnection?.type === "azure"
+          ? "azure"
+          : "s3",
   );
   const [endpoint, setEndpoint] = useState(
     initialConnection?.type === "s3" ? (initialConnection.endpoint ?? "") : "",
@@ -30,12 +32,20 @@ export function TenantStorageProviderForm({
   const [region, setRegion] = useState(
     initialConnection?.type === "s3" ? initialConnection.region : "",
   );
-  const [bucket, setBucket] = useState(initialConnection?.bucket ?? "");
+  const [bucket, setBucket] = useState(
+    initialConnection?.type === "s3" ||
+      initialConnection?.type === "supabase" ||
+      initialConnection?.type === "gcs"
+      ? initialConnection.bucket
+      : "",
+  );
   const [projectUrl, setProjectUrl] = useState(
     initialConnection?.type === "supabase" ? initialConnection.projectUrl : "",
   );
   const [publicBaseUrl, setPublicBaseUrl] = useState(
-    initialConnection?.type === "s3" || initialConnection?.type === "gcs"
+    initialConnection?.type === "s3" ||
+      initialConnection?.type === "gcs" ||
+      initialConnection?.type === "azure"
       ? initialConnection.publicBaseUrl
       : "",
   );
@@ -48,6 +58,17 @@ export function TenantStorageProviderForm({
   const [secretAccessKey, setSecretAccessKey] = useState("");
   const [sessionToken, setSessionToken] = useState("");
   const [serviceAccountJson, setServiceAccountJson] = useState("");
+  const [azureAccountName, setAzureAccountName] = useState(
+    initialConnection?.type === "azure"
+      ? initialConnection.accountName
+      : "",
+  );
+  const [azureContainer, setAzureContainer] = useState(
+    initialConnection?.type === "azure"
+      ? initialConnection.container
+      : "",
+  );
+  const [azureAccountKey, setAzureAccountKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -74,6 +95,14 @@ export function TenantStorageProviderForm({
                   ? { serviceAccountJson }
                   : {}),
               } satisfies z.infer<typeof TenantStorageConnectionInputSchema>)
+            : provider === "azure"
+              ? ({
+                  type: "azure",
+                  accountName: azureAccountName,
+                  container: azureContainer,
+                  publicBaseUrl,
+                  ...(azureAccountKey ? { accountKey: azureAccountKey } : {}),
+                } satisfies z.infer<typeof TenantStorageConnectionInputSchema>)
             : ({
                 type: "s3",
                 ...(endpoint ? { endpoint } : {}),
@@ -120,6 +149,7 @@ export function TenantStorageProviderForm({
       setSecretAccessKey("");
       setSessionToken("");
       setServiceAccountJson("");
+      setAzureAccountKey("");
       setNotice(t("settingsSaved"));
     } catch {
       setError(t("requestUnavailable"));
@@ -176,6 +206,9 @@ export function TenantStorageProviderForm({
       setBucket("");
       setPublicBaseUrl("");
       setServiceAccountJson("");
+      setAzureAccountName("");
+      setAzureContainer("");
+      setAzureAccountKey("");
       setPathStyle(false);
       setNotice(t("settingsRemoved"));
     } catch {
@@ -209,10 +242,15 @@ export function TenantStorageProviderForm({
               ? t("configuredGcsBucket", {
                   bucket: connection.bucket,
                 })
-              : t("configuredSupabaseBucket", {
-                  bucket: connection.bucket,
-                  projectUrl: connection.projectUrl,
-                })}
+              : connection.type === "azure"
+                ? t("configuredAzureContainer", {
+                    accountName: connection.accountName,
+                    container: connection.container,
+                  })
+                : t("configuredSupabaseBucket", {
+                    bucket: connection.bucket,
+                    projectUrl: connection.projectUrl,
+                  })}
         </p>
       )}
       <p className="text-sm text-slate-600">{t("publicAccessHelp")}</p>
@@ -228,13 +266,16 @@ export function TenantStorageProviderForm({
                 ? "supabase"
                 : event.target.value === "gcs"
                   ? "gcs"
-                  : "s3",
+                  : event.target.value === "azure"
+                    ? "azure"
+                    : "s3",
             )
           }
         >
           <option value="s3">{t("providerS3")}</option>
           <option value="supabase">{t("providerSupabase")}</option>
           <option value="gcs">{t("providerGcs")}</option>
+          <option value="azure">{t("providerAzure")}</option>
         </select>
       </label>
       {provider === "supabase" ? (
@@ -282,6 +323,46 @@ export function TenantStorageProviderForm({
               disabled={busy}
               onChange={(event) => setPublicBaseUrl(event.target.value)}
               placeholder="https://storage.googleapis.com/tenant-assets"
+              type="url"
+              value={publicBaseUrl}
+            />
+          </label>
+        </div>
+      ) : provider === "azure" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("azureAccountNameLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) =>
+                setAzureAccountName(event.target.value.toLowerCase())
+              }
+              placeholder="tenantassets"
+              type="text"
+              value={azureAccountName}
+            />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("azureContainerLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) =>
+                setAzureContainer(event.target.value.toLowerCase())
+              }
+              placeholder="tenant-assets"
+              type="text"
+              value={azureContainer}
+            />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700 sm:col-span-2">
+            {t("publicBaseUrlLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setPublicBaseUrl(event.target.value)}
+              placeholder="https://tenantassets.blob.core.windows.net/tenant-assets"
               type="url"
               value={publicBaseUrl}
             />
@@ -412,6 +493,20 @@ export function TenantStorageProviderForm({
             placeholder={'{"client_email":"...","private_key":"..."}'}
             rows={8}
             value={serviceAccountJson}
+          />
+        </label>
+      )}
+      {provider === "azure" && (
+        <label className="block space-y-1 text-sm font-medium text-slate-700">
+          {t("azureAccountKeyLabel")}
+          {connection?.type === "azure" ? ` ${t("keepKeyHint")}` : ""}
+          <input
+            autoComplete="new-password"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+            disabled={busy}
+            onChange={(event) => setAzureAccountKey(event.target.value)}
+            type="password"
+            value={azureAccountKey}
           />
         </label>
       )}

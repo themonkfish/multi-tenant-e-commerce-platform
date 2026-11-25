@@ -264,6 +264,21 @@ export const TenantStorageProviderConfigSchema = z.discriminatedUnion("type", [
     credentialsRef: SecretRefSchema,
   }),
   z.object({
+    type: z.literal("azure"),
+    accountName: z
+      .string()
+      .min(3)
+      .max(24)
+      .regex(/^[a-z0-9]+$/),
+    container: z
+      .string()
+      .min(3)
+      .max(63)
+      .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/),
+    publicBaseUrl: HttpsStorageUrlSchema,
+    credentialsRef: SecretRefSchema,
+  }),
+  z.object({
     type: z.literal("supabase"),
     projectUrl: z
       .url({ protocol: /^https$/ })
@@ -358,6 +373,25 @@ export const TenantStorageConnectionInputSchema = z.discriminatedUnion("type", [
       .max(16384)
       .optional(),
   }),
+  z.object({
+    type: z.literal("azure"),
+    accountName: z
+      .string()
+      .min(3)
+      .max(24)
+      .regex(/^[a-z0-9]+$/),
+    container: z
+      .string()
+      .min(3)
+      .max(63)
+      .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/),
+    publicBaseUrl: HttpsStorageUrlSchema,
+    accountKey: z
+      .string()
+      .min(16)
+      .max(4096)
+      .optional(),
+  }),
 ]);
 
 export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
@@ -374,6 +408,13 @@ export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("gcs"),
     bucket: z.string(),
+    publicBaseUrl: z.string(),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("azure"),
+    accountName: z.string(),
+    container: z.string(),
     publicBaseUrl: z.string(),
     credentialsConfigured: z.boolean(),
   }),

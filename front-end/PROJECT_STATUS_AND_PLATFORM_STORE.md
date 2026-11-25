@@ -606,10 +606,13 @@ Status snapshot as of 2026-11-23:
       product images; storefront cards and detail pages render saved images.
 - [ ] Add additional storage providers based on the v1 scope.
       Supabase Storage is implemented alongside S3-compatible storage. GCS,
-      Azure, Cloudinary, OAuth-backed providers, and custom storage remain future work.
+      Cloudinary, OAuth-backed providers, and custom storage remain future work.
       Google Cloud Storage is implemented with encrypted service-account
       credentials, tenant-scoped server-proxy uploads, public URL generation,
       deletion, and bucket health checks.
+      Azure Blob Storage is implemented with encrypted Shared Key credentials,
+      tenant-scoped server-proxy uploads, public URL generation, deletion,
+      and container health checks.
 
 #### Commerce experiences
 

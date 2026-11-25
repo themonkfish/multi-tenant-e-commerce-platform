@@ -82,7 +82,7 @@ health testing, tenant-scoped catalog CRUD, and Stripe-hosted checkout in
 test mode are implemented. Storefront/domain provisioning, live payments,
 tenant-specific Stripe Connect accounts, tax, and shipping are not yet fully
 implemented. Tenant storage supports S3-compatible providers,
-Supabase Storage, and Google Cloud Storage. Host Owners can register tenant domains after DNS TXT
+Supabase Storage, Google Cloud Storage, and Azure Blob Storage. Host Owners can register tenant domains after DNS TXT
 ownership and CNAME verification; registrar automation and TLS provisioning
 remain manual. The Host portal can check public HTTPS reachability and TLS
 validity after the domain is attached to the hosting provider. Invitation links must be shared manually until email

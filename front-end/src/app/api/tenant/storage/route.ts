@@ -30,6 +30,15 @@ function storageView(config: TenantStorageProviderConfig | null) {
       credentialsConfigured: true,
     });
   }
+  if (config.type === "azure") {
+    return TenantStorageConnectionViewSchema.parse({
+      type: "azure",
+      accountName: config.accountName,
+      container: config.container,
+      publicBaseUrl: config.publicBaseUrl,
+      credentialsConfigured: true,
+    });
+  }
   return TenantStorageConnectionViewSchema.parse({
     type: "s3",
     endpoint: config.endpoint,
@@ -94,6 +103,8 @@ export async function PUT(request: Request) {
       ? [parsed.data.projectUrl]
       : parsed.data.type === "gcs"
         ? [parsed.data.publicBaseUrl]
+        : parsed.data.type === "azure"
+          ? [parsed.data.publicBaseUrl]
         : [
             ...(parsed.data.endpoint ? [parsed.data.endpoint] : []),
             parsed.data.publicBaseUrl,
@@ -140,15 +151,22 @@ export async function PUT(request: Request) {
         ? parsed.data.serviceAccountJson
           ? parsed.data.serviceAccountJson
           : undefined
-        : parsed.data.accessKeyId && parsed.data.secretAccessKey
-          ? JSON.stringify({
-              accessKeyId: parsed.data.accessKeyId,
-              secretAccessKey: parsed.data.secretAccessKey,
-              ...(parsed.data.sessionToken
-                ? { sessionToken: parsed.data.sessionToken }
-                : {}),
-            })
-          : undefined;
+        : parsed.data.type === "azure"
+          ? parsed.data.accountKey
+            ? JSON.stringify({
+                accountName: parsed.data.accountName,
+                accountKey: parsed.data.accountKey,
+              })
+            : undefined
+          : parsed.data.accessKeyId && parsed.data.secretAccessKey
+            ? JSON.stringify({
+                accessKeyId: parsed.data.accessKeyId,
+                secretAccessKey: parsed.data.secretAccessKey,
+                ...(parsed.data.sessionToken
+                  ? { sessionToken: parsed.data.sessionToken }
+                  : {}),
+              })
+            : undefined;
   if (!suppliedCredentials && !existing) {
     return NextResponse.json(
       { error: "storage_credentials_required" },
@@ -178,7 +196,9 @@ export async function PUT(request: Request) {
             ? "tenant-supabase-storage-service-key"
             : parsed.data.type === "gcs"
               ? "tenant-gcs-storage-service-account"
-              : "tenant-s3-storage-credentials",
+              : parsed.data.type === "azure"
+                ? "tenant-azure-storage-account-key"
+                : "tenant-s3-storage-credentials",
         value: suppliedCredentials,
       })
     : existing?.credentialsRef;
@@ -203,15 +223,23 @@ export async function PUT(request: Request) {
             publicBaseUrl: parsed.data.publicBaseUrl,
             credentialsRef,
           }
-        : {
-            type: "s3",
-            endpoint: parsed.data.endpoint,
-            region: parsed.data.region,
-            bucket: parsed.data.bucket,
-            publicBaseUrl: parsed.data.publicBaseUrl,
-            pathStyle: parsed.data.pathStyle,
-            credentialsRef,
-          },
+        : parsed.data.type === "azure"
+          ? {
+              type: "azure",
+              accountName: parsed.data.accountName,
+              container: parsed.data.container,
+              publicBaseUrl: parsed.data.publicBaseUrl,
+              credentialsRef,
+            }
+          : {
+              type: "s3",
+              endpoint: parsed.data.endpoint,
+              region: parsed.data.region,
+              bucket: parsed.data.bucket,
+              publicBaseUrl: parsed.data.publicBaseUrl,
+              pathStyle: parsed.data.pathStyle,
+              credentialsRef,
+            },
   );
   const now = new Date().toISOString();
   let saved: TenantStorageProviderConfig | null;

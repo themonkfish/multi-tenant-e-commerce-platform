@@ -96,6 +96,14 @@ export default async function TenantDashboardPage({
             publicBaseUrl: storageProvider.publicBaseUrl,
             credentialsConfigured: true,
           })
+      : storageProvider.type === "azure"
+        ? TenantStorageConnectionViewSchema.parse({
+            type: "azure",
+            accountName: storageProvider.accountName,
+            container: storageProvider.container,
+            publicBaseUrl: storageProvider.publicBaseUrl,
+            credentialsConfigured: true,
+          })
         : TenantStorageConnectionViewSchema.parse({
             type: "s3",
             endpoint: storageProvider.endpoint,
