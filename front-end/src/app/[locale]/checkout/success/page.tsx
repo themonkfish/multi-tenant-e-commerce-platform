@@ -8,14 +8,15 @@ import { getCustomerSession } from "@/lib/server/session";
 
 type CheckoutSuccessPageProps = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ orderId?: string }>;
+  searchParams: Promise<{ orderId?: string; session_id?: string }>;
 };
 
 export default async function CheckoutSuccessPage({
   params,
   searchParams,
 }: CheckoutSuccessPageProps) {
-  const [{ locale }, { orderId }] = await Promise.all([params, searchParams]);
+  const [{ locale }, { orderId, session_id: sessionId }] =
+    await Promise.all([params, searchParams]);
   const t = await getTranslations({ locale, namespace: "CustomerCheckout" });
   const requestScope = await getRequestDomainScope();
 
@@ -100,7 +101,11 @@ export default async function CheckoutSuccessPage({
         </div>
       </header>
 
-      <StorefrontCheckoutSuccess locale={locale} order={order} />
+      <StorefrontCheckoutSuccess
+        locale={locale}
+        order={order}
+        sessionId={sessionId}
+      />
     </main>
   );
 }

@@ -204,6 +204,8 @@ export async function POST(request: Request) {
   if (!canAccessPermission(session, "customer:orders:read")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+  const tenantHostId =
+    session.scope.kind === "tenant" ? session.scope.hostId : "";
 
   let rawBody: unknown;
   try {
@@ -220,14 +222,14 @@ export async function POST(request: Request) {
   }
 
   const store = getPlatformStore();
-  const tenantSettings = await store.getTenantStoreSettings(
+  const paymentSettings = await store.getTenantStoreSettings(
     session.scope.id,
     session.scope.hostId,
     "",
   );
   if (
     parsed.data.paymentMethod === "cash_on_delivery" &&
-    !tenantSettings.payments.cashOnDelivery
+    !paymentSettings.payments.cashOnDelivery
   ) {
     return NextResponse.json(
       { error: "payment_method_disabled" },
@@ -236,7 +238,7 @@ export async function POST(request: Request) {
   }
   if (
     parsed.data.paymentMethod === "stripe" &&
-    !tenantSettings.payments.stripe
+    !paymentSettings.payments.stripe
   ) {
     return NextResponse.json(
       { error: "payment_method_disabled" },
@@ -309,7 +311,7 @@ export async function POST(request: Request) {
         if (order.items.some((item) => item.inventoryTracked)) {
           const catalog = await createTenantCatalogAdapter(
             session.scope.id,
-            session.scope.hostId,
+            tenantHostId,
           );
           await catalog.commitInventory(`${order.id}-cod`);
         }
@@ -768,7 +770,7 @@ export async function POST(request: Request) {
     if (order.items.some((item) => item.inventoryTracked)) {
       const catalog = await createTenantCatalogAdapter(
         session.scope.id,
-        session.scope.hostId,
+        tenantHostId,
       );
       await catalog.commitInventory(`${order.id}-cod`);
     }
@@ -830,14 +832,39 @@ export async function POST(request: Request) {
       { status: 202 },
     );
   }
+  const rollbackPreparedPayment = async () => {
+    if (order.discountCode) {
+      await store.releaseDiscountRedemption(order.tenantId, order.id);
+    }
+    if (order.items.some((item) => item.inventoryTracked)) {
+      const catalog = await createTenantCatalogAdapter(
+        session.scope.id,
+        tenantHostId,
+      );
+      await catalog.releaseInventory(`${order.id}-${prepared.attempt}`);
+    }
+  };
   const origin = request.headers.get("origin");
   if (!origin) {
+    await rollbackPreparedPayment();
     return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   }
-  const successUrl = new URL("/en/checkout/success", origin);
+  const checkoutSettings = await store.getTenantStoreSettings(
+    session.scope.id,
+    tenantHostId,
+    "Store",
+  );
+  const locale =
+    checkoutSettings.locale.defaultLocale &&
+    checkoutSettings.locale.locales.includes(
+      checkoutSettings.locale.defaultLocale,
+    )
+      ? checkoutSettings.locale.defaultLocale
+      : "en";
+  const successUrl = new URL(`/${locale}/checkout/success`, origin);
   successUrl.searchParams.set("orderId", order.id);
   successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
-  const cancelUrl = new URL("/en/cart?payment=cancelled", origin);
+  const cancelUrl = new URL(`/${locale}/cart?payment=cancelled`, origin);
   if (demoCheckoutEnabled) {
     const sessionId = createDemoCheckoutSessionId(prepared.attempt);
     const savedOrder = await store.saveCustomerOrderPaymentSession({
@@ -848,6 +875,7 @@ export async function POST(request: Request) {
       sessionId,
     });
     if (!savedOrder) {
+      await rollbackPreparedPayment();
       return NextResponse.json(
         { error: "payment_session_conflict" },
         { status: 409 },
@@ -876,6 +904,7 @@ export async function POST(request: Request) {
       sessionId: checkout.id,
     });
     if (!savedOrder) {
+      await rollbackPreparedPayment();
       return NextResponse.json(
         { error: "payment_session_conflict" },
         { status: 409 },
@@ -887,14 +916,13 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (error instanceof StripePaymentConfigurationError) {
-      if (order.discountCode) {
-        await store.releaseDiscountRedemption(order.tenantId, order.id);
-      }
+      await rollbackPreparedPayment();
       return NextResponse.json(
         { error: "payment_not_configured" },
         { status: 503 },
       );
     }
+    await rollbackPreparedPayment();
     console.error("Stripe Checkout session creation failed", {
       tenantId: order.tenantId,
       orderId: order.id,

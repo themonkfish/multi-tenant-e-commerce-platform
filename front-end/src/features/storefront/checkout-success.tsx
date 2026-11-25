@@ -14,9 +14,11 @@ import { useCartStore } from "@/features/storefront/cart-store";
 export function StorefrontCheckoutSuccess({
   locale,
   order,
+  sessionId,
 }: {
   locale: string;
   order: CustomerOrder;
+  sessionId?: string;
 }) {
   const t = useTranslations("CustomerCheckout");
   const accountT = useTranslations("CustomerAccount");
@@ -33,6 +35,17 @@ export function StorefrontCheckoutSuccess({
         if (!active) return;
         attempts += 1;
         try {
+          if (sessionId) {
+            await fetch(
+              `/api/customer/orders/${encodeURIComponent(order.id)}/reconcile`,
+              {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ sessionId }),
+                cache: "no-store",
+              },
+            );
+          }
           const response = await fetch("/api/customer/orders", {
             cache: "no-store",
           });
@@ -62,7 +75,7 @@ export function StorefrontCheckoutSuccess({
     return () => {
       active = false;
     };
-  }, [currentOrder.paymentStatus, order.id]);
+  }, [currentOrder.paymentStatus, order.id, sessionId]);
 
   useEffect(() => {
     if (

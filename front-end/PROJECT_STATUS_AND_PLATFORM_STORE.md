@@ -637,6 +637,9 @@ Status snapshot as of 2026-11-23:
       order totals are calculated from active Tenant catalog prices.
 - [ ] Full tenant commerce runtime: add live payment processing, shipping/tax
       handling, and production checkout orchestration.
+      Stripe Checkout success now reconciles the session directly, commits
+      inventory and discounts, retries Tenant order delivery, and rolls back
+      reservations/discounts when provider session creation fails.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
 - [ ] Later growth work: CMS, broader reporting, expanded staff roles, webhooks,

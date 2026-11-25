@@ -148,6 +148,7 @@ export async function createStripeCheckoutSession(input: {
   return createStripeClient(secretKey).checkout.sessions.create(
     {
       mode: "payment",
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
       client_reference_id: input.order.id,
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
