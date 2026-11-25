@@ -45,4 +45,25 @@ describe("verifyTenantDomainDns", () => {
       ),
     ).resolves.toBe(false);
   });
+
+  it("supports apex ALIAS or ANAME targets through resolved addresses", async () => {
+    const resolver = {
+      resolveCname: async () => [],
+      resolveTxt: async () => [["platform-verification=challenge-token"]],
+      resolveA: async (domain: string) =>
+        domain === "example.com"
+          ? ["203.0.113.10"]
+          : ["203.0.113.10"],
+      resolveAAAA: async () => [],
+    };
+
+    await expect(
+      verifyTenantDomainDns(
+        "example.com",
+        "platform.example.com",
+        "challenge-token",
+        resolver,
+      ),
+    ).resolves.toBe(true);
+  });
 });

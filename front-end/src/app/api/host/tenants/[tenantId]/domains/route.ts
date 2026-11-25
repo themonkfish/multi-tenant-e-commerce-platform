@@ -5,6 +5,7 @@ import {
   getReservedPlatformDomains,
   normalizeHostDomain,
   normalizeCustomDomain,
+  isApexCustomDomain,
 } from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
@@ -117,7 +118,12 @@ export async function POST(
     return NextResponse.json({
       claim,
       dns: {
-        cname: { name: domain, value: setupState.platformDomain },
+        cname: isApexCustomDomain(domain)
+          ? null
+          : { name: domain, value: setupState.platformDomain },
+        alias: isApexCustomDomain(domain)
+          ? { name: domain, value: setupState.platformDomain }
+          : null,
         txt: {
           name: `_platform-verification.${domain}`,
           value: `platform-verification=${claim.verificationToken}`,

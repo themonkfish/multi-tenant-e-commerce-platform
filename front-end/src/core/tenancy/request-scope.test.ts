@@ -8,6 +8,7 @@ import {
   normalizeHostDomain,
   normalizeCustomDomain,
   normalizeReservedSubdomains,
+  isApexCustomDomain,
 } from "@/core/domain/host-config";
 import {
   isScopeAllowedOnRequestDomain,
@@ -90,6 +91,17 @@ describe("normalizeHostDomain and reserved platform subdomains", () => {
     expect(normalizeCustomDomain("127.0.0.1")).toBeNull();
     expect(normalizeCustomDomain("bad_domain.example")).toBeNull();
     expect(normalizeCustomDomain("localhost")).toBeNull();
+    expect(normalizeCustomDomain("*.store.example.com")).toBeNull();
+  });
+
+  it("distinguishes apex and subdomain custom domains", () => {
+    expect(normalizeCustomDomain("example.com")).toBe("example.com");
+    expect(normalizeCustomDomain("store.example.com")).toBe(
+      "store.example.com",
+    );
+    expect(isApexCustomDomain("example.com")).toBe(true);
+    expect(isApexCustomDomain("store.example.com")).toBe(false);
+    expect(isApexCustomDomain("example.co.uk")).toBe(true);
   });
 
   it("builds reserved platform domains from normalized host labels", () => {

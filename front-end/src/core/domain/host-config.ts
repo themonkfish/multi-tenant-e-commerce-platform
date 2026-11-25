@@ -95,6 +95,21 @@ export function normalizeCustomDomain(input: string): string | null {
   return domain;
 }
 
+const SECOND_LEVEL_PUBLIC_SUFFIXES = new Set([
+  "ac", "co", "com", "edu", "gov", "net", "org",
+]);
+
+export function isApexCustomDomain(domain: string): boolean {
+  const normalized = normalizeCustomDomain(domain);
+  if (!normalized) return false;
+  const labels = normalized.split(".");
+  if (labels.length === 2) return true;
+  return (
+    labels.length === 3 &&
+    SECOND_LEVEL_PUBLIC_SUFFIXES.has(labels.at(-2) ?? "")
+  );
+}
+
 function isIpv4Address(domain: string): boolean {
   const parts = domain.split(".");
   return (

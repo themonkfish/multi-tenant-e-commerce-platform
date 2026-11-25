@@ -692,8 +692,9 @@ Status snapshot as of 2026-11-23:
       Tenant-aware catalog/settings cache keys and tag invalidation are
       implemented, including host, tenant, locale, and operation isolation.
       Tenant-scoped customer accounts support password reset with one-time,
-      expiring links and generic account-existence responses. Wildcard/apex
-      policy remains.
+      expiring links and generic account-existence responses. Apex custom domains
+      use ALIAS/ANAME DNS instructions and address/TXT verification; wildcard
+      custom-domain patterns remain rejected.
 - [x] Define inventory reservation and payment-failure behavior. Reservations
       occur at checkout; failed/expired card payments release them, and COD
       orders consume stock when placed.

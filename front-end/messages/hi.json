@@ -867,6 +867,7 @@
     "unreachable": "HTTPS एंडपॉइंट तक पहुँचा नहीं जा सका। पुष्टि करें कि डोमेन होस्टिंग प्रदाता से जुड़ा है और DNS उसी ओर इंगित करता है।",
     "verifyDomain": "ये DNS रिकॉर्ड जोड़कर {domain} सत्यापित करें:",
     "cname": "CNAME",
+    "apexAlias": "ALIAS/ANAME",
     "txt": "TXT",
     "txtValue": "TXT मान",
     "verifyDns": "DNS सत्यापित करें",

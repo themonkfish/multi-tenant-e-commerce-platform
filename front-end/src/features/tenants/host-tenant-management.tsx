@@ -10,6 +10,7 @@ import {
   type TenantRecord,
   type TenantStatus,
 } from "@/core/domain/host-portal";
+import { isApexCustomDomain } from "@/core/domain/host-config";
 
 const TenantResponseSchema = z.object({ tenant: TenantRecordSchema });
 const InviteResponseSchema = z.object({
@@ -19,7 +20,8 @@ const InviteResponseSchema = z.object({
 const DomainClaimResponseSchema = z.object({
   claim: TenantDomainClaimSchema,
   dns: z.object({
-    cname: z.object({ name: z.string(), value: z.string() }),
+    cname: z.object({ name: z.string(), value: z.string() }).nullable(),
+    alias: z.object({ name: z.string(), value: z.string() }).nullable(),
     txt: z.object({ name: z.string(), value: z.string() }),
   }),
 });
@@ -867,7 +869,9 @@ function DomainVerificationControl({
       </p>
       <dl className="grid gap-2 text-amber-950 sm:grid-cols-2">
         <div>
-          <dt className="font-medium">{t("cname")}</dt>
+          <dt className="font-medium">
+            {isApexCustomDomain(claim.domain) ? t("apexAlias") : t("cname")}
+          </dt>
           <dd className="break-all font-mono text-xs">
             {claim.domain} -&gt; {platformDomain}
           </dd>

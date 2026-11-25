@@ -867,6 +867,7 @@
     "unreachable": "Impossible de joindre le point HTTPS. Vérifiez que le domaine est lié à l’hébergeur et pointe vers celui-ci.",
     "verifyDomain": "Vérifiez {domain} en ajoutant ces enregistrements DNS :",
     "cname": "CNAME",
+    "apexAlias": "ALIAS/ANAME",
     "txt": "TXT",
     "txtValue": "Valeur TXT",
     "verifyDns": "Vérifier le DNS",
