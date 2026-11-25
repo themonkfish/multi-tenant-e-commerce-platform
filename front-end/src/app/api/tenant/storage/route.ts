@@ -14,22 +14,31 @@ import { getTenantOwnerSession } from "@/lib/server/session";
 
 function storageView(config: TenantStorageProviderConfig | null) {
   if (!config) return null;
-  return config.type === "supabase"
-    ? TenantStorageConnectionViewSchema.parse({
-        type: "supabase",
-        projectUrl: config.projectUrl,
-        bucket: config.bucket,
-        credentialsConfigured: true,
-      })
-    : TenantStorageConnectionViewSchema.parse({
-        type: "s3",
-        endpoint: config.endpoint,
-        region: config.region,
-        bucket: config.bucket,
-        publicBaseUrl: config.publicBaseUrl,
-        pathStyle: config.pathStyle,
-        credentialsConfigured: true,
-      });
+  if (config.type === "supabase") {
+    return TenantStorageConnectionViewSchema.parse({
+      type: "supabase",
+      projectUrl: config.projectUrl,
+      bucket: config.bucket,
+      credentialsConfigured: true,
+    });
+  }
+  if (config.type === "gcs") {
+    return TenantStorageConnectionViewSchema.parse({
+      type: "gcs",
+      bucket: config.bucket,
+      publicBaseUrl: config.publicBaseUrl,
+      credentialsConfigured: true,
+    });
+  }
+  return TenantStorageConnectionViewSchema.parse({
+    type: "s3",
+    endpoint: config.endpoint,
+    region: config.region,
+    bucket: config.bucket,
+    publicBaseUrl: config.publicBaseUrl,
+    pathStyle: config.pathStyle,
+    credentialsConfigured: true,
+  });
 }
 
 async function isPublicHttpsUrl(value: string): Promise<boolean> {
@@ -83,10 +92,12 @@ export async function PUT(request: Request) {
   const targets =
     parsed.data.type === "supabase"
       ? [parsed.data.projectUrl]
-      : [
-          ...(parsed.data.endpoint ? [parsed.data.endpoint] : []),
-          parsed.data.publicBaseUrl,
-        ];
+      : parsed.data.type === "gcs"
+        ? [parsed.data.publicBaseUrl]
+        : [
+            ...(parsed.data.endpoint ? [parsed.data.endpoint] : []),
+            parsed.data.publicBaseUrl,
+          ];
   if (!(await Promise.all(targets.map(isPublicHttpsUrl))).every(Boolean)) {
     return NextResponse.json({ error: "unsafe_storage_url" }, { status: 400 });
   }
@@ -96,20 +107,48 @@ export async function PUT(request: Request) {
     session.scope.id,
     session.scope.hostId,
   );
+  if (parsed.data.type === "gcs" && parsed.data.serviceAccountJson) {
+    let serviceAccount: unknown;
+    try {
+      serviceAccount = JSON.parse(parsed.data.serviceAccountJson);
+    } catch {
+      return NextResponse.json(
+        { error: "invalid_gcs_credentials" },
+        { status: 400 },
+      );
+    }
+    if (
+      typeof serviceAccount !== "object" ||
+      serviceAccount === null ||
+      !("client_email" in serviceAccount) ||
+      typeof serviceAccount.client_email !== "string" ||
+      !("private_key" in serviceAccount) ||
+      typeof serviceAccount.private_key !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "invalid_gcs_credentials" },
+        { status: 400 },
+      );
+    }
+  }
   const suppliedCredentials =
     parsed.data.type === "supabase"
       ? parsed.data.serviceKey
         ? JSON.stringify({ serviceKey: parsed.data.serviceKey })
         : undefined
-      : parsed.data.accessKeyId && parsed.data.secretAccessKey
-        ? JSON.stringify({
-            accessKeyId: parsed.data.accessKeyId,
-            secretAccessKey: parsed.data.secretAccessKey,
-            ...(parsed.data.sessionToken
-              ? { sessionToken: parsed.data.sessionToken }
-              : {}),
-          })
-        : undefined;
+      : parsed.data.type === "gcs"
+        ? parsed.data.serviceAccountJson
+          ? parsed.data.serviceAccountJson
+          : undefined
+        : parsed.data.accessKeyId && parsed.data.secretAccessKey
+          ? JSON.stringify({
+              accessKeyId: parsed.data.accessKeyId,
+              secretAccessKey: parsed.data.secretAccessKey,
+              ...(parsed.data.sessionToken
+                ? { sessionToken: parsed.data.sessionToken }
+                : {}),
+            })
+          : undefined;
   if (!suppliedCredentials && !existing) {
     return NextResponse.json(
       { error: "storage_credentials_required" },
@@ -137,7 +176,9 @@ export async function PUT(request: Request) {
         name:
           parsed.data.type === "supabase"
             ? "tenant-supabase-storage-service-key"
-            : "tenant-s3-storage-credentials",
+            : parsed.data.type === "gcs"
+              ? "tenant-gcs-storage-service-account"
+              : "tenant-s3-storage-credentials",
         value: suppliedCredentials,
       })
     : existing?.credentialsRef;
@@ -155,15 +196,22 @@ export async function PUT(request: Request) {
           bucket: parsed.data.bucket,
           credentialsRef,
         }
-      : {
-          type: "s3",
-          endpoint: parsed.data.endpoint,
-          region: parsed.data.region,
-          bucket: parsed.data.bucket,
-          publicBaseUrl: parsed.data.publicBaseUrl,
-          pathStyle: parsed.data.pathStyle,
-          credentialsRef,
-        },
+      : parsed.data.type === "gcs"
+        ? {
+            type: "gcs",
+            bucket: parsed.data.bucket,
+            publicBaseUrl: parsed.data.publicBaseUrl,
+            credentialsRef,
+          }
+        : {
+            type: "s3",
+            endpoint: parsed.data.endpoint,
+            region: parsed.data.region,
+            bucket: parsed.data.bucket,
+            publicBaseUrl: parsed.data.publicBaseUrl,
+            pathStyle: parsed.data.pathStyle,
+            credentialsRef,
+          },
   );
   const now = new Date().toISOString();
   let saved: TenantStorageProviderConfig | null;

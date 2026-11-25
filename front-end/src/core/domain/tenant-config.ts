@@ -258,6 +258,12 @@ export const TenantStorageProviderConfigSchema = z.discriminatedUnion("type", [
     credentialsRef: SecretRefSchema,
   }),
   z.object({
+    type: z.literal("gcs"),
+    bucket: S3BucketNameSchema,
+    publicBaseUrl: HttpsStorageUrlSchema,
+    credentialsRef: SecretRefSchema,
+  }),
+  z.object({
     type: z.literal("supabase"),
     projectUrl: z
       .url({ protocol: /^https$/ })
@@ -342,6 +348,16 @@ export const TenantStorageConnectionInputSchema = z.discriminatedUnion("type", [
       .refine((value) => !/[\x00-\x1f\x7f]/.test(value))
       .optional(),
   }),
+  z.object({
+    type: z.literal("gcs"),
+    bucket: S3BucketNameSchema,
+    publicBaseUrl: HttpsStorageUrlSchema,
+    serviceAccountJson: z
+      .string()
+      .min(2)
+      .max(16384)
+      .optional(),
+  }),
 ]);
 
 export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
@@ -353,6 +369,12 @@ export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
     type: z.literal("supabase"),
     projectUrl: z.string(),
     bucket: z.string(),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("gcs"),
+    bucket: z.string(),
+    publicBaseUrl: z.string(),
     credentialsConfigured: z.boolean(),
   }),
 ]);

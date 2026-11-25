@@ -89,15 +89,22 @@ export default async function TenantDashboardPage({
           bucket: storageProvider.bucket,
           credentialsConfigured: true,
         })
-      : TenantStorageConnectionViewSchema.parse({
-          type: "s3",
-          endpoint: storageProvider.endpoint,
-          region: storageProvider.region,
-          bucket: storageProvider.bucket,
-          publicBaseUrl: storageProvider.publicBaseUrl,
-          pathStyle: storageProvider.pathStyle,
-          credentialsConfigured: true,
-        })
+      : storageProvider.type === "gcs"
+        ? TenantStorageConnectionViewSchema.parse({
+            type: "gcs",
+            bucket: storageProvider.bucket,
+            publicBaseUrl: storageProvider.publicBaseUrl,
+            credentialsConfigured: true,
+          })
+        : TenantStorageConnectionViewSchema.parse({
+            type: "s3",
+            endpoint: storageProvider.endpoint,
+            region: storageProvider.region,
+            bucket: storageProvider.bucket,
+            publicBaseUrl: storageProvider.publicBaseUrl,
+            pathStyle: storageProvider.pathStyle,
+            credentialsConfigured: true,
+          })
     : null;
   const staff = await store.listTenantStaff(tenant.id);
   let stripeConfigured = false;

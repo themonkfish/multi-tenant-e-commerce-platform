@@ -146,4 +146,60 @@ describe("PUT /api/tenant/storage", () => {
     );
     expect(getPlatformStore).not.toHaveBeenCalled();
   });
+
+  it("stores GCS bucket settings and a service account in the vault", async () => {
+    const gcsConfig = {
+      type: "gcs" as const,
+      bucket: "tenant-assets",
+      publicBaseUrl: "https://storage.googleapis.com/tenant-assets",
+      credentialsRef,
+    };
+    const store = {
+      getTenantStorageProvider: vi.fn().mockResolvedValue(null),
+      consumeRateLimit: vi.fn().mockResolvedValue(true),
+      updateTenantStorageProvider: vi.fn().mockResolvedValue(gcsConfig),
+    };
+    const vault = { putSecret: vi.fn().mockResolvedValue(credentialsRef) };
+    getTenantOwnerSession.mockResolvedValue({
+      userId: ownerId,
+      role: "tenant_owner",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      permissions: ["tenant:read", "tenant:write"],
+    });
+    getPlatformStore.mockReturnValue(store);
+    getSecretVault.mockReturnValue(vault);
+    resolvePublicAddress.mockResolvedValue({
+      address: "203.0.113.1",
+      family: 4,
+    });
+
+    const response = await PUT(
+      saveRequest({
+        type: "gcs",
+        endpoint: undefined,
+        region: undefined,
+        accessKeyId: undefined,
+        secretAccessKey: undefined,
+        publicBaseUrl: "https://storage.googleapis.com/tenant-assets",
+        serviceAccountJson: JSON.stringify({
+          client_email: "tenant@example.iam.gserviceaccount.com",
+          private_key: "-----BEGIN PRIVATE KEY-----\\nTEST\\n-----END PRIVATE KEY-----",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      connection: {
+        type: "gcs",
+        bucket: "tenant-assets",
+        credentialsConfigured: true,
+      },
+    });
+    expect(vault.putSecret).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "tenant-gcs-storage-service-account",
+      }),
+    );
+  });
 });

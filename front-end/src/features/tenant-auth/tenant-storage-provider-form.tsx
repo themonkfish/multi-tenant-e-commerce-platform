@@ -17,8 +17,12 @@ export function TenantStorageProviderForm({
 }) {
   const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
-  const [provider, setProvider] = useState<"s3" | "supabase">(
-    initialConnection?.type === "supabase" ? "supabase" : "s3",
+  const [provider, setProvider] = useState<"s3" | "supabase" | "gcs">(
+    initialConnection?.type === "supabase"
+      ? "supabase"
+      : initialConnection?.type === "gcs"
+        ? "gcs"
+        : "s3",
   );
   const [endpoint, setEndpoint] = useState(
     initialConnection?.type === "s3" ? (initialConnection.endpoint ?? "") : "",
@@ -31,7 +35,9 @@ export function TenantStorageProviderForm({
     initialConnection?.type === "supabase" ? initialConnection.projectUrl : "",
   );
   const [publicBaseUrl, setPublicBaseUrl] = useState(
-    initialConnection?.type === "s3" ? initialConnection.publicBaseUrl : "",
+    initialConnection?.type === "s3" || initialConnection?.type === "gcs"
+      ? initialConnection.publicBaseUrl
+      : "",
   );
   const [pathStyle, setPathStyle] = useState(
     initialConnection?.type === "s3"
@@ -41,6 +47,7 @@ export function TenantStorageProviderForm({
   const [accessKeyId, setAccessKeyId] = useState("");
   const [secretAccessKey, setSecretAccessKey] = useState("");
   const [sessionToken, setSessionToken] = useState("");
+  const [serviceAccountJson, setServiceAccountJson] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -58,17 +65,26 @@ export function TenantStorageProviderForm({
               bucket,
               ...(accessKeyId ? { serviceKey: accessKeyId } : {}),
             }
-          : ({
-              type: "s3",
-              ...(endpoint ? { endpoint } : {}),
-              region,
-              bucket,
-              publicBaseUrl,
-              pathStyle,
-              ...(accessKeyId ? { accessKeyId } : {}),
-              ...(secretAccessKey ? { secretAccessKey } : {}),
-              ...(sessionToken ? { sessionToken } : {}),
-            } satisfies z.infer<typeof TenantStorageConnectionInputSchema>);
+          : provider === "gcs"
+            ? ({
+                type: "gcs",
+                bucket,
+                publicBaseUrl,
+                ...(serviceAccountJson
+                  ? { serviceAccountJson }
+                  : {}),
+              } satisfies z.infer<typeof TenantStorageConnectionInputSchema>)
+            : ({
+                type: "s3",
+                ...(endpoint ? { endpoint } : {}),
+                region,
+                bucket,
+                publicBaseUrl,
+                pathStyle,
+                ...(accessKeyId ? { accessKeyId } : {}),
+                ...(secretAccessKey ? { secretAccessKey } : {}),
+                ...(sessionToken ? { sessionToken } : {}),
+              } satisfies z.infer<typeof TenantStorageConnectionInputSchema>);
       const response = await fetch("/api/tenant/storage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -103,6 +119,7 @@ export function TenantStorageProviderForm({
       setAccessKeyId("");
       setSecretAccessKey("");
       setSessionToken("");
+      setServiceAccountJson("");
       setNotice(t("settingsSaved"));
     } catch {
       setError(t("requestUnavailable"));
@@ -158,6 +175,7 @@ export function TenantStorageProviderForm({
       setRegion("");
       setBucket("");
       setPublicBaseUrl("");
+      setServiceAccountJson("");
       setPathStyle(false);
       setNotice(t("settingsRemoved"));
     } catch {
@@ -187,10 +205,14 @@ export function TenantStorageProviderForm({
                 region: connection.region,
                 strong: (chunks) => <strong>{chunks}</strong>,
               })
-            : t("configuredSupabaseBucket", {
-                bucket: connection.bucket,
-                projectUrl: connection.projectUrl,
-              })}
+            : connection.type === "gcs"
+              ? t("configuredGcsBucket", {
+                  bucket: connection.bucket,
+                })
+              : t("configuredSupabaseBucket", {
+                  bucket: connection.bucket,
+                  projectUrl: connection.projectUrl,
+                })}
         </p>
       )}
       <p className="text-sm text-slate-600">{t("publicAccessHelp")}</p>
@@ -201,11 +223,18 @@ export function TenantStorageProviderForm({
           disabled={busy}
           value={provider}
           onChange={(event) =>
-            setProvider(event.target.value === "supabase" ? "supabase" : "s3")
+            setProvider(
+              event.target.value === "supabase"
+                ? "supabase"
+                : event.target.value === "gcs"
+                  ? "gcs"
+                  : "s3",
+            )
           }
         >
           <option value="s3">{t("providerS3")}</option>
           <option value="supabase">{t("providerSupabase")}</option>
+          <option value="gcs">{t("providerGcs")}</option>
         </select>
       </label>
       {provider === "supabase" ? (
@@ -230,6 +259,31 @@ export function TenantStorageProviderForm({
               placeholder="tenant-assets"
               type="text"
               value={bucket}
+            />
+          </label>
+        </div>
+      ) : provider === "gcs" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("bucketLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setBucket(event.target.value)}
+              placeholder="tenant-assets"
+              type="text"
+              value={bucket}
+            />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("publicBaseUrlLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setPublicBaseUrl(event.target.value)}
+              placeholder="https://storage.googleapis.com/tenant-assets"
+              type="url"
+              value={publicBaseUrl}
             />
           </label>
         </div>
@@ -343,6 +397,21 @@ export function TenantStorageProviderForm({
             onChange={(event) => setAccessKeyId(event.target.value)}
             type="password"
             value={accessKeyId}
+          />
+        </label>
+      )}
+      {provider === "gcs" && (
+        <label className="block space-y-1 text-sm font-medium text-slate-700">
+          {t("gcsServiceAccountLabel")}
+          {connection?.type === "gcs" ? ` ${t("keepKeyHint")}` : ""}
+          <textarea
+            autoComplete="off"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs font-normal"
+            disabled={busy}
+            onChange={(event) => setServiceAccountJson(event.target.value)}
+            placeholder={'{"client_email":"...","private_key":"..."}'}
+            rows={8}
+            value={serviceAccountJson}
           />
         </label>
       )}
