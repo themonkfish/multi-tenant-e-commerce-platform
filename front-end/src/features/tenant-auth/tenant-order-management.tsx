@@ -56,6 +56,8 @@ function errorMessage(body: unknown, t: (key: string) => string): string {
     case "shiprocket_awb_failed":
     case "shiprocket_awb_missing":
     case "tenant_order_sync_failed":
+    case "shiprocket_shipment_id_missing":
+    case "shiprocket_label_failed":
       return t("shiprocketFailed");
     default:
       return t("loadFailed");

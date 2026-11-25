@@ -76,34 +76,63 @@ export async function POST(request: Request) {
   if (!order) {
     return NextResponse.json({ error: "order_not_found" }, { status: 404 });
   }
-  if (order.status !== "Processing" && order.status !== "Confirmed") {
+  if (
+    order.status !== "Processing" &&
+    order.status !== "Confirmed" &&
+    !(
+      order.status === "Shipped" &&
+      order.fulfillment?.trackingNumber &&
+      order.fulfillment?.carrier
+    )
+  ) {
     return NextResponse.json(
       { error: "invalid_status_transition" },
       { status: 409 },
     );
   }
-  if (order.fulfillment?.trackingNumber) {
+  if (
+    order.fulfillment?.trackingNumber &&
+    order.status !== "Shipped"
+  ) {
     return NextResponse.json(
       { error: "shipment_already_created" },
       { status: 409 },
     );
   }
 
-  let shipment;
-  try {
-    shipment = await createShiprocketShipment({
-      credentials: {
-        email: env.SHIPROCKET_API_EMAIL,
-        password: env.SHIPROCKET_API_PASSWORD,
-        pickupLocation: env.SHIPROCKET_PICKUP_LOCATION,
-      },
-      order,
-      package: parsed.data.package,
+  let shipment = order.fulfillment;
+  if (!shipment?.trackingNumber) {
+    try {
+      shipment = await createShiprocketShipment({
+        credentials: {
+          email: env.SHIPROCKET_API_EMAIL,
+          password: env.SHIPROCKET_API_PASSWORD,
+          pickupLocation: env.SHIPROCKET_PICKUP_LOCATION,
+        },
+        order,
+        package: parsed.data.package,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "shiprocket_create_failed";
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+  }
+
+  const previousStatus = order.status;
+  if (previousStatus !== "Shipped") {
+    const updated = await store.updateCustomerOrderStatus({
+      tenantId: session.scope.id,
+      orderId: order.id,
+      status: "Shipped",
+      fulfillment: shipment,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "shiprocket_create_failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    if (!updated) {
+      return NextResponse.json(
+        { error: "carrier_order_update_failed" },
+        { status: 409 },
+      );
+    }
   }
 
   try {
@@ -119,26 +148,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const updated = await store.updateCustomerOrderStatus({
-    tenantId: session.scope.id,
-    orderId: order.id,
-    status: "Shipped",
-    fulfillment: shipment,
-  });
-  if (!updated) {
-    return NextResponse.json(
-      { error: "carrier_order_update_failed" },
-      { status: 409 },
-    );
+  if (previousStatus !== "Shipped") {
+    await store.appendAuditEvent({
+      id: randomUUID(),
+      actorId: session.userId,
+      scope: session.scope,
+      action: "tenant.order.shiprocket_shipment_created",
+      resourceType: "customer_order",
+      resourceId: order.id,
+      createdAt: new Date().toISOString(),
+    });
   }
-  await store.appendAuditEvent({
-    id: randomUUID(),
-    actorId: session.userId,
-    scope: session.scope,
-    action: "tenant.order.shiprocket_shipment_created",
-    resourceType: "customer_order",
-    resourceId: order.id,
-    createdAt: new Date().toISOString(),
+  return NextResponse.json({
+    order: previousStatus === "Shipped" ? order : { ...order, status: "Shipped", fulfillment: shipment },
   });
-  return NextResponse.json({ order: updated });
 }
