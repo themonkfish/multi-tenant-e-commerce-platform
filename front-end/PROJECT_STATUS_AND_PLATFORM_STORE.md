@@ -406,6 +406,10 @@ Status snapshot as of 2026-11-23:
       remain. A Redis REST-compatible distributed rate-limit adapter is
       implemented for atomic fixed-window counters, with Upstash environment
       aliases and configurable fail-open/fail-closed behavior.
+      External observability examples now include distributed-rate-limit and
+      metrics authorization alerts, critical/warning Alertmanager routes,
+      Grafana provider-failure panels, deployment instructions, and a validator
+      that rejects unresolved example.com placeholders.
 
 ### Pending roadmap
 

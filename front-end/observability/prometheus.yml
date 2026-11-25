@@ -6,6 +6,9 @@ scrape_configs:
   - job_name: multi_tenant_ecommerce
     metrics_path: /api/metrics
     scheme: https
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_labels: false
     authorization:
       type: Bearer
       credentials_file: /etc/prometheus/ecommerce-metrics-token

@@ -33,6 +33,8 @@
     "test:supabase-migrations": "node --test scripts/supabase-production-migration.test.mjs",
     "supabase:migration:preflight": "node scripts/supabase-production-migration.mjs preflight",
     "supabase:migration:deploy": "node scripts/supabase-production-migration.mjs deploy",
+    "observability:validate": "node scripts/observability-config.mjs validate",
+    "test:observability-config": "node --test scripts/observability-config.test.mjs",
     "format": "prettier --write src supabase README.md package.json next.config.ts vitest.config.mts",
     "format:check": "prettier --check src supabase README.md package.json next.config.ts vitest.config.mts"
   },

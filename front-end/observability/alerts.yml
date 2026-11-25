@@ -33,6 +33,7 @@ groups:
           severity: warning
         annotations:
           summary: "Webhook signature rejections are elevated"
+          runbook: "https://ecommerce.example.com/docs/observability#runbooks"
 
       - alert: EcommerceTenantWebhookSyncFailure
         expr: |
@@ -44,3 +45,31 @@ groups:
           severity: warning
         annotations:
           summary: "Tenant webhook synchronization failures exceeded 5 in 10 minutes"
+          runbook: "https://ecommerce.example.com/docs/observability#runbooks"
+
+      - alert: EcommerceDistributedRateLimitRejected
+        expr: increase(ecommerce_event_total{event="rate_limit_distributed_rejected"}[10m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Distributed rate limiter is rejecting elevated traffic"
+          runbook: "https://ecommerce.example.com/docs/observability#runbooks"
+
+      - alert: EcommerceDistributedRateLimitUnavailable
+        expr: increase(ecommerce_event_total{event="rate_limit_distributed_error"}[10m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Distributed rate limiter provider is unavailable"
+          runbook: "https://ecommerce.example.com/docs/observability#runbooks"
+
+      - alert: EcommerceMetricsScrapeUnauthorized
+        expr: increase(ecommerce_event_total{event="metrics_scrape_unauthorized"}[10m]) > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unauthorized metrics scrape attempts are elevated"
+          runbook: "https://ecommerce.example.com/docs/observability#runbooks"

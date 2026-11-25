@@ -63,6 +63,30 @@
         }
       ],
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+    {
+      "title": "Distributed rate limiter",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(ecommerce_event_total{event=~\"rate_limit_distributed_allowed|rate_limit_distributed_rejected|rate_limit_distributed_error\"}[5m])",
+          "legendFormat": "{{event}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "title": "Webhook signature and metrics authorization",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(ecommerce_event_total{event=~\"stripe_webhook_invalid_signature|carrier_webhook_invalid_signature|shiprocket_webhook_invalid_token|metrics_scrape_unauthorized\"}[5m])",
+          "legendFormat": "{{event}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
     }
   ]
 }

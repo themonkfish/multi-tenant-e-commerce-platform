@@ -10,6 +10,21 @@ Use HTTPS in production and store the metrics bearer token in your monitoring
 provider's secret manager. Never expose the token or `/api/metrics` response in
 source control, logs, screenshots, or chat.
 
+## Production deployment
+
+1. Replace `ecommerce.example.com` in `observability/prometheus.yml`.
+2. Replace every `https://alerts.example.com/...` receiver in
+   `observability/alertmanager.yml`.
+3. Mount `OBSERVABILITY_METRICS_TOKEN` as the Prometheus credentials file.
+4. Load `observability/alerts.yml` as a Prometheus rule file.
+5. Import `observability/grafana-dashboard.json` into Grafana.
+6. Run `npm run observability:validate -- observability` and confirm it exits
+   successfully before deploying.
+
+This validator intentionally rejects `example.com` placeholders. Production
+Alertmanager should use separate critical/warning receivers, and `continue:
+true` ensures critical alerts reach both the default and critical routes.
+
 ## Prometheus
 
 The example files in `observability/` demonstrate a Prometheus scrape job and
@@ -47,3 +62,10 @@ restart; rates should therefore use `increase()` over a bounded window.
   and clock/settings synchronization; rotate a compromised secret if needed.
 - **Unauthorized scrapes:** verify the monitoring secret and ensure it was not
   copied to application logs or public configuration.
+- **Distributed rate-limiter unavailable:** verify the REST URL/token, DNS,
+  provider health, and fail-mode setting. In production, failure to reach the
+  provider returns a denial signal; do not disable the provider silently.
+- **Distributed rate-limiter rejecting traffic:** identify whether this is
+  legitimate throttling or a configuration/window mismatch. Inspect the
+  affected action, account, tenant, and current limit; increase limits only
+  after provider and abuse review.

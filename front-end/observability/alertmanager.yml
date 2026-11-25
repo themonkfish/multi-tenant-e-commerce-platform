@@ -7,10 +7,26 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: ecommerce-critical
+      continue: true
+    - matchers:
+        - severity="warning"
+      receiver: ecommerce-warning
 
 receivers:
   - name: ecommerce-default
-    # Replace this placeholder with a real webhook, email, PagerDuty, or Slack receiver.
+    # Replace both placeholders before production use.
     webhook_configs:
       - url: "https://alerts.example.com/ecommerce"
+        send_resolved: true
+  - name: ecommerce-critical
+    webhook_configs:
+      - url: "https://alerts.example.com/ecommerce/critical"
+        send_resolved: true
+  - name: ecommerce-warning
+    webhook_configs:
+      - url: "https://alerts.example.com/ecommerce/warning"
         send_resolved: true
