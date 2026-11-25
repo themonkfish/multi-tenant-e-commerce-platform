@@ -1,10 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { isIP } from "node:net";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   getReservedPlatformDomains,
   normalizeHostDomain,
+  normalizeCustomDomain,
 } from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
@@ -54,8 +54,8 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   }
-  const domain = normalizeHostDomain(parsed.data.domain);
-  if (!domain || !domain.includes(".") || isIP(domain)) {
+  const domain = normalizeCustomDomain(parsed.data.domain);
+  if (!domain) {
     return NextResponse.json(
       { error: "invalid_tenant_domain" },
       { status: 400 },

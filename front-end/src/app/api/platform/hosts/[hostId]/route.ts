@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   getReservedPlatformDomains,
   HostStatusSchema,
-  normalizeHostDomain,
+  normalizeCustomDomain,
   UpdateHostInputSchema,
 } from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
@@ -60,7 +60,7 @@ export async function PATCH(request: Request, { params }: HostRouteProps) {
 
   const now = new Date().toISOString();
   if (detailsParsed.success) {
-    const domains = detailsParsed.data.domains.map(normalizeHostDomain);
+    const domains = detailsParsed.data.domains.map(normalizeCustomDomain);
     if (domains.some((domain) => domain === null)) {
       return NextResponse.json(
         { error: "invalid_host_domain" },

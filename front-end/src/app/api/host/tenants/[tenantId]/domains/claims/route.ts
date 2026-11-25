@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { normalizeHostDomain } from "@/core/domain/host-config";
+import { normalizeCustomDomain } from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -42,7 +42,7 @@ export async function POST(request: Request, { params }: RouteProps) {
   }
   const parsed = RemoveClaimSchema.safeParse(rawBody);
   const domain = parsed.success
-    ? normalizeHostDomain(parsed.data.domain)
+    ? normalizeCustomDomain(parsed.data.domain)
     : null;
   if (!domain) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });

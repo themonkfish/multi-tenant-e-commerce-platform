@@ -6,6 +6,7 @@ import { DEFAULT_PLATFORM_SETTINGS } from "@/core/domain/platform-settings";
 import {
   getReservedPlatformDomains,
   normalizeHostDomain,
+  normalizeCustomDomain,
   normalizeReservedSubdomains,
 } from "@/core/domain/host-config";
 import {
@@ -77,6 +78,18 @@ describe("normalizeHostDomain and reserved platform subdomains", () => {
       "store.example.com",
     );
     expect(normalizeHostDomain("STORE.EXAMPLE.COM.")).toBe("store.example.com");
+  });
+
+  it("rejects invalid or IP custom domains", () => {
+    expect(normalizeCustomDomain("store.example.com")).toBe(
+      "store.example.com",
+    );
+    expect(normalizeCustomDomain("Store.Example.Com.")).toBe(
+      "store.example.com",
+    );
+    expect(normalizeCustomDomain("127.0.0.1")).toBeNull();
+    expect(normalizeCustomDomain("bad_domain.example")).toBeNull();
+    expect(normalizeCustomDomain("localhost")).toBeNull();
   });
 
   it("builds reserved platform domains from normalized host labels", () => {

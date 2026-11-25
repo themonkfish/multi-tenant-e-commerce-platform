@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { normalizeCustomDomain } from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
@@ -50,6 +51,10 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   }
+  const domain = normalizeCustomDomain(parsed.data.domain);
+  if (!domain) {
+    return NextResponse.json({ error: "invalid_tenant_domain" }, { status: 400 });
+  }
 
   const store = getPlatformStore();
   const allowed = await store.consumeRateLimit({
@@ -68,7 +73,7 @@ export async function POST(
   const tenant = (await store.listTenantsForHost(session.scope.id)).find(
     (candidate) =>
       candidate.id === tenantId &&
-      candidate.domains.includes(parsed.data.domain),
+      candidate.domains.includes(domain),
   );
   if (!tenant) {
     return NextResponse.json(
@@ -77,11 +82,11 @@ export async function POST(
     );
   }
 
-  const readiness = await checkTenantDomainReadiness(parsed.data.domain);
+  const readiness = await checkTenantDomainReadiness(domain);
   let provider;
   try {
-    provider = await getVercelDomainStatus(parsed.data.domain);
-  } catch (error) {
+    provider = await getVercelDomainStatus(domain);
+  } catch {
     provider = {
       configured: true,
       attached: false,
@@ -91,7 +96,7 @@ export async function POST(
     };
   }
   return NextResponse.json({
-    domain: parsed.data.domain,
+    domain,
     readiness,
     provider,
   });

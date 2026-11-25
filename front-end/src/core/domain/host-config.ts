@@ -74,6 +74,38 @@ export function normalizeHostDomain(input: string): string | null {
   }
 }
 
+export function normalizeCustomDomain(input: string): string | null {
+  const domain = normalizeHostDomain(input);
+  if (!domain || !domain.includes(".") || isIpv4Address(domain)) {
+    return null;
+  }
+  const labels = domain.split(".");
+  if (
+    labels.length < 2 ||
+    labels.some(
+      (label) =>
+        label.length < 1 ||
+        label.length > 63 ||
+        !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label),
+    ) ||
+    !/^(?:[a-z]{2,63}|xn--[a-z0-9-]+)$/.test(labels.at(-1) ?? "")
+  ) {
+    return null;
+  }
+  return domain;
+}
+
+function isIpv4Address(domain: string): boolean {
+  const parts = domain.split(".");
+  return (
+    parts.length === 4 &&
+    parts.every(
+      (part) =>
+        /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255,
+    )
+  );
+}
+
 export function normalizeReservedSubdomains(
   input: readonly string[],
 ): string[] {

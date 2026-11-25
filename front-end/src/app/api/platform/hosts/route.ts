@@ -4,7 +4,7 @@ import {
   CreateHostInputSchema,
   getReservedPlatformDomains,
   HostConfigSchema,
-  normalizeHostDomain,
+  normalizeCustomDomain,
 } from "@/core/domain/host-config";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
-  const domains = parsed.data.domains.map(normalizeHostDomain);
+  const domains = parsed.data.domains.map(normalizeCustomDomain);
   if (domains.some((domain) => domain === null)) {
     return NextResponse.json({ error: "invalid_host_domain" }, { status: 400 });
   }

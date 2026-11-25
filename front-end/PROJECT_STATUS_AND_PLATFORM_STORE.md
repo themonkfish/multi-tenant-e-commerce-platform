@@ -662,6 +662,10 @@ Status snapshot as of 2026-11-23:
       reservations/discounts when provider session creation fails.
 - [ ] Host and Super Admin domain management, plans/limits, health, audit,
       analytics, and platform settings.
+      Host and Super Admin custom-domain normalization now rejects IP addresses,
+      malformed labels, missing TLDs, and unparsable domains. Domain create,
+      verify, readiness, claim cancellation, removal, limits, and route tests
+      share the normalized domain lifecycle.
 - [ ] Later growth work: CMS, broader reporting, expanded staff roles, webhooks,
       offline commerce behavior, and theming tools.
 - [x] Tenant order reporting: the Tenant Owner portal shows tenant-scoped order
