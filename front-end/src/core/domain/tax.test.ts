@@ -11,6 +11,9 @@ describe("calculateTaxAmount", () => {
     expect(calculateTaxAmount(2250, 825)).toBe(186);
     expect(calculateTaxAmount(100, 125)).toBe(1);
     expect(calculateTaxAmount(100, 0)).toBe(0);
+    expect(calculateTaxAmount(2_147_483_647, 10_000)).toBe(
+      2_147_483_647,
+    );
   });
 
   it("rejects negative, fractional, or out-of-range inputs", () => {
@@ -62,6 +65,45 @@ describe("calculateTaxAmount", () => {
     expect(
       resolveTenantTaxRate(tax, { country: "US", state: "California" }),
     ).toBe(500);
+  });
+
+  it("normalizes jurisdiction country and state settings", () => {
+    const parsed = TenantStoreSettingsSchema.parse({
+      ...createDefaultTenantStoreSettings("Shop"),
+      tax: {
+        rateBasisPoints: 500,
+        jurisdictions: [
+          {
+            country: "in",
+            state: " Maharashtra ",
+            rateBasisPoints: 825,
+          },
+        ],
+      },
+    });
+    expect(parsed.tax.jurisdictions).toEqual([
+      {
+        country: "IN",
+        state: "maharashtra",
+        rateBasisPoints: 825,
+      },
+    ]);
+  });
+
+  it("rejects duplicate normalized tax jurisdictions", () => {
+    const settings = createDefaultTenantStoreSettings("Shop");
+    expect(
+      TenantStoreSettingsSchema.safeParse({
+        ...settings,
+        tax: {
+          rateBasisPoints: 500,
+          jurisdictions: [
+            { country: "IN", state: "Maharashtra", rateBasisPoints: 825 },
+            { country: "in", state: " maharashtra ", rateBasisPoints: 900 },
+          ],
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("validates the tax snapshot and total against discounted merchandise", () => {

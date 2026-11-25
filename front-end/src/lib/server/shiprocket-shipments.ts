@@ -29,6 +29,7 @@ async function shiprocketFetch(
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
   const response = await fetch(`${SHIPROCKET_API}${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(30_000),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -44,9 +45,21 @@ export async function createShiprocketShipment(input: {
   order: CustomerOrder;
   package: ShipmentPackage;
 }): Promise<CreatedShipment> {
+  if (
+    !Number.isFinite(input.package.weightKg) ||
+    input.package.weightKg <= 0 ||
+    input.package.weightKg > 100 ||
+    ![input.package.lengthCm, input.package.breadthCm, input.package.heightCm].every(
+      (value) => Number.isFinite(value) && value > 0 && value <= 1000,
+    )
+  ) {
+    throw new Error("invalid_shipment_package");
+  }
+
   const login = await fetch(`${SHIPROCKET_API}/v1/external/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(30_000),
     body: JSON.stringify({
       email: input.credentials.email,
       password: input.credentials.password,
@@ -109,11 +122,14 @@ export async function createShiprocketShipment(input: {
     awb_code?: string;
     courier_name?: string;
   };
-  let shipmentId = created.shipment_id?.toString();
+  const shipmentId = created.shipment_id?.toString();
+  if (!shipmentId) {
+    throw new Error("shiprocket_shipment_id_missing");
+  }
   let awb = created.awb_code?.trim();
   let carrier = created.courier_name?.trim();
 
-  if (shipmentId && !awb) {
+  if (!awb) {
     const awbResponse = await shiprocketFetch(
       "/v1/external/courier/awb",
       loginBody.token,
@@ -134,6 +150,7 @@ export async function createShiprocketShipment(input: {
       awbBody.response?.data?.awb_code ??
       awbBody.awb_code ??
       undefined;
+    awb = awb?.trim() || undefined;
     carrier =
       awbBody.response?.data?.courier_name ??
       awbBody.courier_name ??
@@ -143,15 +160,16 @@ export async function createShiprocketShipment(input: {
     throw new Error("shiprocket_awb_missing");
   }
 
-  if (shipmentId) {
-    await shiprocketFetch(
-      "/v1/external/courier/generate/label",
-      loginBody.token,
-      {
-        method: "POST",
-        body: JSON.stringify({ shipment_id: [Number(shipmentId)] }),
-      },
-    );
+  const labelResponse = await shiprocketFetch(
+    "/v1/external/courier/generate/label",
+    loginBody.token,
+    {
+      method: "POST",
+      body: JSON.stringify({ shipment_id: [Number(shipmentId)] }),
+    },
+  );
+  if (!labelResponse.ok) {
+    throw new Error("shiprocket_label_failed");
   }
 
   return {

@@ -176,16 +176,39 @@ export const TenantStoreSettingsSchema = z
                 country: z
                   .string()
                   .trim()
-                  .regex(/^[A-Z]{2}$/),
-                state: z.string().trim().min(1).max(100).optional(),
+                  .regex(/^[A-Za-z]{2}$/)
+                  .transform((country) => country.toUpperCase()),
+                state: z
+                  .string()
+                  .trim()
+                  .min(1)
+                  .max(100)
+                  .transform((state) => state.toLowerCase())
+                  .optional(),
                 rateBasisPoints: z.number().int().min(0).max(10_000),
               })
               .strict(),
           )
           .max(50)
-          .optional(),
+          .optional()
+          .superRefine((jurisdictions, context) => {
+            if (!jurisdictions) return;
+            const keys = new Set<string>();
+            for (const [index, jurisdiction] of jurisdictions.entries()) {
+              const key = `${jurisdiction.country}:${jurisdiction.state ?? "*"}`;
+              if (keys.has(key)) {
+                context.addIssue({
+                  code: "custom",
+                  path: [index],
+                  message:
+                    "Duplicate country and state tax jurisdiction is not allowed",
+                });
+              }
+              keys.add(key);
+            }
+          }),
       })
-      .default({ rateBasisPoints: 0 }),
+      .default({ rateBasisPoints: 0, jurisdictions: [] }),
     payments: z
       .object({
         stripe: z.boolean().default(true),

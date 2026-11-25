@@ -630,6 +630,12 @@ Status snapshot as of 2026-11-23:
       the existing tenant-wide percentage remains the fallback and this is not
       tax-compliance or advisory automation.
 - [ ] Complete orders, customer, shipping, and tax workflows.
+      Shiprocket shipment creation now validates package dimensions, requires
+      shipment/AWB/label completion, uses bounded provider requests, and covers
+      fallback AWB and label-failure cases.
+      Tax configuration now normalizes jurisdiction country/state keys and
+      rejects duplicate overrides; tax calculations use overflow-safe integer
+      minor-unit rounding and validate fallback and jurisdiction rates.
 - [x] Tenant storefront preview: catalog and cart are implemented; authenticated
       checkout creates server-side order records and shows Customer-scoped order
       confirmation/history.

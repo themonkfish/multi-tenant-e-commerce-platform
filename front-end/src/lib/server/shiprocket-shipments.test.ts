@@ -129,4 +129,129 @@ describe("Shiprocket shipment creation", () => {
       }),
     ).rejects.toThrow("shiprocket_auth_failed");
   });
+
+  it("rejects invalid package dimensions before provider calls", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createShiprocketShipment({
+        credentials: {
+          email: "api@example.com",
+          password: "secret",
+          pickupLocation: "Primary",
+        },
+        order,
+        package: {
+          weightKg: 0,
+          lengthCm: 20,
+          breadthCm: 15,
+          heightCm: 10,
+        },
+      }),
+    ).rejects.toThrow("invalid_shipment_package");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("requests an AWB when the create response omits it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ token: "test-token" }), {
+            status: 200,
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ shipment_id: 123, courier_name: "Delhivery" }),
+            { status: 200 },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              response: {
+                data: {
+                  awb_code: "AWB-FALLBACK",
+                  courier_name: "Delhivery",
+                },
+              },
+            }),
+            { status: 200 },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ status: "success" }), {
+            status: 200,
+          }),
+        ),
+    );
+
+    await expect(
+      createShiprocketShipment({
+        credentials: {
+          email: "api@example.com",
+          password: "secret",
+          pickupLocation: "Primary",
+        },
+        order,
+        package: {
+          weightKg: 1,
+          lengthCm: 20,
+          breadthCm: 15,
+          heightCm: 10,
+        },
+      }),
+    ).resolves.toMatchObject({
+      carrier: "Delhivery",
+      trackingNumber: "AWB-FALLBACK",
+    });
+  });
+
+  it("rejects a label-generation failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ token: "test-token" }), {
+            status: 200,
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              shipment_id: 123,
+              awb_code: "AWB123",
+              courier_name: "Delhivery",
+            }),
+            { status: 200 },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ message: "label unavailable" }), {
+            status: 500,
+          }),
+        ),
+    );
+
+    await expect(
+      createShiprocketShipment({
+        credentials: {
+          email: "api@example.com",
+          password: "secret",
+          pickupLocation: "Primary",
+        },
+        order,
+        package: {
+          weightKg: 1,
+          lengthCm: 20,
+          breadthCm: 15,
+          heightCm: 10,
+        },
+      }),
+    ).rejects.toThrow("shiprocket_label_failed");
+  });
 });
