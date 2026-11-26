@@ -210,6 +210,59 @@ describe("Shiprocket shipment creation", () => {
     });
   });
 
+  it("returns an HTTPS shipping label URL when Shiprocket provides it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ token: "test-token" }), {
+            status: 200,
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              shipment_id: 123,
+              awb_code: "AWB123",
+              courier_name: "Delhivery",
+            }),
+            { status: 200 },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              label_url_pdf: "https://cdn.example.com/label.pdf",
+            }),
+            { status: 200 },
+          ),
+        ),
+    );
+
+    await expect(
+      createShiprocketShipment({
+        credentials: {
+          email: "api@example.com",
+          password: "secret",
+          pickupLocation: "Primary",
+        },
+        order,
+        package: {
+          weightKg: 1,
+          lengthCm: 20,
+          breadthCm: 15,
+          heightCm: 10,
+        },
+      }),
+    ).resolves.toEqual({
+      carrier: "Delhivery",
+      trackingNumber: "AWB123",
+      trackingUrl: "https://shiprocket.co/tracking/AWB123",
+      labelUrl: "https://cdn.example.com/label.pdf",
+    });
+  });
+
   it("rejects a label-generation failure", async () => {
     vi.stubGlobal(
       "fetch",

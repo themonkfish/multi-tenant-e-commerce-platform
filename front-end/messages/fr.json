@@ -49,6 +49,7 @@
     "deliverTo": "Livrer à {name}, {address}, {city}",
     "shipmentTracking": "Suivi de l’expédition",
     "trackShipment": "Suivre l’expédition",
+    "downloadShippingLabel": "Télécharger l’étiquette d’expédition",
     "cancelling": "Annulation…",
     "retryCancellation": "Réessayer l’annulation",
     "cancelOrder": "Annuler la commande",

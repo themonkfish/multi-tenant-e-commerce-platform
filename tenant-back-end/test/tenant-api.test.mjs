@@ -451,6 +451,38 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
     trackingUrl: "https://tracking.example.test/AWB-123",
   });
 
+  const shippedWithLabel = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({
+      status: "Shipped",
+      fulfillment: {
+        carrier: "Delhivery Surface",
+        trackingNumber: "AWB-123",
+        trackingUrl: "https://tracking.example.test/AWB-123",
+        labelUrl: "https://cdn.example.test/labels/AWB-123.pdf",
+      },
+    }),
+  });
+  assert.equal(shippedWithLabel.status, 200);
+  assert.equal(
+    (await shippedWithLabel.json()).order.fulfillment.labelUrl,
+    "https://cdn.example.test/labels/AWB-123.pdf",
+  );
+
+  const invalidLabelUrl = await fetch(`${baseUrl}/orders/${order.id}`, {
+    method: "PATCH",
+    headers: { ...auth(), "content-type": "application/json" },
+    body: JSON.stringify({
+      status: "Shipped",
+      fulfillment: {
+        trackingNumber: "AWB-123",
+        labelUrl: "http://cdn.example.test/labels/AWB-123.pdf",
+      },
+    }),
+  });
+  assert.equal(invalidLabelUrl.status, 400);
+
   const invalidTrackingUrl = await fetch(`${baseUrl}/orders/${order.id}`, {
     method: "PATCH",
     headers: { ...auth(), "content-type": "application/json" },
@@ -502,6 +534,7 @@ test("persists tenant orders idempotently and rejects mismatched replays", async
     carrier: "Delhivery Surface",
     trackingNumber: "AWB-123",
     trackingUrl: "https://tracking.example.test/AWB-123",
+    labelUrl: "https://cdn.example.test/labels/AWB-123.pdf",
   });
 
   const cancellableOrder = {

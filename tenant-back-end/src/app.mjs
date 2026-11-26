@@ -102,7 +102,10 @@ function parseOrderFulfillment(input) {
     input === null ||
     Array.isArray(input) ||
     Object.keys(input).some(
-      (key) => !["carrier", "trackingNumber", "trackingUrl"].includes(key),
+      (key) =>
+        !["carrier", "trackingNumber", "trackingUrl", "labelUrl"].includes(
+          key,
+        ),
     ) ||
     typeof input.trackingNumber !== "string" ||
     input.trackingNumber.trim().length < 1 ||
@@ -121,11 +124,22 @@ function parseOrderFulfillment(input) {
     let url;
     try {
       url = new URL(input.trackingUrl);
+      if (url.protocol !== "https:") {
+        throw new Error("Tracking URL must use HTTPS");
+      }
     } catch {
       throw new InputError("Order tracking URL is invalid");
     }
-    if (url.protocol !== "https:") {
-      throw new InputError("Order tracking URL must use HTTPS");
+  }
+  if (input.labelUrl !== undefined) {
+    let url;
+    try {
+      url = new URL(input.labelUrl);
+      if (url.protocol !== "https:") {
+        throw new Error("Label URL must use HTTPS");
+      }
+    } catch {
+      throw new InputError("Order label URL is invalid");
     }
   }
   return {
@@ -134,6 +148,7 @@ function parseOrderFulfillment(input) {
     ...(input.trackingUrl !== undefined
       ? { trackingUrl: input.trackingUrl }
       : {}),
+    ...(input.labelUrl !== undefined ? { labelUrl: input.labelUrl } : {}),
   };
 }
 

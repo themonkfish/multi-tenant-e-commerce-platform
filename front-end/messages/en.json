@@ -49,6 +49,7 @@
     "deliverTo": "Deliver to {name}, {address}, {city}",
     "shipmentTracking": "Shipment tracking",
     "trackShipment": "Track shipment",
+    "downloadShippingLabel": "Download shipping label",
     "cancelling": "Cancelling…",
     "retryCancellation": "Retry cancellation",
     "cancelOrder": "Cancel order",

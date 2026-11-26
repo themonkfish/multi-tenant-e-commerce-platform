@@ -20,6 +20,7 @@ export type CreatedShipment = {
   carrier: string;
   trackingNumber: string;
   trackingUrl: string;
+  labelUrl?: string;
 };
 
 async function shiprocketFetch(
@@ -171,10 +172,43 @@ export async function createShiprocketShipment(input: {
   if (!labelResponse.ok) {
     throw new Error("shiprocket_label_failed");
   }
+  const labelBody = labelResponse.body as {
+    label_url?: string;
+    label_url_pdf?: string;
+    label_download_url?: string;
+    labelUrl?: string;
+    response?: {
+      data?: {
+        label_url?: string;
+        label_url_pdf?: string;
+        label_download_url?: string;
+        labelUrl?: string;
+      };
+    };
+  };
+  const candidateLabelUrl =
+    labelBody.label_url_pdf ??
+    labelBody.label_url ??
+    labelBody.label_download_url ??
+    labelBody.labelUrl ??
+    labelBody.response?.data?.label_url_pdf ??
+    labelBody.response?.data?.label_url ??
+    labelBody.response?.data?.label_download_url ??
+    labelBody.response?.data?.labelUrl;
+  let labelUrl: string | undefined;
+  if (candidateLabelUrl) {
+    try {
+      const parsed = new URL(candidateLabelUrl);
+      if (parsed.protocol === "https:") labelUrl = parsed.toString();
+    } catch {
+      labelUrl = undefined;
+    }
+  }
 
   return {
     carrier: carrier || "Shiprocket",
     trackingNumber: awb,
     trackingUrl: `https://shiprocket.co/tracking/${encodeURIComponent(awb)}`,
+    ...(labelUrl ? { labelUrl } : {}),
   };
 }

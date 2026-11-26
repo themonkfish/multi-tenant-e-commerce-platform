@@ -49,6 +49,7 @@
     "deliverTo": "{name}, {address}, {city} पर डिलीवर करें",
     "shipmentTracking": "शिपमेंट ट्रैकिंग",
     "trackShipment": "शिपमेंट ट्रैक करें",
+    "downloadShippingLabel": "शिपिंग लेबल डाउनलोड करें",
     "cancelling": "रद्द किया जा रहा है…",
     "retryCancellation": "रद्द करने का फिर से प्रयास करें",
     "cancelOrder": "ऑर्डर रद्द करें",

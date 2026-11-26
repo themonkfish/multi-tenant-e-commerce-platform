@@ -96,6 +96,13 @@ export const OrderFulfillmentSchema = z
         message: "Tracking URLs must use HTTPS",
       })
       .optional(),
+    labelUrl: z
+      .url()
+      .max(2048)
+      .refine((value) => new URL(value).protocol === "https:", {
+        message: "Label URLs must use HTTPS",
+      })
+      .optional(),
   })
   .strict();
 export type OrderFulfillment = z.infer<typeof OrderFulfillmentSchema>;

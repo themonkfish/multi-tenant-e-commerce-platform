@@ -697,6 +697,16 @@ export function TenantOrderManagement({
                   {t("trackShipment")}
                 </a>
               )}
+              {selected.fulfillment.labelUrl && (
+                <a
+                  className="mt-2 ml-4 inline-block font-medium text-indigo-700 underline"
+                  href={selected.fulfillment.labelUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {t("downloadShippingLabel")}
+                </a>
+              )}
             </div>
           )}
           <ul className="divide-y divide-slate-100 rounded border">

@@ -606,6 +606,8 @@ Status snapshot as of 2026-11-23:
 - [x] Show Customers an accessible order-progress timeline from confirmation
       through delivery in English, French, and Hindi; cancelled orders are
       displayed as a separately localized terminal state.
+- [x] Shiprocket-created shipping labels are retained as HTTPS fulfillment
+      metadata and exposed from the localized Tenant order portal.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove
