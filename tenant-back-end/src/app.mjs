@@ -103,9 +103,13 @@ function parseOrderFulfillment(input) {
     Array.isArray(input) ||
     Object.keys(input).some(
       (key) =>
-        !["carrier", "trackingNumber", "trackingUrl", "labelUrl"].includes(
-          key,
-        ),
+        ![
+          "carrier",
+          "trackingNumber",
+          "trackingUrl",
+          "labelUrl",
+          "cancelled",
+        ].includes(key),
     ) ||
     typeof input.trackingNumber !== "string" ||
     input.trackingNumber.trim().length < 1 ||
@@ -142,6 +146,9 @@ function parseOrderFulfillment(input) {
       throw new InputError("Order label URL is invalid");
     }
   }
+  if (input.cancelled !== undefined && typeof input.cancelled !== "boolean") {
+    throw new InputError("Order fulfillment fields are invalid");
+  }
   return {
     ...(input.carrier !== undefined ? { carrier: input.carrier.trim() } : {}),
     trackingNumber: input.trackingNumber.trim(),
@@ -149,6 +156,7 @@ function parseOrderFulfillment(input) {
       ? { trackingUrl: input.trackingUrl }
       : {}),
     ...(input.labelUrl !== undefined ? { labelUrl: input.labelUrl } : {}),
+    ...(input.cancelled !== undefined ? { cancelled: input.cancelled } : {}),
   };
 }
 

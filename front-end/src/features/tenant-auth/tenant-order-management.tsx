@@ -42,6 +42,10 @@ function errorMessage(body: unknown, t: (key: string) => string): string {
       return t("shiprocketCredentialsRequired");
     case "shipment_already_created":
       return t("shipmentAlreadyCreated");
+    case "shipment_not_cancellable":
+      return t("shipmentNotCancellable");
+    case "shiprocket_cancellation_failed":
+      return t("shiprocketCancellationFailed");
     case "delivery_address_required":
       return t("deliveryAddressRequired");
     case "order_not_refundable":
@@ -274,6 +278,45 @@ export function TenantOrderManagement({
       setNotice(t("orderShipped"));
       await loadOrders(page);
       await loadCashOrders(cashPage);
+    } catch {
+      setError(t("backendReachFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelShiprocketShipment(order: TenantOrder) {
+    if (!window.confirm(t("cancelShipmentConfirm"))) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(
+        "/api/tenant/shipments/shiprocket/cancel",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: order.id }),
+        },
+      );
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(errorMessage(body, t));
+        return;
+      }
+      const parsed =
+        typeof body === "object" && body !== null && "order" in body
+          ? TenantOrderSchema.safeParse(body.order)
+          : null;
+      if (!parsed?.success) {
+        setError(t("invalidOrder"));
+        return;
+      }
+      setSelected(parsed.data);
+      setNotice(t("shipmentCancelled"));
+      await loadOrders(page);
     } catch {
       setError(t("backendReachFailed"));
     } finally {
@@ -863,6 +906,18 @@ export function TenantOrderManagement({
                   {busy ? t("updating") : t("createShiprocketShipment")}
                 </button>
               )}
+              {selected.fulfillment &&
+                !selected.fulfillment.cancelled &&
+                selected.status === "Shipped" && (
+                  <button
+                    className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
+                    disabled={busy}
+                    onClick={() => void cancelShiprocketShipment(selected)}
+                    type="button"
+                  >
+                    {busy ? t("updating") : t("cancelShipment")}
+                  </button>
+                )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="space-y-1 text-sm">
                   <span className="block font-medium">{t("carrier")}</span>

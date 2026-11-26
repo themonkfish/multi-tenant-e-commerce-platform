@@ -608,6 +608,9 @@ Status snapshot as of 2026-11-23:
       displayed as a separately localized terminal state.
 - [x] Shiprocket-created shipping labels are retained as HTTPS fulfillment
       metadata and exposed from the localized Tenant order portal.
+- [x] Shiprocket shipments can be cancelled through an authorized Tenant
+      operator route; provider cancellation is replay-safe and is synchronized
+      as cancelled fulfillment metadata without regressing order status.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove

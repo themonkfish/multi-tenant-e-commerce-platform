@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CustomerOrder } from "@/core/domain/tenant-identities";
-import { createShiprocketShipment } from "./shiprocket-shipments";
+import {
+  cancelShiprocketShipment,
+  createShiprocketShipment,
+} from "./shiprocket-shipments";
 
 const order = {
   id: "ORD-550e8400-e29b-41d4-a716-446655440001",
@@ -260,6 +263,39 @@ describe("Shiprocket shipment creation", () => {
       trackingNumber: "AWB123",
       trackingUrl: "https://shiprocket.co/tracking/AWB123",
       labelUrl: "https://cdn.example.com/label.pdf",
+    });
+  });
+
+  it("cancels a shipment AWB and supports provider success replay", async () => {
+    const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ token: "test-token" }), {
+            status: 200,
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ status: "cancelled" }), {
+            status: 200,
+          }),
+        );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      cancelShiprocketShipment({
+        credentials: {
+          email: "api@example.com",
+          password: "secret",
+          pickupLocation: "Primary",
+        },
+        awb: "AWB123",
+      }),
+    ).resolves.toBeUndefined();
+
+    const cancellationRequest = vi.mocked(fetchMock).mock.calls[1];
+    expect(cancellationRequest[0]).toContain("/v1/external/courier/cancel");
+    expect(JSON.parse(String(cancellationRequest[1]?.body))).toEqual({
+      awbs: ["AWB123"],
     });
   });
 

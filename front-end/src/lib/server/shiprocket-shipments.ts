@@ -23,6 +23,42 @@ export type CreatedShipment = {
   labelUrl?: string;
 };
 
+export async function cancelShiprocketShipment(input: {
+  credentials: ShiprocketCredentials;
+  awb: string;
+}): Promise<void> {
+  const awb = input.awb.trim();
+  if (!/^.{1,120}$/.test(awb)) {
+    throw new Error("invalid_tracking_number");
+  }
+  const login = await fetch(`${SHIPROCKET_API}/v1/external/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({
+      email: input.credentials.email,
+      password: input.credentials.password,
+    }),
+  });
+  const loginBody = (await login.json().catch(() => null)) as
+    | { token?: string }
+    | null;
+  if (!login.ok || !loginBody?.token) {
+    throw new Error("shiprocket_auth_failed");
+  }
+  const cancellation = await shiprocketFetch(
+    "/v1/external/courier/cancel",
+    loginBody.token,
+    {
+      method: "POST",
+      body: JSON.stringify({ awbs: [awb] }),
+    },
+  );
+  if (!cancellation.ok) {
+    throw new Error("shiprocket_cancellation_failed");
+  }
+}
+
 async function shiprocketFetch(
   path: string,
   token: string,

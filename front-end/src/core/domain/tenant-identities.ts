@@ -103,6 +103,7 @@ export const OrderFulfillmentSchema = z
         message: "Label URLs must use HTTPS",
       })
       .optional(),
+    cancelled: z.boolean().optional(),
   })
   .strict();
 export type OrderFulfillment = z.infer<typeof OrderFulfillmentSchema>;
