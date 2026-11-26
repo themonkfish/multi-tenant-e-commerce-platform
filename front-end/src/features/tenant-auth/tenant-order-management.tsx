@@ -51,6 +51,10 @@ function errorMessage(body: unknown, t: (key: string) => string): string {
     case "bluedart_create_failed":
     case "bluedart_awb_missing":
     case "bluedart_cancellation_failed":
+    case "bluedart_timeout":
+    case "bluedart_unavailable":
+    case "bluedart_malformed_response":
+    case "bluedart_invalid_base_url":
       return t("blueDartFailed");
     case "delivery_address_required":
       return t("deliveryAddressRequired");

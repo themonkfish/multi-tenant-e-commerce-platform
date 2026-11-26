@@ -112,4 +112,82 @@ describe("BlueDart shipment creation", () => {
       }),
     ).resolves.toBeUndefined();
   });
+
+  it("rejects an HTTP or base-URL configuration failure without parsing", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    await expect(
+      createBlueDartShipment({
+        credentials: {
+          baseUrl: "http://api.example.com",
+          customerCode: "CUSTOMER",
+          loginId: "LOGIN",
+          licenseKey: "LICENSE",
+        },
+        order,
+        package: { weightKg: 1, lengthCm: 20, breadthCm: 15, heightCm: 10 },
+      }),
+    ).rejects.toThrow("bluedart_invalid_base_url");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("maps timed-out provider requests to a stable error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("Timeout", "TimeoutError")),
+    );
+    await expect(
+      createBlueDartShipment({
+        credentials: {
+          baseUrl: "https://api.example.com",
+          customerCode: "CUSTOMER",
+          loginId: "LOGIN",
+          licenseKey: "LICENSE",
+        },
+        order,
+        package: { weightKg: 1, lengthCm: 20, breadthCm: 15, heightCm: 10 },
+      }),
+    ).rejects.toThrow("bluedart_timeout");
+  });
+
+  it("rejects malformed successful provider payloads", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify("not-an-object"), { status: 200 }),
+      ),
+    );
+    await expect(
+      createBlueDartShipment({
+        credentials: {
+          baseUrl: "https://api.example.com",
+          customerCode: "CUSTOMER",
+          loginId: "LOGIN",
+          licenseKey: "LICENSE",
+        },
+        order,
+        package: { weightKg: 1, lengthCm: 20, breadthCm: 15, heightCm: 10 },
+      }),
+    ).rejects.toThrow("bluedart_malformed_response");
+  });
+
+  it("rejects a successful payload with no usable AWB", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ awb: "  " }), { status: 200 }),
+      ),
+    );
+    await expect(
+      createBlueDartShipment({
+        credentials: {
+          baseUrl: "https://api.example.com",
+          customerCode: "CUSTOMER",
+          loginId: "LOGIN",
+          licenseKey: "LICENSE",
+        },
+        order,
+        package: { weightKg: 1, lengthCm: 20, breadthCm: 15, heightCm: 10 },
+      }),
+    ).rejects.toThrow("bluedart_awb_missing");
+  });
 });

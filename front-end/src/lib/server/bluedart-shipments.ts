@@ -42,19 +42,60 @@ async function providerRequest(
   path: string,
   body: unknown,
 ): Promise<{ ok: boolean; body: unknown }> {
-  const baseUrl = credentials.baseUrl.replace(/\/$/, "");
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-bluedart-customer-code": credentials.customerCode,
-      "x-bluedart-login-id": credentials.loginId,
-      "x-bluedart-license-key": credentials.licenseKey,
-    },
-    signal: AbortSignal.timeout(30_000),
-    body: JSON.stringify(body),
-  });
-  const responseBody = await response.json().catch(() => null);
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(credentials.baseUrl);
+  } catch {
+    throw new Error("bluedart_invalid_base_url");
+  }
+  if (
+    baseUrl.protocol !== "https:" ||
+    baseUrl.username ||
+    baseUrl.password ||
+    baseUrl.search
+  ) {
+    throw new Error("bluedart_invalid_base_url");
+  }
+  if (
+    !credentials.customerCode.trim() ||
+    !credentials.loginId.trim() ||
+    !credentials.licenseKey.trim()
+  ) {
+    throw new Error("bluedart_credentials_required");
+  }
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const responseUrl = new URL(normalizedPath, `${baseUrl.origin}${baseUrl.pathname.replace(/\/$/, "")}/`);
+  let response: Response;
+  try {
+    response = await fetch(responseUrl.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-bluedart-customer-code": credentials.customerCode,
+        "x-bluedart-login-id": credentials.loginId,
+        "x-bluedart-license-key": credentials.licenseKey,
+      },
+      signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError")
+    ) {
+      throw new Error("bluedart_timeout");
+    }
+    throw new Error("bluedart_unavailable");
+  }
+  const responseBody: unknown = await response.json().catch(() => null);
+  if (
+    response.ok &&
+    (responseBody === null ||
+      typeof responseBody !== "object" ||
+      Array.isArray(responseBody))
+  ) {
+    throw new Error("bluedart_malformed_response");
+  }
   return { ok: response.ok, body: responseBody };
 }
 
@@ -113,6 +154,13 @@ export async function createBlueDartShipment(input: {
     body.trackingNumber;
   if (!trackingNumber?.trim()) {
     throw new Error("bluedart_awb_missing");
+  }
+  const normalizedAwb = trackingNumber.trim();
+  if (
+    normalizedAwb.length > 120 ||
+    /[\r\n]/.test(normalizedAwb)
+  ) {
+    throw new Error("bluedart_malformed_response");
   }
   let labelUrl: string | undefined;
   const candidateLabelUrl = body.labelUrlPdf ?? body.labelUrl;
