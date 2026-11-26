@@ -613,6 +613,9 @@ Status snapshot as of 2026-11-23:
       as cancelled fulfillment metadata without regressing order status.
 - [x] BlueDart direct shipment and cancellation adapters are available through
       tenant deployment credentials and the localized carrier selection.
+- [x] BlueDart create/cancel route coverage verifies authorization, incomplete
+      credentials, input/status guards, provider failures, idempotent replay,
+      and Tenant backend synchronization outcomes.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove
