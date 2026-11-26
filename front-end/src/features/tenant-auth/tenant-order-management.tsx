@@ -46,6 +46,12 @@ function errorMessage(body: unknown, t: (key: string) => string): string {
       return t("shipmentNotCancellable");
     case "shiprocket_cancellation_failed":
       return t("shiprocketCancellationFailed");
+    case "bluedart_credentials_required":
+      return t("blueDartCredentialsRequired");
+    case "bluedart_create_failed":
+    case "bluedart_awb_missing":
+    case "bluedart_cancellation_failed":
+      return t("blueDartFailed");
     case "delivery_address_required":
       return t("deliveryAddressRequired");
     case "order_not_refundable":
@@ -96,6 +102,9 @@ export function TenantOrderManagement({
   const [lengthCm, setLengthCm] = useState("20");
   const [breadthCm, setBreadthCm] = useState("15");
   const [heightCm, setHeightCm] = useState("10");
+  const [shipmentCarrier, setShipmentCarrier] = useState<
+    "shiprocket" | "bluedart"
+  >("shiprocket");
 
   const loadOrders = useCallback(
     async (pageNumber: number) => {
@@ -285,6 +294,40 @@ export function TenantOrderManagement({
     }
   }
 
+  async function createBlueDartShipment(order: TenantOrder) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/tenant/shipments/bluedart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          package: {
+            weightKg: Number(weightKg),
+            lengthCm: Number(lengthCm),
+            breadthCm: Number(breadthCm),
+            heightCm: Number(heightCm),
+          },
+        }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(errorMessage(body, t));
+        return;
+      }
+      setSelected(null);
+      setNotice(t("orderShipped"));
+      await loadOrders(page);
+      await loadCashOrders(cashPage);
+    } catch {
+      setError(t("backendReachFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function cancelShiprocketShipment(order: TenantOrder) {
     if (!window.confirm(t("cancelShipmentConfirm"))) {
       return;
@@ -315,6 +358,34 @@ export function TenantOrderManagement({
         return;
       }
       setSelected(parsed.data);
+      setNotice(t("shipmentCancelled"));
+      await loadOrders(page);
+    } catch {
+      setError(t("backendReachFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelBlueDartShipment(order: TenantOrder) {
+    if (!window.confirm(t("cancelShipmentConfirm"))) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/tenant/shipments/bluedart/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(errorMessage(body, t));
+        return;
+      }
+      setSelected(null);
       setNotice(t("shipmentCancelled"));
       await loadOrders(page);
     } catch {
@@ -872,6 +943,25 @@ export function TenantOrderManagement({
               <h3 className="font-medium text-slate-900">
                 {t("shipmentDetails")}
               </h3>
+              {!selected.fulfillment && (
+                <label className="block space-y-1 text-sm">
+                  <span className="block font-medium">
+                    {t("shipmentCarrier")}
+                  </span>
+                  <select
+                    className="w-full rounded border px-3 py-2"
+                    value={shipmentCarrier}
+                    onChange={(event) =>
+                      setShipmentCarrier(
+                        event.target.value as "shiprocket" | "bluedart",
+                      )
+                    }
+                  >
+                    <option value="shiprocket">Shiprocket</option>
+                    <option value="bluedart">BlueDart</option>
+                  </select>
+                </label>
+              )}
               <div className="grid gap-3 sm:grid-cols-4">
                 {[
                   ["weightKg", weightKg, setWeightKg],
@@ -900,10 +990,18 @@ export function TenantOrderManagement({
                 <button
                   className="rounded-md border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-800 disabled:opacity-60"
                   disabled={busy}
-                  onClick={() => void createShiprocketShipment(selected)}
+                  onClick={() =>
+                    void (shipmentCarrier === "shiprocket"
+                      ? createShiprocketShipment(selected)
+                      : createBlueDartShipment(selected))
+                  }
                   type="button"
                 >
-                  {busy ? t("updating") : t("createShiprocketShipment")}
+                  {busy
+                    ? t("updating")
+                    : shipmentCarrier === "shiprocket"
+                      ? t("createShiprocketShipment")
+                      : t("createBlueDartShipment")}
                 </button>
               )}
               {selected.fulfillment &&
@@ -912,7 +1010,11 @@ export function TenantOrderManagement({
                   <button
                     className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-60"
                     disabled={busy}
-                    onClick={() => void cancelShiprocketShipment(selected)}
+                    onClick={() =>
+                      void (selected.fulfillment?.carrier === "BlueDart"
+                        ? cancelBlueDartShipment(selected)
+                        : cancelShiprocketShipment(selected))
+                    }
                     type="button"
                   >
                     {busy ? t("updating") : t("cancelShipment")}

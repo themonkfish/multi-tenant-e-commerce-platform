@@ -611,6 +611,8 @@ Status snapshot as of 2026-11-23:
 - [x] Shiprocket shipments can be cancelled through an authorized Tenant
       operator route; provider cancellation is replay-safe and is synchronized
       as cancelled fulfillment metadata without regressing order status.
+- [x] BlueDart direct shipment and cancellation adapters are available through
+      tenant deployment credentials and the localized carrier selection.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove
