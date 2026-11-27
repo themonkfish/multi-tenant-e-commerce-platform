@@ -1255,6 +1255,8 @@ export class FilePlatformStore implements PlatformStore {
     sessionId: string;
     status: CustomerOrder["paymentStatus"];
     paymentIntentId?: string;
+    refundedAmount?: number;
+    refundIds?: string[];
   }): Promise<CustomerOrder | null> {
     if (input.status === "cod_due") return null;
     return this.withLock(async () => {
@@ -1264,7 +1266,7 @@ export class FilePlatformStore implements PlatformStore {
           candidate.tenantId === input.tenantId &&
           candidate.customerId === input.customerId &&
           candidate.id === input.orderId &&
-          candidate.paymentMethod === "stripe" &&
+          ["stripe", "razorpay"].includes(candidate.paymentMethod) &&
           candidate.paymentSessionId === input.sessionId,
       );
       if (!order) return null;
@@ -1283,6 +1285,12 @@ export class FilePlatformStore implements PlatformStore {
       order.paymentStatus = input.status;
       if (input.paymentIntentId) {
         order.paymentIntentId = input.paymentIntentId;
+      }
+      if (input.refundedAmount !== undefined) {
+        order.refundedAmount = input.refundedAmount;
+      }
+      if (input.refundIds) {
+        order.refundIds = input.refundIds;
       }
       const updated = CustomerOrderSchema.parse(order);
       await this.writeState(state);

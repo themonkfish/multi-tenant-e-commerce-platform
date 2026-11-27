@@ -5,6 +5,7 @@ import {
   createRazorpayCheckoutOrder,
   verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,
+  testRazorpayConnection,
 } from "./razorpay-payments";
 
 const order = {
@@ -92,5 +93,37 @@ describe("Razorpay payments", () => {
     expect(
       verifyRazorpayWebhookSignature(payload, webhookSignature),
     ).toBe(true);
+  });
+
+  it("returns a healthy result for a read-only Razorpay probe", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ items: [] }), { status: 200 }),
+      ),
+    );
+    await expect(
+      testRazorpayConnection({
+        keyId: "rzp_test_test",
+        keySecret: "test-secret",
+        webhookSecret: "test-webhook-secret",
+      }),
+    ).resolves.toMatchObject({ status: "healthy" });
+  });
+
+  it("returns unhealthy for timeout or rejected credentials", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValue(new DOMException("Timeout", "TimeoutError")),
+    );
+    await expect(
+      testRazorpayConnection({
+        keyId: "rzp_test_test",
+        keySecret: "test-secret",
+        webhookSecret: "test-webhook-secret",
+      }),
+    ).resolves.toMatchObject({ status: "unhealthy" });
   });
 });

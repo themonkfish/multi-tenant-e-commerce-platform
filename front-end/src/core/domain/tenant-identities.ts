@@ -173,6 +173,8 @@ const CustomerOrderBaseSchema = z.object({
   paymentAttempt: z.number().int().nonnegative().default(0),
   paymentSessionId: z.string().min(1).optional(),
   paymentIntentId: z.string().min(1).optional(),
+  refundedAmount: z.number().int().min(0).max(2_147_483_647).optional(),
+  refundIds: z.array(z.string().min(1).max(128)).max(100).optional(),
   deliveryAddress: CustomerDeliveryAddressSchema.optional(),
   fulfillment: OrderFulfillmentSchema.optional(),
   backendSyncStatus: z

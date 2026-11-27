@@ -50,6 +50,39 @@ export function TenantRazorpaySettingsForm({
     }
   }
 
+  async function testConnection() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/tenant/razorpay/test", {
+        method: "POST",
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        setError(t("testFailed"));
+        return;
+      }
+      if (
+        typeof body === "object" &&
+        body !== null &&
+        "result" in body &&
+        typeof body.result === "object" &&
+        body.result !== null &&
+        "status" in body.result &&
+        body.result.status === "healthy"
+      ) {
+        setNotice(t("connectionHealthy"));
+        return;
+      }
+      setError(t("connectionUnhealthy"));
+    } catch {
+      setError(t("testRequestUnavailable"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     setBusy(true);
     setError("");
@@ -123,6 +156,16 @@ export function TenantRazorpaySettingsForm({
         >
           {busy ? t("saving") : t("save")}
         </button>
+        {configured && (
+          <button
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium disabled:opacity-60"
+            type="button"
+            disabled={busy}
+            onClick={() => void testConnection()}
+          >
+            {t("testConnection")}
+          </button>
+        )}
         {configured && (
           <button
             className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-60"

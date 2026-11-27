@@ -245,6 +245,8 @@ export interface PlatformStore
     sessionId: string;
     status: CustomerOrder["paymentStatus"];
     paymentIntentId?: string;
+    refundedAmount?: number;
+    refundIds?: string[];
   }): Promise<CustomerOrder | null>;
   updateCustomerOrderSync(input: {
     tenantId: string;

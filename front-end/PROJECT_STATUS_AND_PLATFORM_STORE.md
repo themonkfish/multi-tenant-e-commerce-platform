@@ -573,6 +573,13 @@ Status snapshot as of 2026-11-23:
 - [x] Tenant Owners can store Razorpay Key ID and encrypted Key/Webhook secrets,
       replace or remove credentials, and use tenant-scoped checkout/webhook
       configuration through the Tenant dashboard.
+- [x] Tenant Razorpay credentials expose a bounded read-only connection test,
+      with missing, stale-secret, timeout, rejected-credential, and healthy
+      results covered through localized dashboard controls.
+- [x] Razorpay refunds persist cumulative minor-unit refunded amounts and
+      replay-safe refund IDs. Partial refunds keep the order paid without
+      inventory, discount, or Tenant order cancellation cleanup; only the
+      cumulative full-refund threshold performs the full refund workflow.
 - [x] Add India-only Cash on Delivery with required Indian delivery address,
       Tenant REST order delivery, authorized collection confirmation, and
       audit logging.
@@ -977,8 +984,8 @@ Before deploying the app:
    `0022_host_deletion.sql`, `0023_tenant_deletion.sql`,
    `0024_tenant_metadata_updates.sql`, `0025_product_reviews.sql`,
    `0026_cod_order_cancellation.sql`, `0027_order_delivery_status.sql`,
-   `0028_stripe_refunds.sql`, `0029_tenant_domain_removal.sql`, and
-   `0033_razorpay_payments.sql`.
+   `0028_stripe_refunds.sql`, `0029_tenant_domain_removal.sql`,
+   `0033_razorpay_payments.sql`, and `0034_partial_razorpay_refunds.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

@@ -147,6 +147,122 @@ describe("POST /api/webhooks/razorpay", () => {
     );
   });
 
+  it("records partial refunds without cancelling or restoring inventory", async () => {
+    vi.stubEnv("RAZORPAY_WEBHOOK_SECRET", webhookSecret);
+    vi.stubEnv("RAZORPAY_KEY_ID", "rzp_test_test");
+    vi.stubEnv("RAZORPAY_KEY_SECRET", "test-secret");
+    const order = {
+      id: orderId,
+      tenantId,
+      customerId,
+      status: "Shipped",
+      total: 10000,
+      currency: "INR",
+      items: [{ inventoryTracked: true }],
+      paymentMethod: "razorpay",
+      paymentStatus: "paid",
+      paymentAttempt: 1,
+      paymentSessionId: "order_R123",
+      paymentIntentId: "pay_R123",
+      refundedAmount: 0,
+      refundIds: [],
+    };
+    const updateCustomerOrderPayment = vi
+      .fn()
+      .mockResolvedValue({ ...order, refundedAmount: 2500 });
+    getPlatformStore.mockReturnValue({
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId }]),
+      listTenantOrders: vi.fn().mockResolvedValue([order]),
+      updateCustomerOrderPayment,
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const response = await POST(
+      request({
+        event: "refund.processed",
+        payload: {
+          refund: {
+            entity: {
+              id: "rfnd_partial_1",
+              payment_id: "pay_R123",
+              amount: 2500,
+              currency: "INR",
+              status: "processed",
+              notes: { tenantId, customerId, orderId },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({ partial: true, received: true }),
+    );
+    expect(updateCustomerOrderPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "paid",
+        refundedAmount: 2500,
+        refundIds: ["rfnd_partial_1"],
+      }),
+    );
+  });
+
+  it("replays a partial refund without updating it twice", async () => {
+    vi.stubEnv("RAZORPAY_WEBHOOK_SECRET", webhookSecret);
+    vi.stubEnv("RAZORPAY_KEY_ID", "rzp_test_test");
+    vi.stubEnv("RAZORPAY_KEY_SECRET", "test-secret");
+    const order = {
+      id: orderId,
+      tenantId,
+      customerId,
+      status: "Shipped",
+      total: 10000,
+      currency: "INR",
+      items: [],
+      paymentMethod: "razorpay",
+      paymentStatus: "paid",
+      paymentAttempt: 1,
+      paymentSessionId: "order_R123",
+      paymentIntentId: "pay_R123",
+      refundedAmount: 2500,
+      refundIds: ["rfnd_partial_1"],
+    };
+    getPlatformStore.mockReturnValue({
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId }]),
+      listTenantOrders: vi.fn().mockResolvedValue([order]),
+      updateCustomerOrderPayment: vi.fn(),
+    });
+
+    const response = await POST(
+      request({
+        event: "refund.processed",
+        payload: {
+          refund: {
+            entity: {
+              id: "rfnd_partial_1",
+              payment_id: "pay_R123",
+              amount: 2500,
+              currency: "INR",
+              notes: { tenantId, customerId, orderId },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      getPlatformStore.mock.results[0].value.updateCustomerOrderPayment,
+    ).not.toHaveBeenCalled();
+  });
+
   it("fully refunds a Razorpay order and cancels the Tenant snapshot", async () => {
     vi.stubEnv("RAZORPAY_WEBHOOK_SECRET", webhookSecret);
     vi.stubEnv("RAZORPAY_KEY_ID", "rzp_test_test");

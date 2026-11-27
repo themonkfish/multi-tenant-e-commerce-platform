@@ -224,9 +224,64 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (refund.amount !== order.total || refund.currency !== order.currency) {
+    if (
+      !Number.isSafeInteger(refund.amount) ||
+      refund.amount <= 0 ||
+      refund.currency !== order.currency
+    ) {
+      return NextResponse.json(
+        { error: "payment_details_mismatch" },
+        { status: 400 },
+      );
+    }
+    const refundIds = order.refundIds ?? [];
+    if (refundIds.includes(refund.id)) {
+      recordObservabilityMetric("razorpay.webhook.refund_idempotent");
+      return NextResponse.json({
+        received: true,
+        eventId: createRazorpayEventId(parsed.data),
+      });
+    }
+    const refundedAmount =
+      (order.refundedAmount ?? 0) + refund.amount;
+    if (refundedAmount > order.total) {
+      return NextResponse.json(
+        { error: "payment_details_mismatch" },
+        { status: 400 },
+      );
+    }
+    const nextRefundIds = [...refundIds, refund.id].slice(-100);
+    if (refundedAmount < order.total) {
+      const partial = await getPlatformStore().updateCustomerOrderPayment({
+        tenantId,
+        customerId,
+        orderId,
+        sessionId: order.paymentSessionId!,
+        status: "paid",
+        refundedAmount,
+        refundIds: nextRefundIds,
+      });
+      if (!partial) {
+        return NextResponse.json(
+          { error: "refund_update_conflict" },
+          { status: 409 },
+        );
+      }
+      await getPlatformStore().appendAuditEvent({
+        id: randomUUID(),
+        actorId: "razorpay-webhook",
+        scope: { kind: "tenant", id: tenantId, hostId },
+        action: "tenant.order.partial_refunded",
+        resourceType: "customer_order",
+        resourceId: order.id,
+        createdAt: new Date().toISOString(),
+      });
       recordObservabilityMetric("razorpay.webhook.partial_refund");
-      return NextResponse.json({ received: true, partial: true });
+      return NextResponse.json({
+        received: true,
+        partial: true,
+        eventId: createRazorpayEventId(parsed.data),
+      });
     }
     const refunded = await getPlatformStore().updateCustomerOrderPayment({
       tenantId,
@@ -234,6 +289,8 @@ export async function POST(request: Request) {
       orderId,
       sessionId: order.paymentSessionId!,
       status: "refunded",
+      refundedAmount: order.total,
+      refundIds: nextRefundIds,
     });
     if (!refunded) {
       return NextResponse.json(

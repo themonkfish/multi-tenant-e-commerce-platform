@@ -1494,6 +1494,8 @@ export class SupabasePlatformStore implements PlatformStore {
     sessionId: string;
     status: CustomerOrder["paymentStatus"];
     paymentIntentId?: string;
+    refundedAmount?: number;
+    refundIds?: string[];
   }): Promise<CustomerOrder | null> {
     if (input.status === "cod_due") return null;
     const { data, error } = await this.client
@@ -1503,11 +1505,17 @@ export class SupabasePlatformStore implements PlatformStore {
         ...(input.paymentIntentId
           ? { payment_intent_id: input.paymentIntentId }
           : {}),
+        ...(input.refundedAmount !== undefined
+          ? { refunded_amount: input.refundedAmount }
+          : {}),
+        ...(input.refundIds
+          ? { refund_ids: input.refundIds }
+          : {}),
       })
       .eq("tenant_id", input.tenantId)
       .eq("customer_id", input.customerId)
       .eq("id", input.orderId)
-      .eq("payment_method", "stripe")
+      .in("payment_method", ["stripe", "razorpay"])
       .eq("payment_session_id", input.sessionId)
       .in(
         "payment_status",
@@ -2534,6 +2542,8 @@ function customerOrderFromRow(row: {
   payment_attempt: number;
   payment_session_id: string | null;
   payment_intent_id: string | null;
+  refunded_amount: number;
+  refund_ids: unknown;
   delivery_address: unknown;
   fulfillment: unknown;
   backend_sync_status: string;
@@ -2563,6 +2573,16 @@ function customerOrderFromRow(row: {
       : {}),
     ...(row.payment_intent_id
       ? { paymentIntentId: row.payment_intent_id }
+      : {}),
+    ...(row.refunded_amount
+      ? { refundedAmount: row.refunded_amount }
+      : {}),
+    ...(Array.isArray(row.refund_ids)
+      ? {
+          refundIds: row.refund_ids.filter(
+            (refundId): refundId is string => typeof refundId === "string",
+          ),
+        }
       : {}),
     ...(row.delivery_address ? { deliveryAddress: row.delivery_address } : {}),
     ...(row.fulfillment ? { fulfillment: row.fulfillment } : {}),

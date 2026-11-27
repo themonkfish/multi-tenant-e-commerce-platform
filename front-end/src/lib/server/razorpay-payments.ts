@@ -162,6 +162,55 @@ export function verifyRazorpayWebhookSignature(
   );
 }
 
+export async function testRazorpayConnection(input?: {
+  keyId: string;
+  keySecret: string;
+  webhookSecret: string;
+}): Promise<{ status: "healthy" | "unhealthy"; latencyMs: number }> {
+  const startedAt = Date.now();
+  let config:
+    | {
+        keyId: string;
+        keySecret: string;
+        webhookSecret: string;
+        mode: "test" | "live";
+      }
+    | undefined;
+  try {
+    config = input
+      ? getRazorpayConfigurationFromCredentials(input)
+      : getRazorpayConfiguration();
+  } catch (error) {
+    if (error instanceof RazorpayPaymentConfigurationError) {
+      return { status: "unhealthy", latencyMs: Date.now() - startedAt };
+    }
+    throw error;
+  }
+  try {
+    const response = await fetch(
+      `${RAZORPAY_API}/v1/payments?count=1`,
+      {
+        method: "GET",
+        headers: {
+          Authorization:
+            "Basic " +
+            Buffer.from(`${config.keyId}:${config.keySecret}`).toString(
+              "base64",
+            ),
+        },
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    await response.arrayBuffer().catch(() => undefined);
+    return {
+      status: response.ok ? "healthy" : "unhealthy",
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch {
+    return { status: "unhealthy", latencyMs: Date.now() - startedAt };
+  }
+}
+
 export async function createRazorpayRefund(input: {
   order: CustomerOrder;
   paymentIntentId: string;
