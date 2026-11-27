@@ -54,6 +54,14 @@ function storageView(config: TenantStorageProviderConfig | null) {
       credentialsConfigured: true,
     });
   }
+  if (config.type === "dropbox") {
+    return TenantStorageConnectionViewSchema.parse({
+      type: "dropbox",
+      folderId: config.folderId,
+      accountEmail: config.accountEmail,
+      credentialsConfigured: true,
+    });
+  }
   return TenantStorageConnectionViewSchema.parse({
     type: "s3",
     endpoint: config.endpoint,
@@ -116,6 +124,12 @@ export async function PUT(request: Request) {
   if (parsed.data.type === "gdrive") {
     return NextResponse.json(
       { error: "google_drive_oauth_required" },
+      { status: 400 },
+    );
+  }
+  if (parsed.data.type === "dropbox") {
+    return NextResponse.json(
+      { error: "dropbox_oauth_required" },
       { status: 400 },
     );
   }
@@ -234,7 +248,7 @@ export async function PUT(request: Request) {
         value: suppliedCredentials,
       })
     : existing
-      ? existing.type === "gdrive"
+      ? existing.type === "gdrive" || existing.type === "dropbox"
         ? existing.oauthTokenRef
         : existing.credentialsRef
       : undefined;
@@ -314,13 +328,13 @@ export async function PUT(request: Request) {
   if (
     suppliedCredentials &&
     existing &&
-    (existing.type === "gdrive"
+    (existing.type === "gdrive" || existing.type === "dropbox"
       ? existing.oauthTokenRef
       : existing.credentialsRef) !== credentialsRef
   ) {
     try {
       await vault.deleteSecret(
-        existing.type === "gdrive"
+        existing.type === "gdrive" || existing.type === "dropbox"
           ? existing.oauthTokenRef
           : existing.credentialsRef,
       );
@@ -392,7 +406,7 @@ export async function DELETE(request: Request) {
   let credentialCleanupWarning = false;
   try {
     await getSecretVault().deleteSecret(
-      existing.type === "gdrive"
+      existing.type === "gdrive" || existing.type === "dropbox"
         ? existing.oauthTokenRef
         : existing.credentialsRef,
     );

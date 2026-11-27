@@ -28,6 +28,8 @@ const ServerEnvSchema = z.object({
   BLUEDART_LICENSE_KEY: z.string().min(1).optional(),
   GOOGLE_DRIVE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_DRIVE_CLIENT_SECRET: z.string().min(1).optional(),
+  DROPBOX_APP_KEY: z.string().min(1).optional(),
+  DROPBOX_APP_SECRET: z.string().min(1).optional(),
   OBSERVABILITY_METRICS_TOKEN: z.string().min(16).optional(),
   DISTRIBUTED_RATE_LIMIT_URL: z.url().optional(),
   DISTRIBUTED_RATE_LIMIT_TOKEN: z.string().min(1).optional(),

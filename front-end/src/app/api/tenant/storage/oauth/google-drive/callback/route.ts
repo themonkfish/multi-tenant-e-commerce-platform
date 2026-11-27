@@ -135,7 +135,7 @@ export async function GET(request: Request) {
   if (existing) {
     try {
       await getSecretVault().deleteSecret(
-        existing.type === "gdrive"
+        existing.type === "gdrive" || existing.type === "dropbox"
           ? existing.oauthTokenRef
           : existing.credentialsRef,
       );

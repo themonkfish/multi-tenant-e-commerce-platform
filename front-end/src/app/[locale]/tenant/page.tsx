@@ -120,6 +120,13 @@ export default async function TenantDashboardPage({
             accountEmail: storageProvider.accountEmail,
             credentialsConfigured: true,
           })
+      : storageProvider.type === "dropbox"
+        ? TenantStorageConnectionViewSchema.parse({
+            type: "dropbox",
+            folderId: storageProvider.folderId,
+            accountEmail: storageProvider.accountEmail,
+            credentialsConfigured: true,
+          })
         : TenantStorageConnectionViewSchema.parse({
             type: "s3",
             endpoint: storageProvider.endpoint,

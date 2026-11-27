@@ -310,6 +310,12 @@ export const TenantStorageProviderConfigSchema = z.discriminatedUnion("type", [
     oauthTokenRef: SecretRefSchema,
     accountEmail: z.email(),
   }),
+  z.object({
+    type: z.literal("dropbox"),
+    folderId: z.string().trim().min(1).max(512),
+    oauthTokenRef: SecretRefSchema,
+    accountEmail: z.email(),
+  }),
 ]);
 
 export const TenantLogisticsProviderConfigSchema = z.discriminatedUnion("type", [
@@ -481,6 +487,11 @@ export const TenantStorageConnectionInputSchema = z.discriminatedUnion("type", [
     folderId: z.string().trim().min(1).max(512),
     accountEmail: z.email(),
   }),
+  z.object({
+    type: z.literal("dropbox"),
+    folderId: z.string().trim().min(1).max(512),
+    accountEmail: z.email(),
+  }),
 ]);
 
 export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
@@ -514,6 +525,12 @@ export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("gdrive"),
+    folderId: z.string(),
+    accountEmail: z.email(),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("dropbox"),
     folderId: z.string(),
     accountEmail: z.email(),
     credentialsConfigured: z.boolean(),

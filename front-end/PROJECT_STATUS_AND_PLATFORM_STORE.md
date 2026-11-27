@@ -651,6 +651,9 @@ Status snapshot as of 2026-11-23:
       tenant-scoped folder configuration, server-proxy upload, deletion, and
       health-check support are implemented. Callback and provider credential
       tests cover signed-state authorization and tenant isolation.
+      Dropbox OAuth authorization, encrypted refresh/access-token storage,
+      tenant-scoped folder configuration, server-proxy upload, deletion,
+      health-check support, and signed-state callback tests are implemented.
       Google Cloud Storage is implemented with encrypted service-account
       credentials, tenant-scoped server-proxy uploads, public URL generation,
       deletion, and bucket health checks.

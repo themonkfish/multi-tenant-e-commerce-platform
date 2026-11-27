@@ -18,7 +18,7 @@ export function TenantStorageProviderForm({
   const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
   const [provider, setProvider] = useState<
-    "s3" | "supabase" | "gcs" | "azure" | "cloudinary" | "gdrive"
+    "s3" | "supabase" | "gcs" | "azure" | "cloudinary" | "gdrive" | "dropbox"
   >(
     initialConnection?.type === "supabase"
       ? "supabase"
@@ -30,6 +30,8 @@ export function TenantStorageProviderForm({
             ? "cloudinary"
             : initialConnection?.type === "gdrive"
               ? "gdrive"
+              : initialConnection?.type === "dropbox"
+                ? "dropbox"
               : "s3",
   );
   const [endpoint, setEndpoint] = useState(
@@ -92,6 +94,11 @@ export function TenantStorageProviderForm({
       ? initialConnection.accountEmail
       : "",
   );
+  const [dropboxFolderId, setDropboxFolderId] = useState(
+    initialConnection?.type === "dropbox"
+      ? initialConnection.folderId
+      : "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -112,6 +119,19 @@ export function TenantStorageProviderForm({
         });
         window.location.assign(
           `/api/tenant/storage/oauth/google-drive/start?${params.toString()}`,
+        );
+        return;
+      }
+      if (provider === "dropbox") {
+        if (!dropboxFolderId.trim()) {
+          setError(t("dropboxFolderRequired"));
+          return;
+        }
+        const params = new URLSearchParams({
+          folderId: dropboxFolderId.trim(),
+        });
+        window.location.assign(
+          `/api/tenant/storage/oauth/dropbox/start?${params.toString()}`,
         );
         return;
       }
@@ -309,6 +329,11 @@ export function TenantStorageProviderForm({
                         folderId: connection.folderId,
                         accountEmail: connection.accountEmail,
                       })
+                    : connection.type === "dropbox"
+                      ? t("configuredDropbox", {
+                          folderId: connection.folderId,
+                          accountEmail: connection.accountEmail,
+                        })
                     : t("configuredSupabaseBucket", {
                         bucket: connection.bucket,
                         projectUrl: connection.projectUrl,
@@ -334,6 +359,8 @@ export function TenantStorageProviderForm({
                       ? "cloudinary"
                       : event.target.value === "gdrive"
                         ? "gdrive"
+                        : event.target.value === "dropbox"
+                          ? "dropbox"
                         : "s3",
             )
           }
@@ -344,6 +371,7 @@ export function TenantStorageProviderForm({
           <option value="azure">{t("providerAzure")}</option>
           <option value="cloudinary">{t("providerCloudinary")}</option>
           <option value="gdrive">{t("providerGdrive")}</option>
+          <option value="dropbox">{t("providerDropbox")}</option>
         </select>
       </label>
       {provider === "supabase" ? (
@@ -471,6 +499,19 @@ export function TenantStorageProviderForm({
               onChange={(event) => setGdriveAccountEmail(event.target.value)}
               type="email"
               value={gdriveAccountEmail}
+            />
+          </label>
+        </div>
+      ) : provider === "dropbox" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700 sm:col-span-2">
+            {t("dropboxFolderIdLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setDropboxFolderId(event.target.value)}
+              placeholder="/TenantAssets"
+              value={dropboxFolderId}
             />
           </label>
         </div>
