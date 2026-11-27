@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
-import { getPlatformStore } from "@/lib/server/platform";
+import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 import { getTenantPortalSession } from "@/lib/server/session";
 import { getServerEnv } from "@/lib/server/env";
 import { createBlueDartShipment } from "@/lib/server/bluedart-shipments";
@@ -42,19 +42,69 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   }
-  const env = getServerEnv();
-  if (
-    !env.BLUEDART_API_BASE_URL ||
-    !env.BLUEDART_CUSTOMER_CODE ||
-    !env.BLUEDART_LOGIN_ID ||
-    !env.BLUEDART_LICENSE_KEY
-  ) {
+  const store = getPlatformStore();
+  const settings =
+    store && typeof store.getTenantStoreSettings === "function"
+      ? await store.getTenantStoreSettings(
+          session.scope.id,
+          session.scope.hostId,
+          "",
+        )
+      : null;
+  let credentials:
+    | {
+        baseUrl: string;
+        customerCode: string;
+        loginId: string;
+        licenseKey: string;
+      }
+    | undefined;
+  const configured = settings?.shipping.logistics;
+  if (configured?.type === "bluedart") {
+    try {
+      const secret = await getSecretVault().getSecret(
+        configured.credentialsRef,
+      );
+      const parsed = JSON.parse(secret) as {
+        baseUrl?: string;
+        customerCode?: string;
+        loginId?: string;
+        licenseKey?: string;
+      };
+      if (
+        parsed.baseUrl &&
+        parsed.customerCode &&
+        parsed.loginId &&
+        parsed.licenseKey
+      ) {
+        credentials = parsed as typeof credentials;
+      }
+    } catch {
+      credentials = undefined;
+    }
+  }
+  if (!credentials) {
+    const env = getServerEnv();
+    if (
+      env.BLUEDART_API_BASE_URL &&
+      env.BLUEDART_CUSTOMER_CODE &&
+      env.BLUEDART_LOGIN_ID &&
+      env.BLUEDART_LICENSE_KEY
+    ) {
+      credentials = {
+        baseUrl: env.BLUEDART_API_BASE_URL,
+        customerCode: env.BLUEDART_CUSTOMER_CODE,
+        loginId: env.BLUEDART_LOGIN_ID,
+        licenseKey: env.BLUEDART_LICENSE_KEY,
+      };
+    }
+  }
+  if (!credentials) {
     return NextResponse.json(
       { error: "bluedart_credentials_required" },
       { status: 409 },
     );
   }
-  const store = getPlatformStore();
   const allowed = await store.consumeRateLimit({
     key: createRateLimitKey(request, "tenant-bluedart-shipment", session.userId),
     limit: 10,
@@ -86,10 +136,10 @@ export async function POST(request: Request) {
   try {
     shipment = await createBlueDartShipment({
       credentials: {
-        baseUrl: env.BLUEDART_API_BASE_URL,
-        customerCode: env.BLUEDART_CUSTOMER_CODE,
-        loginId: env.BLUEDART_LOGIN_ID,
-        licenseKey: env.BLUEDART_LICENSE_KEY,
+        baseUrl: credentials.baseUrl,
+        customerCode: credentials.customerCode,
+        loginId: credentials.loginId,
+        licenseKey: credentials.licenseKey,
       },
       order,
       package: parsed.data.package,

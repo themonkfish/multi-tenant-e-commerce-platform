@@ -181,12 +181,21 @@ export const TenantStoreSettingsSchema = z
           .max(2_147_483_647)
           .optional(),
         logistics: z
-          .object({
-            type: z.literal("shiprocket"),
-            apiEmail: z.email(),
-            pickupLocation: z.string().trim().min(1).max(120),
-            credentialsRef: z.string().min(1),
-          })
+          .union([
+            z.object({
+              type: z.literal("shiprocket"),
+              apiEmail: z.email(),
+              pickupLocation: z.string().trim().min(1).max(120),
+              credentialsRef: z.string().min(1),
+            }),
+            z.object({
+              type: z.literal("bluedart"),
+              baseUrl: z.url({ protocol: /^https$/ }),
+              customerCode: z.string().trim().min(1).max(80),
+              loginId: z.string().trim().min(1).max(80),
+              credentialsRef: z.string().min(1),
+            }),
+          ])
           .optional(),
       })
       .default({ flatRate: 0 })

@@ -7,10 +7,12 @@ import { TenantStoreSettingsForm } from "@/features/tenant-auth/tenant-store-set
 import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-connection-form";
 import { TenantDatabaseProviderForm } from "@/features/tenant-auth/tenant-database-provider-form";
 import { TenantStorageProviderForm } from "@/features/tenant-auth/tenant-storage-provider-form";
+import { TenantLogisticsProviderForm } from "@/features/tenant-auth/tenant-logistics-provider-form";
 import { TenantDataExport } from "@/features/tenant-auth/tenant-data-export";
 import {
   TenantDatabaseConnectionViewSchema,
   TenantStorageConnectionViewSchema,
+  TenantLogisticsConnectionViewSchema,
   getTenantProvisioningReadiness,
 } from "@/core/domain/tenant-config";
 import { TenantStaffManagement } from "@/features/tenant-auth/tenant-staff-management";
@@ -119,6 +121,22 @@ export default async function TenantDashboardPage({
             pathStyle: storageProvider.pathStyle,
             credentialsConfigured: true,
           })
+    : null;
+  const logisticsConnection = settings.shipping.logistics
+    ? settings.shipping.logistics.type === "shiprocket"
+      ? TenantLogisticsConnectionViewSchema.parse({
+          type: "shiprocket",
+          apiEmail: settings.shipping.logistics.apiEmail,
+          pickupLocation: settings.shipping.logistics.pickupLocation,
+          credentialsConfigured: true,
+        })
+      : TenantLogisticsConnectionViewSchema.parse({
+          type: "bluedart",
+          baseUrl: settings.shipping.logistics.baseUrl,
+          customerCode: settings.shipping.logistics.customerCode,
+          loginId: settings.shipping.logistics.loginId,
+          credentialsConfigured: true,
+        })
     : null;
   const staff = await store.listTenantStaff(tenant.id);
   let stripeConfigured = false;
@@ -384,6 +402,11 @@ export default async function TenantDashboardPage({
             {setupT("storageConnectionDescription")}
           </p>
           <TenantStorageProviderForm initialConnection={storageConnection} />
+        </div>
+        <div>
+          <TenantLogisticsProviderForm
+            initialConnection={logisticsConnection}
+          />
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <h3 className="mb-2 font-semibold">{portalT("catalogManagement")}</h3>

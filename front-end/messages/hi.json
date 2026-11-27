@@ -497,6 +497,28 @@
     "testConnection": "कनेक्शन टेस्ट करें",
     "removeStorage": "स्टोरेज हटाएँ"
   },
+  "TenantLogistics": {
+    "title": "लॉजिस्टिक्स प्रदाता",
+    "description": "शिपमेंट बनाने और रद्द करने के लिए वाहक क्रेडेंशियल कॉन्फ़िगर करें।",
+    "provider": "शिपमेंट वाहक",
+    "apiEmail": "Shiprocket API ईमेल",
+    "apiPassword": "Shiprocket API पासवर्ड",
+    "pickupLocation": "Shiprocket पिकअप स्थान",
+    "baseUrl": "BlueDart API बेस URL",
+    "customerCode": "BlueDart ग्राहक कोड",
+    "loginId": "BlueDart लॉगिन ID",
+    "licenseKey": "BlueDart लाइसेंस कुंजी",
+    "save": "लॉजिस्टिक्स सेटिंग सेव करें",
+    "saving": "सेव हो रहा है...",
+    "remove": "लॉजिस्टिक्स सेटिंग हटाएँ",
+    "configured": "<strong>{provider}</strong> कॉन्फ़िगर है। क्रेडेंशियल एन्क्रिप्टेड हैं।",
+    "settingsSaved": "लॉजिस्टिक्स सेटिंग सेव हो गईं।",
+    "settingsRemoved": "लॉजिस्टिक्स सेटिंग हटा दी गईं।",
+    "saveFailed": "लॉजिस्टिक्स सेटिंग सेव नहीं हो सकीं।",
+    "removeFailed": "लॉजिस्टिक्स सेटिंग हटाई नहीं जा सकी।",
+    "invalidSettings": "प्लेटफ़ॉर्म ने अमान्य लॉजिस्टिक्स सेटिंग दीं।",
+    "requestUnavailable": "लॉजिस्टिक्स सेटिंग तक नहीं पहुँचा जा सका।"
+  },
   "TenantPortal": {
     "storePortal": "स्टोर पोर्टल",
     "signedInAs": "{userId} के रूप में साइन इन",

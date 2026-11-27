@@ -497,6 +497,28 @@
     "testConnection": "Test connection",
     "removeStorage": "Remove storage"
   },
+  "TenantLogistics": {
+    "title": "Logistics provider",
+    "description": "Configure carrier credentials for shipment creation and cancellation.",
+    "provider": "Carrier provider",
+    "apiEmail": "Shiprocket API email",
+    "apiPassword": "Shiprocket API password",
+    "pickupLocation": "Shiprocket pickup location",
+    "baseUrl": "BlueDart API base URL",
+    "customerCode": "BlueDart customer code",
+    "loginId": "BlueDart login ID",
+    "licenseKey": "BlueDart license key",
+    "save": "Save logistics settings",
+    "saving": "Saving...",
+    "remove": "Remove logistics settings",
+    "configured": "Configured <strong>{provider}</strong>. Credentials are stored encrypted and are never displayed.",
+    "settingsSaved": "Logistics settings saved.",
+    "settingsRemoved": "Logistics settings removed.",
+    "saveFailed": "Logistics settings could not be saved.",
+    "removeFailed": "Logistics settings could not be removed.",
+    "invalidSettings": "The platform returned invalid logistics settings.",
+    "requestUnavailable": "Could not reach the platform logistics settings."
+  },
   "TenantPortal": {
     "storePortal": "Store portal",
     "signedInAs": "Signed in as {userId}",

@@ -618,6 +618,9 @@ Status snapshot as of 2026-11-23:
       and Tenant backend synchronization outcomes.
 - [x] BlueDart provider requests validate HTTPS base URLs, credentials,
       response envelopes, AWB values, provider timeouts, and malformed payloads.
+- [x] Tenant logistics settings support encrypted BlueDart and Shiprocket
+      credentials through the Tenant Owner dashboard, with save/remove flows
+      and tenant-scoped credential resolution.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove

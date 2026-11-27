@@ -306,29 +306,57 @@ export const TenantStorageProviderConfigSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export const TenantLogisticsProviderConfigSchema = z.object({
-  type: z.literal("shiprocket"),
-  apiEmail: z.email(),
-  pickupLocation: z.string().trim().min(1).max(120),
-  credentialsRef: SecretRefSchema,
-});
+export const TenantLogisticsProviderConfigSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("shiprocket"),
+    apiEmail: z.email(),
+    pickupLocation: z.string().trim().min(1).max(120),
+    credentialsRef: SecretRefSchema,
+  }),
+  z.object({
+    type: z.literal("bluedart"),
+    baseUrl: z.url({ protocol: /^https$/ }),
+    customerCode: z.string().trim().min(1).max(80),
+    loginId: z.string().trim().min(1).max(80),
+    credentialsRef: SecretRefSchema,
+  }),
+]);
 
 export type TenantLogisticsProviderConfig = z.infer<
   typeof TenantLogisticsProviderConfigSchema
 >;
 
-export const TenantLogisticsConnectionInputSchema = z.object({
-  apiEmail: z.email(),
-  apiPassword: z.string().min(1).max(2048).optional(),
-  pickupLocation: z.string().trim().min(1).max(120),
-});
+export const TenantLogisticsConnectionInputSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("shiprocket"),
+    apiEmail: z.email(),
+    apiPassword: z.string().min(1).max(2048).optional(),
+    pickupLocation: z.string().trim().min(1).max(120),
+  }),
+  z.object({
+    type: z.literal("bluedart"),
+    baseUrl: z.url({ protocol: /^https$/ }),
+    customerCode: z.string().trim().min(1).max(80),
+    loginId: z.string().trim().min(1).max(80),
+    licenseKey: z.string().min(1).max(2048).optional(),
+  }),
+]);
 
-export const TenantLogisticsConnectionViewSchema = z.object({
-  type: z.literal("shiprocket"),
-  apiEmail: z.email(),
-  pickupLocation: z.string().trim().min(1).max(120),
-  credentialsConfigured: z.boolean(),
-});
+export const TenantLogisticsConnectionViewSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("shiprocket"),
+    apiEmail: z.email(),
+    pickupLocation: z.string().trim().min(1).max(120),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("bluedart"),
+    baseUrl: z.url({ protocol: /^https$/ }),
+    customerCode: z.string().trim().min(1).max(80),
+    loginId: z.string().trim().min(1).max(80),
+    credentialsConfigured: z.boolean(),
+  }),
+]);
 
 export const TenantStorageConnectionInputSchema = z.discriminatedUnion("type", [
   TenantStorageBaseSchema.extend({

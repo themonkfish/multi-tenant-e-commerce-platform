@@ -497,6 +497,28 @@
     "testConnection": "Tester la connexion",
     "removeStorage": "Supprimer le stockage"
   },
+  "TenantLogistics": {
+    "title": "Fournisseur logistique",
+    "description": "Configurez les identifiants du transporteur pour créer et annuler les expéditions.",
+    "provider": "Transporteur",
+    "apiEmail": "Adresse e-mail API Shiprocket",
+    "apiPassword": "Mot de passe API Shiprocket",
+    "pickupLocation": "Lieu d’enlèvement Shiprocket",
+    "baseUrl": "URL de base API BlueDart",
+    "customerCode": "Code client BlueDart",
+    "loginId": "Identifiant de connexion BlueDart",
+    "licenseKey": "Clé de licence BlueDart",
+    "save": "Enregistrer les paramètres logistiques",
+    "saving": "Enregistrement...",
+    "remove": "Supprimer les paramètres logistiques",
+    "configured": "Fournisseur <strong>{provider}</strong> configuré. Les identifiants sont chiffrés.",
+    "settingsSaved": "Paramètres logistiques enregistrés.",
+    "settingsRemoved": "Paramètres logistiques supprimés.",
+    "saveFailed": "Impossible d’enregistrer les paramètres logistiques.",
+    "removeFailed": "Impossible de supprimer les paramètres logistiques.",
+    "invalidSettings": "Paramètres logistiques invalides retournés par la plateforme.",
+    "requestUnavailable": "Impossible de contacter les paramètres logistiques."
+  },
   "TenantPortal": {
     "storePortal": "Portail de la boutique",
     "signedInAs": "Connecté en tant que {userId}",
