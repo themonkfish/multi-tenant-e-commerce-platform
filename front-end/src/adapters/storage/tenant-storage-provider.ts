@@ -7,6 +7,7 @@ import { TenantAzureStorageAdapter } from "./azure/tenant-azure-storage";
 import { TenantCloudinaryStorageAdapter } from "./cloudinary/tenant-cloudinary-storage";
 import { TenantGoogleDriveStorageAdapter } from "./gdrive/tenant-gdrive-storage";
 import { TenantDropboxStorageAdapter } from "./dropbox/tenant-dropbox-storage";
+import { TenantOneDriveStorageAdapter } from "./onedrive/tenant-onedrive-storage";
 import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 
 const S3CredentialsSchema = z
@@ -53,6 +54,13 @@ const DropboxCredentialsSchema = z
     expiresAt: z.number().int().positive(),
   })
   .strict();
+const OneDriveCredentialsSchema = z
+  .object({
+    accessToken: z.string().min(1),
+    refreshToken: z.string().min(1),
+    expiresAt: z.number().int().positive(),
+  })
+  .strict();
 
 export async function createTenantStorageAdapter(
   tenantId: string,
@@ -65,6 +73,7 @@ export async function createTenantStorageAdapter(
   | TenantCloudinaryStorageAdapter
   | TenantGoogleDriveStorageAdapter
   | TenantDropboxStorageAdapter
+  | TenantOneDriveStorageAdapter
 > {
   const store = getPlatformStore();
   const [hosts, tenants, config] = await Promise.all([
@@ -88,7 +97,9 @@ export async function createTenantStorageAdapter(
     throw new Error("Tenant storage provider is not configured");
   }
   const secretRef =
-    config.type === "gdrive" || config.type === "dropbox"
+    config.type === "gdrive" ||
+    config.type === "dropbox" ||
+    config.type === "onedrive"
       ? config.oauthTokenRef
       : config.credentialsRef;
   const secret = JSON.parse(await getSecretVault().getSecret(secretRef));
@@ -118,6 +129,10 @@ export async function createTenantStorageAdapter(
   if (config.type === "dropbox") {
     const credentials = DropboxCredentialsSchema.parse(secret);
     return new TenantDropboxStorageAdapter(config, tenantId, credentials);
+  }
+  if (config.type === "onedrive") {
+    const credentials = OneDriveCredentialsSchema.parse(secret);
+    return new TenantOneDriveStorageAdapter(config, tenantId, credentials);
   }
   const credentials = S3CredentialsSchema.parse(secret);
   return new TenantS3StorageAdapter(config, tenantId, credentials);

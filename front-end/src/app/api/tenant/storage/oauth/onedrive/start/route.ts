@@ -1,0 +1,58 @@
+import { createHmac, randomBytes } from "node:crypto";
+import { NextResponse } from "next/server";
+import { canAccessPermission } from "@/core/tenancy/scope";
+import { getServerEnv } from "@/lib/server/env";
+import { getTenantOwnerSession } from "@/lib/server/session";
+
+export async function GET(request: Request) {
+  const session = await getTenantOwnerSession();
+  if (!session || session.scope.kind !== "tenant") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!canAccessPermission(session, "tenant:write")) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  const url = new URL(request.url);
+  const folderId = url.searchParams.get("folderId")?.trim();
+  if (!folderId || folderId.length > 512) {
+    return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+  }
+  const env = getServerEnv();
+  if (!env.ONEDRIVE_CLIENT_ID || !env.ONEDRIVE_CLIENT_SECRET) {
+    return NextResponse.json(
+      { error: "onedrive_oauth_not_configured" },
+      { status: 503 },
+    );
+  }
+  const tenantId = env.ONEDRIVE_TENANT_ID ?? "common";
+  const nonce = randomBytes(24).toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({
+      tenantId: session.scope.id,
+      hostId: session.scope.hostId,
+      folderId,
+      nonce,
+      issuedAt: Date.now(),
+    }),
+  ).toString("base64url");
+  const signature = createHmac("sha256", env.SESSION_SECRET!)
+    .update(payload)
+    .digest("base64url");
+  const callback = new URL(
+    "/api/tenant/storage/oauth/onedrive/callback",
+    url.origin,
+  );
+  const authorization = new URL(
+    `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/authorize`,
+  );
+  authorization.searchParams.set("client_id", env.ONEDRIVE_CLIENT_ID);
+  authorization.searchParams.set("redirect_uri", callback.toString());
+  authorization.searchParams.set("response_type", "code");
+  authorization.searchParams.set(
+    "scope",
+    "offline_access Files.ReadWrite User.Read",
+  );
+  authorization.searchParams.set("state", `${payload}.${signature}`);
+  authorization.searchParams.set("prompt", "consent");
+  return NextResponse.redirect(authorization.toString());
+}

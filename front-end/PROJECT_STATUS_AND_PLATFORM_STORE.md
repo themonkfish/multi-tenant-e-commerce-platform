@@ -654,6 +654,9 @@ Status snapshot as of 2026-11-23:
       Dropbox OAuth authorization, encrypted refresh/access-token storage,
       tenant-scoped folder configuration, server-proxy upload, deletion,
       health-check support, and signed-state callback tests are implemented.
+      OneDrive OAuth authorization, encrypted refresh/access-token storage,
+      tenant-scoped folder configuration, Microsoft Graph upload/deletion,
+      health-check support, and signed-state callback tests are implemented.
       Google Cloud Storage is implemented with encrypted service-account
       credentials, tenant-scoped server-proxy uploads, public URL generation,
       deletion, and bucket health checks.

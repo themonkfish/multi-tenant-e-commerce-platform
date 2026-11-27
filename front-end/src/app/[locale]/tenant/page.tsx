@@ -127,6 +127,13 @@ export default async function TenantDashboardPage({
             accountEmail: storageProvider.accountEmail,
             credentialsConfigured: true,
           })
+      : storageProvider.type === "onedrive"
+        ? TenantStorageConnectionViewSchema.parse({
+            type: "onedrive",
+            folderId: storageProvider.folderId,
+            accountEmail: storageProvider.accountEmail,
+            credentialsConfigured: true,
+          })
         : TenantStorageConnectionViewSchema.parse({
             type: "s3",
             endpoint: storageProvider.endpoint,

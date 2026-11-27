@@ -18,7 +18,7 @@ export function TenantStorageProviderForm({
   const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
   const [provider, setProvider] = useState<
-    "s3" | "supabase" | "gcs" | "azure" | "cloudinary" | "gdrive" | "dropbox"
+    "s3" | "supabase" | "gcs" | "azure" | "cloudinary" | "gdrive" | "dropbox" | "onedrive"
   >(
     initialConnection?.type === "supabase"
       ? "supabase"
@@ -32,6 +32,8 @@ export function TenantStorageProviderForm({
               ? "gdrive"
               : initialConnection?.type === "dropbox"
                 ? "dropbox"
+                : initialConnection?.type === "onedrive"
+                  ? "onedrive"
               : "s3",
   );
   const [endpoint, setEndpoint] = useState(
@@ -99,6 +101,11 @@ export function TenantStorageProviderForm({
       ? initialConnection.folderId
       : "",
   );
+  const [onedriveFolderId, setOnedriveFolderId] = useState(
+    initialConnection?.type === "onedrive"
+      ? initialConnection.folderId
+      : "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -132,6 +139,19 @@ export function TenantStorageProviderForm({
         });
         window.location.assign(
           `/api/tenant/storage/oauth/dropbox/start?${params.toString()}`,
+        );
+        return;
+      }
+      if (provider === "onedrive") {
+        if (!onedriveFolderId.trim()) {
+          setError(t("onedriveFolderRequired"));
+          return;
+        }
+        const params = new URLSearchParams({
+          folderId: onedriveFolderId.trim(),
+        });
+        window.location.assign(
+          `/api/tenant/storage/oauth/onedrive/start?${params.toString()}`,
         );
         return;
       }
@@ -334,6 +354,11 @@ export function TenantStorageProviderForm({
                           folderId: connection.folderId,
                           accountEmail: connection.accountEmail,
                         })
+                    : connection.type === "onedrive"
+                      ? t("configuredOnedrive", {
+                          folderId: connection.folderId,
+                          accountEmail: connection.accountEmail,
+                        })
                     : t("configuredSupabaseBucket", {
                         bucket: connection.bucket,
                         projectUrl: connection.projectUrl,
@@ -361,6 +386,8 @@ export function TenantStorageProviderForm({
                         ? "gdrive"
                         : event.target.value === "dropbox"
                           ? "dropbox"
+                        : event.target.value === "onedrive"
+                          ? "onedrive"
                         : "s3",
             )
           }
@@ -372,6 +399,7 @@ export function TenantStorageProviderForm({
           <option value="cloudinary">{t("providerCloudinary")}</option>
           <option value="gdrive">{t("providerGdrive")}</option>
           <option value="dropbox">{t("providerDropbox")}</option>
+          <option value="onedrive">{t("providerOnedrive")}</option>
         </select>
       </label>
       {provider === "supabase" ? (
@@ -512,6 +540,19 @@ export function TenantStorageProviderForm({
               onChange={(event) => setDropboxFolderId(event.target.value)}
               placeholder="/TenantAssets"
               value={dropboxFolderId}
+            />
+          </label>
+        </div>
+      ) : provider === "onedrive" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700 sm:col-span-2">
+            {t("onedriveFolderIdLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setOnedriveFolderId(event.target.value)}
+              placeholder="/TenantAssets"
+              value={onedriveFolderId}
             />
           </label>
         </div>

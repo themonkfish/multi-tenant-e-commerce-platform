@@ -2049,7 +2049,9 @@ export class SupabasePlatformStore implements PlatformStore {
         p_host_id: input.hostId,
         p_config: config,
         p_secret_ref:
-          config.type === "gdrive" || config.type === "dropbox"
+          config.type === "gdrive" ||
+          config.type === "dropbox" ||
+          config.type === "onedrive"
             ? config.oauthTokenRef
             : config.credentialsRef,
         p_updated_at: input.updatedAt,
