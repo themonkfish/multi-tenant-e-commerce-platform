@@ -567,7 +567,9 @@ Status snapshot as of 2026-11-23:
       are selected.
 - [x] Razorpay checkout, webhook signature verification, inventory/discount
       reconciliation, Tenant order sync, and refund-request foundations are
-      implemented for INR orders, with test/live key configuration.
+      implemented for INR orders, with test/live key configuration. Signed
+      refund webhooks reconcile full refunds, inventory and discount cleanup,
+      Tenant cancellation snapshots, and replay-safe payment state.
 - [x] Add India-only Cash on Delivery with required Indian delivery address,
       Tenant REST order delivery, authorized collection confirmation, and
       audit logging.

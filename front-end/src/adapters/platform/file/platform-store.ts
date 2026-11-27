@@ -1196,7 +1196,7 @@ export class FilePlatformStore implements PlatformStore {
       );
       if (
         !order ||
-        order.paymentMethod !== "stripe" ||
+        !["stripe", "razorpay"].includes(order.paymentMethod) ||
         order.paymentStatus === "paid" ||
         (order.paymentStatus === "pending" && order.paymentSessionId)
       ) {
@@ -1230,7 +1230,7 @@ export class FilePlatformStore implements PlatformStore {
           candidate.tenantId === input.tenantId &&
           candidate.customerId === input.customerId &&
           candidate.id === input.orderId &&
-          candidate.paymentMethod === "stripe" &&
+          ["stripe", "razorpay"].includes(candidate.paymentMethod) &&
           candidate.paymentStatus === "pending" &&
           candidate.paymentAttempt === input.attempt,
       );

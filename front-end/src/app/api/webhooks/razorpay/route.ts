@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getPlatformStore } from "@/lib/server/platform";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
+import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
 import {
   createRazorpayEventId,
   verifyRazorpayWebhookSignature,
@@ -22,6 +23,7 @@ const RazorpayWebhookSchema = z.object({
     "payment.captured",
     "payment.failed",
     "order.paid",
+    "refund.processed",
   ]),
   payload: z.object({
     payment: z
@@ -43,6 +45,20 @@ const RazorpayWebhookSchema = z.object({
           id: z.string().min(1),
           amount: z.number().int().positive(),
           currency: z.literal("INR"),
+          notes: z
+            .record(z.string(), z.union([z.string(), z.number()]))
+            .optional(),
+        }),
+      })
+      .optional(),
+    refund: z
+      .object({
+        entity: z.object({
+          id: z.string().min(1),
+          payment_id: z.string().min(1),
+          amount: z.number().int().positive(),
+          currency: z.literal("INR"),
+          status: z.string().min(1).optional(),
           notes: z
             .record(z.string(), z.union([z.string(), z.number()]))
             .optional(),
@@ -100,6 +116,114 @@ export async function POST(request: Request) {
       { error: "invalid_razorpay_event" },
       { status: 400 },
     );
+  }
+  if (parsed.data.event === "refund.processed") {
+    const refund = parsed.data.payload.refund?.entity;
+    if (!refund) {
+      return NextResponse.json({ error: "invalid_refund_metadata" }, { status: 400 });
+    }
+    const notes = refund.notes;
+    let hostId = "";
+    let tenantId = typeof notes?.tenantId === "string" ? notes.tenantId : "";
+    let customerId =
+      typeof notes?.customerId === "string" ? notes.customerId : "";
+    let orderId = typeof notes?.orderId === "string" ? notes.orderId : "";
+    const hosts = await getPlatformStore().listHosts();
+    const tenantRecords = await Promise.all(
+      hosts.map((host) => getPlatformStore().listTenantsForHost(host.id)),
+    );
+    let order = null;
+    for (let index = 0; index < hosts.length; index += 1) {
+      const host = hosts[index];
+      const tenants = tenantRecords[index] ?? [];
+      if (tenantId && !tenants.some((tenant) => tenant.id === tenantId)) continue;
+      const tenantsToSearch = tenantId
+        ? tenants.filter((tenant) => tenant.id === tenantId)
+        : tenants;
+      for (const tenant of tenantsToSearch) {
+        const candidates = await getPlatformStore().listTenantOrders(tenant.id);
+        const candidate = candidates.find((item) =>
+        orderId
+          ? item.id === orderId
+          : item.paymentMethod === "razorpay" &&
+            item.paymentIntentId === refund.payment_id,
+        );
+        if (candidate) {
+          hostId = host.id;
+          tenantId = candidate.tenantId;
+          customerId = candidate.customerId;
+          orderId = candidate.id;
+          order = candidate;
+          break;
+        }
+      }
+      if (order) break;
+    }
+    if (!order) {
+      return NextResponse.json({ error: "order_not_found" }, { status: 404 });
+    }
+    if (
+      order.paymentMethod !== "razorpay" ||
+      order.paymentStatus !== "paid" ||
+      order.paymentIntentId !== refund.payment_id
+    ) {
+      if (
+        order.paymentMethod === "razorpay" &&
+        order.paymentStatus === "refunded"
+      ) {
+        recordObservabilityMetric("razorpay.webhook.refund_idempotent");
+        return NextResponse.json({ received: true });
+      }
+      return NextResponse.json(
+        { error: "payment_details_mismatch" },
+        { status: 400 },
+      );
+    }
+    if (refund.amount !== order.total || refund.currency !== order.currency) {
+      recordObservabilityMetric("razorpay.webhook.partial_refund");
+      return NextResponse.json({ received: true, partial: true });
+    }
+    const refunded = await getPlatformStore().updateCustomerOrderPayment({
+      tenantId,
+      customerId,
+      orderId,
+      sessionId: order.paymentSessionId!,
+      status: "refunded",
+    });
+    if (!refunded) {
+      return NextResponse.json(
+        { error: "refund_update_conflict" },
+        { status: 409 },
+      );
+    }
+    if (order.items.some((item) => item.inventoryTracked)) {
+      const catalog = await createTenantCatalogAdapter(tenantId, hostId);
+      await catalog.restoreInventory(`${order.id}-${order.paymentAttempt}`);
+    }
+    if (order.discountCode) {
+      await getPlatformStore().cancelDiscountRedemption(tenantId, order.id);
+    }
+    const tenantOrders = await createTenantOrderAdapter(tenantId, hostId);
+    await tenantOrders.updateOrderStatus(order.id, "Cancelled");
+    await getPlatformStore().updateCustomerOrderStatus({
+      tenantId,
+      orderId: order.id,
+      status: "Cancelled",
+    });
+    await getPlatformStore().appendAuditEvent({
+      id: randomUUID(),
+      actorId: "razorpay-webhook",
+      scope: { kind: "tenant", id: tenantId, hostId },
+      action: "tenant.order.refunded",
+      resourceType: "customer_order",
+      resourceId: order.id,
+      createdAt: new Date().toISOString(),
+    });
+    recordObservabilityMetric("razorpay.webhook.refunded");
+    return NextResponse.json({
+      received: true,
+      eventId: createRazorpayEventId(parsed.data),
+    });
   }
   const entity =
     parsed.data.payload.payment?.entity ??

@@ -1,8 +1,9 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { getPlatformStore } = vi.hoisted(() => ({
+const { getPlatformStore, createTenantOrderAdapter } = vi.hoisted(() => ({
   getPlatformStore: vi.fn(),
+  createTenantOrderAdapter: vi.fn(),
 }));
 
 vi.mock("@/lib/server/platform", () => ({ getPlatformStore }));
@@ -11,6 +12,9 @@ vi.mock("@/adapters/data/rest/tenant-catalog", () => ({
 }));
 vi.mock("@/lib/server/customer-order-sync", () => ({
   syncCustomerOrderToTenant: vi.fn(),
+}));
+vi.mock("@/adapters/data/rest/tenant-orders", () => ({
+  createTenantOrderAdapter,
 }));
 
 import { POST } from "./route";
@@ -141,5 +145,73 @@ describe("POST /api/webhooks/razorpay", () => {
     expect(await response.json()).toEqual(
       expect.objectContaining({ received: true }),
     );
+  });
+
+  it("fully refunds a Razorpay order and cancels the Tenant snapshot", async () => {
+    vi.stubEnv("RAZORPAY_WEBHOOK_SECRET", webhookSecret);
+    vi.stubEnv("RAZORPAY_KEY_ID", "rzp_test_test");
+    vi.stubEnv("RAZORPAY_KEY_SECRET", "test-secret");
+    const order = {
+      id: orderId,
+      tenantId,
+      customerId,
+      status: "Shipped",
+      total: 10000,
+      currency: "INR",
+      items: [],
+      paymentMethod: "razorpay",
+      paymentStatus: "paid",
+      paymentAttempt: 1,
+      paymentSessionId: "order_R123",
+      paymentIntentId: "pay_R123",
+    };
+    getPlatformStore.mockReturnValue({
+      listHosts: vi.fn().mockResolvedValue([{ id: hostId }]),
+      listTenantsForHost: vi
+        .fn()
+        .mockResolvedValue([{ id: tenantId, hostId }]),
+      listTenantOrders: vi.fn().mockResolvedValue([order]),
+      updateCustomerOrderPayment: vi
+        .fn()
+        .mockResolvedValue({ ...order, paymentStatus: "refunded" }),
+      updateCustomerOrderStatus: vi.fn().mockResolvedValue({
+        ...order,
+        status: "Cancelled",
+        paymentStatus: "refunded",
+      }),
+      appendAuditEvent: vi.fn().mockResolvedValue(undefined),
+      cancelDiscountRedemption: vi.fn(),
+    });
+    createTenantOrderAdapter.mockResolvedValue({
+      updateOrderStatus: vi.fn().mockResolvedValue({
+        ...order,
+        status: "Cancelled",
+      }),
+    });
+
+    const response = await POST(
+      request({
+        event: "refund.processed",
+        payload: {
+          refund: {
+            entity: {
+              id: "rfnd_R123",
+              payment_id: "pay_R123",
+              amount: 10000,
+              currency: "INR",
+              status: "processed",
+              notes: {
+                tenantId,
+                customerId,
+                orderId,
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(createTenantOrderAdapter).toHaveBeenCalledWith(tenantId, hostId);
   });
 });

@@ -1412,7 +1412,7 @@ export class SupabasePlatformStore implements PlatformStore {
     );
     if (
       !current ||
-      current.paymentMethod !== "stripe" ||
+      !["stripe", "razorpay"].includes(current.paymentMethod) ||
       current.paymentStatus === "paid" ||
       (current.paymentStatus === "pending" && current.paymentSessionId)
     ) {
@@ -1433,7 +1433,7 @@ export class SupabasePlatformStore implements PlatformStore {
       .eq("tenant_id", input.tenantId)
       .eq("customer_id", input.customerId)
       .eq("id", input.orderId)
-      .eq("payment_method", "stripe")
+      .in("payment_method", ["stripe", "razorpay"])
       .eq("payment_status", current.paymentStatus)
       .eq("payment_attempt", current.paymentAttempt);
     const filtered = current.paymentSessionId
@@ -1452,7 +1452,8 @@ export class SupabasePlatformStore implements PlatformStore {
       input.customerId,
       input.orderId,
     );
-    return latest?.paymentMethod === "stripe" &&
+    return latest &&
+      ["stripe", "razorpay"].includes(latest.paymentMethod) &&
       latest.paymentStatus === "pending" &&
       !latest.paymentSessionId
       ? { order: latest, attempt: latest.paymentAttempt }
@@ -1472,7 +1473,7 @@ export class SupabasePlatformStore implements PlatformStore {
       .eq("tenant_id", input.tenantId)
       .eq("customer_id", input.customerId)
       .eq("id", input.orderId)
-      .eq("payment_method", "stripe")
+      .in("payment_method", ["stripe", "razorpay"])
       .eq("payment_status", "pending")
       .eq("payment_attempt", input.attempt)
       .or(`payment_session_id.is.null,payment_session_id.eq.${input.sessionId}`)
