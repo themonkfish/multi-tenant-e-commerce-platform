@@ -621,6 +621,9 @@ Status snapshot as of 2026-11-23:
 - [x] Tenant logistics settings support encrypted BlueDart and Shiprocket
       credentials through the Tenant Owner dashboard, with save/remove flows
       and tenant-scoped credential resolution.
+- [x] BlueDart tracking webhooks use `x-bluedart-signature` HMAC-SHA256
+      verification at `/api/webhooks/bluedart?tenantId=<tenant-uuid>` and feed
+      the shared monotonic carrier reconciliation flow.
 - [x] Implement an S3-compatible storage adapter, Owner-managed encrypted
       credentials, upload validation including file-content signatures, and
       tenant-scoped paths. Catalog writers can upload, preview, save, and remove

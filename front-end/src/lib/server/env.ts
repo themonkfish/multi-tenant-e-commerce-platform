@@ -15,6 +15,7 @@ const ServerEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   CARRIER_WEBHOOK_SECRET: z.string().min(16).optional(),
   SHIPROCKET_WEBHOOK_TOKEN: z.string().min(16).optional(),
+  BLUEDART_WEBHOOK_TOKEN: z.string().min(16).optional(),
   SHIPROCKET_API_EMAIL: z.email().optional(),
   SHIPROCKET_API_PASSWORD: z.string().min(1).optional(),
   SHIPROCKET_PICKUP_LOCATION: z.string().trim().min(1).max(120).optional(),
