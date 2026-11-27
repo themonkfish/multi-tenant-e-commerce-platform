@@ -160,10 +160,14 @@ export function TenantStoreSettingsForm({
         ...(freeShippingThreshold !== undefined
           ? { freeShippingThreshold }
           : {}),
+        ...(settings.shipping.logistics
+          ? { logistics: settings.shipping.logistics }
+          : {}),
       },
       tax: { rateBasisPoints, jurisdictions },
       payments: {
         stripe: form.get("paymentStripe") === "on",
+        razorpay: form.get("paymentRazorpay") === "on",
         cashOnDelivery: form.get("paymentCashOnDelivery") === "on",
       },
       discounts,
@@ -328,6 +332,20 @@ export function TenantStoreSettingsForm({
             {t("stripeCheckout")}
             <span className="block font-normal text-slate-600">
               {t("stripeCheckoutDescription")}
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm font-medium">
+          <input
+            className="mt-0.5"
+            name="paymentRazorpay"
+            type="checkbox"
+            defaultChecked={settings.payments.razorpay}
+          />
+          <span>
+            {t("razorpayCheckout")}
+            <span className="block font-normal text-slate-600">
+              {t("razorpayCheckoutDescription")}
             </span>
           </span>
         </label>

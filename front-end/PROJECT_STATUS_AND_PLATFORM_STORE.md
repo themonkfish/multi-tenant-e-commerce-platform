@@ -565,6 +565,9 @@ Status snapshot as of 2026-11-23:
       compliance work, and confirmation of India platform eligibility.
 - [ ] Add regional payment gateways after the supported regions and providers
       are selected.
+- [x] Razorpay checkout, webhook signature verification, inventory/discount
+      reconciliation, Tenant order sync, and refund-request foundations are
+      implemented for INR orders, with test/live key configuration.
 - [x] Add India-only Cash on Delivery with required Indian delivery address,
       Tenant REST order delivery, authorized collection confirmation, and
       audit logging.
@@ -969,7 +972,8 @@ Before deploying the app:
    `0022_host_deletion.sql`, `0023_tenant_deletion.sql`,
    `0024_tenant_metadata_updates.sql`, `0025_product_reviews.sql`,
    `0026_cod_order_cancellation.sql`, `0027_order_delivery_status.sql`,
-   `0028_stripe_refunds.sql`, and `0029_tenant_domain_removal.sql`.
+   `0028_stripe_refunds.sql`, `0029_tenant_domain_removal.sql`, and
+   `0033_razorpay_payments.sql`.
    Review each SQL file and run it in that
    project's Supabase SQL Editor or through your
    reviewed migration pipeline. Do not run migrations from the browser or

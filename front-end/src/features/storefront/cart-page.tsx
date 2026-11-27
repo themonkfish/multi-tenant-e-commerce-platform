@@ -12,6 +12,27 @@ import {
 import { formatCurrencyAmount } from "@/core/domain/money";
 import { calculateTaxAmount } from "@/core/domain/tax";
 import { getCartItemKey, useCartStore } from "@/features/storefront/cart-store";
+import { z } from "zod";
+
+type RazorpayCheckoutInstance = {
+  open(): void;
+};
+
+type RazorpayConstructor = new (options: {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (response: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) => void;
+  prefill: { name: string; contact: string };
+  theme: { color: string };
+}) => RazorpayCheckoutInstance;
 
 export function StorefrontCartPage({
   locale,
@@ -46,7 +67,7 @@ export function StorefrontCartPage({
   const [discountError, setDiscountError] = useState("");
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<
-    "stripe" | "cash_on_delivery"
+    "stripe" | "razorpay" | "cash_on_delivery"
   >("stripe");
   const [deliveryAddress, setDeliveryAddress] =
     useState<CustomerDeliveryAddress>({
@@ -155,6 +176,74 @@ export function StorefrontCartPage({
     } finally {
       setApplyingDiscount(false);
     }
+  }
+
+  async function openRazorpayCheckout(
+    orderId: string,
+    checkout: {
+      keyId: string;
+      orderId: string;
+      amount: number;
+      currency: string;
+      name: string;
+      description: string;
+    },
+  ) {
+    await new Promise<void>((resolve, reject) => {
+      if (
+        typeof (
+          window as unknown as { Razorpay?: RazorpayConstructor }
+        ).Razorpay === "function"
+      ) {
+        resolve();
+        return;
+      }
+      const existing = document.querySelector(
+        'script[data-razorpay-checkout="true"]',
+      );
+      if (existing) {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error("Razorpay checkout unavailable")),
+          { once: true },
+        );
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.dataset.razorpayCheckout = "true";
+      script.addEventListener("load", () => resolve(), { once: true });
+      script.addEventListener(
+        "error",
+        () => reject(new Error("Razorpay checkout unavailable")),
+        { once: true },
+      );
+      document.head.appendChild(script);
+    });
+    const Razorpay = (
+      window as unknown as { Razorpay: RazorpayConstructor }
+    ).Razorpay;
+    const instance = new Razorpay({
+      key: checkout.keyId,
+      amount: checkout.amount,
+      currency: checkout.currency,
+      name: checkout.name,
+      description: checkout.description,
+      order_id: checkout.orderId,
+      handler: () => {
+        router.push(
+          `/${locale}/checkout/success?orderId=${encodeURIComponent(orderId)}`,
+        );
+      },
+      prefill: {
+        name: deliveryAddress.fullName,
+        contact: deliveryAddress.phone,
+      },
+      theme: { color: "#0f172a" },
+    });
+    instance.open();
   }
 
   async function onCheckout() {
@@ -276,6 +365,36 @@ export function StorefrontCartPage({
         router.push(
           `/${locale}/checkout/success?orderId=${encodeURIComponent(order.data.id)}`,
         );
+        return;
+      }
+      const razorpay =
+        typeof body === "object" &&
+        body !== null &&
+        "razorpay" in body &&
+        typeof body.razorpay === "object" &&
+        body.razorpay !== null
+          ? body.razorpay
+          : null;
+      if (razorpay) {
+        const fields = z
+          .object({
+            keyId: z.string().min(1),
+            orderId: z.string().min(1),
+            amount: z.number().int().positive(),
+            currency: z.literal("INR"),
+            name: z.string().min(1),
+            description: z.string().min(1),
+          })
+          .safeParse(razorpay);
+        if (!fields.success) {
+          setError(t("errors.invalidCheckoutResponse"));
+          return;
+        }
+        try {
+          await openRazorpayCheckout(order.data.id, fields.data);
+        } catch {
+          setError(t("errors.paymentUnavailable"));
+        }
         return;
       }
       const checkoutUrl =
@@ -522,6 +641,20 @@ export function StorefrontCartPage({
                   value="stripe"
                 />
                 {t("cardPayment")}
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  checked={paymentMethod === "razorpay"}
+                  disabled={checkingOut}
+                  name="paymentMethod"
+                  onChange={() => {
+                    setPaymentMethod("razorpay");
+                    idempotencyKey.current = crypto.randomUUID();
+                  }}
+                  type="radio"
+                  value="razorpay"
+                />
+                {t("razorpayPayment")}
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input

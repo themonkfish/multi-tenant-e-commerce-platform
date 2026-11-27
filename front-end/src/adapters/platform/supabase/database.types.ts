@@ -389,7 +389,7 @@ export type PlatformDatabase = {
           item_count: number;
           payment_status:
             "pending" | "paid" | "failed" | "cod_due" | "refunded";
-          payment_method: "stripe" | "cash_on_delivery";
+          payment_method: "stripe" | "razorpay" | "cash_on_delivery";
           delivery_address: Json | null;
           payment_attempt: number;
           payment_session_id: string | null;
@@ -418,7 +418,7 @@ export type PlatformDatabase = {
           item_count: number;
           payment_status?:
             "pending" | "paid" | "failed" | "cod_due" | "refunded";
-          payment_method?: "stripe" | "cash_on_delivery";
+          payment_method?: "stripe" | "razorpay" | "cash_on_delivery";
           delivery_address?: Json | null;
           payment_attempt?: number;
           payment_session_id?: string | null;
@@ -439,7 +439,7 @@ export type PlatformDatabase = {
           tax_amount?: number;
           payment_status?:
             "pending" | "paid" | "failed" | "cod_due" | "refunded";
-          payment_method?: "stripe" | "cash_on_delivery";
+          payment_method?: "stripe" | "razorpay" | "cash_on_delivery";
           delivery_address?: Json | null;
           payment_attempt?: number;
           payment_session_id?: string | null;

@@ -250,9 +250,10 @@ export const TenantStoreSettingsSchema = z
     payments: z
       .object({
         stripe: z.boolean().default(true),
+        razorpay: z.boolean().default(false),
         cashOnDelivery: z.boolean().default(false),
       })
-      .default({ stripe: true, cashOnDelivery: false }),
+      .default({ stripe: true, razorpay: false, cashOnDelivery: false }),
     discounts: TenantDiscountsSchema.default([]),
   })
   .superRefine((settings, context) => {
@@ -292,7 +293,7 @@ export function createDefaultTenantStoreSettings(
     },
     shipping: { flatRate: 0 },
     tax: { rateBasisPoints: 0, jurisdictions: [] },
-    payments: { stripe: true, cashOnDelivery: false },
+    payments: { stripe: true, razorpay: false, cashOnDelivery: false },
     discounts: [],
   };
 }

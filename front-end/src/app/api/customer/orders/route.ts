@@ -33,12 +33,18 @@ import {
   retrieveStripeCheckoutSession,
   StripePaymentConfigurationError,
 } from "@/lib/server/stripe-payments";
+import {
+  createRazorpayCheckoutOrder,
+  RazorpayPaymentConfigurationError,
+} from "@/lib/server/razorpay-payments";
 import { ZodError, z } from "zod";
 
 const CreateOrderSchema = z
   .object({
     idempotencyKey: z.uuid(),
-    paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
+    paymentMethod: z
+      .enum(["stripe", "razorpay", "cash_on_delivery"])
+      .default("stripe"),
     discountCode: z
       .string()
       .trim()
@@ -239,6 +245,15 @@ export async function POST(request: Request) {
   if (
     parsed.data.paymentMethod === "stripe" &&
     !paymentSettings.payments.stripe
+  ) {
+    return NextResponse.json(
+      { error: "payment_method_disabled" },
+      { status: 409 },
+    );
+  }
+  if (
+    parsed.data.paymentMethod === "razorpay" &&
+    !paymentSettings.payments.razorpay
   ) {
     return NextResponse.json(
       { error: "payment_method_disabled" },
@@ -885,6 +900,50 @@ export async function POST(request: Request) {
       order: savedOrder,
       checkoutUrl: getDemoCheckoutUrl(origin, order.id),
     });
+  }
+  if (parsed.data.paymentMethod === "razorpay") {
+    try {
+      const checkout = await createRazorpayCheckoutOrder({
+        order: prepared.order,
+        storeName: checkoutSettings.branding.name,
+      });
+      const savedOrder = await store.saveCustomerOrderPaymentSession({
+        tenantId: order.tenantId,
+        customerId: order.customerId,
+        orderId: order.id,
+        attempt: prepared.attempt,
+        sessionId: checkout.orderId,
+      });
+      if (!savedOrder) {
+        await rollbackPreparedPayment();
+        return NextResponse.json(
+          { error: "payment_session_conflict" },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json(
+        { order: savedOrder, razorpay: checkout },
+        { status: 200 },
+      );
+    } catch (error) {
+      if (error instanceof RazorpayPaymentConfigurationError) {
+        await rollbackPreparedPayment();
+        return NextResponse.json(
+          { error: "payment_not_configured" },
+          { status: 503 },
+        );
+      }
+      await rollbackPreparedPayment();
+      console.error("Razorpay Checkout order creation failed", {
+        tenantId: order.tenantId,
+        orderId: order.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return NextResponse.json(
+        { error: "payment_provider_unavailable" },
+        { status: 502 },
+      );
+    }
   }
   try {
     const checkout = await createStripeCheckoutSession({

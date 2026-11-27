@@ -164,7 +164,9 @@ const CustomerOrderBaseSchema = z.object({
   total: z.number().int().min(0).max(2_147_483_647),
   currency: z.string().regex(/^[A-Z]{3}$/),
   itemCount: z.number().int().positive(),
-  paymentMethod: z.enum(["stripe", "cash_on_delivery"]).default("stripe"),
+  paymentMethod: z
+    .enum(["stripe", "razorpay", "cash_on_delivery"])
+    .default("stripe"),
   paymentStatus: z
     .enum(["pending", "paid", "failed", "cod_due", "refunded"])
     .default("paid"),
@@ -259,10 +261,14 @@ export const CustomerOrderSchema = CustomerOrderBaseSchema.superRefine(
           "Cash on delivery requires an Indian delivery address, INR currency, and a valid unpaid or collected status",
       });
     }
-    if (order.paymentMethod === "stripe" && order.paymentStatus === "cod_due") {
+    if (
+      (order.paymentMethod === "stripe" ||
+        order.paymentMethod === "razorpay") &&
+      order.paymentStatus === "cod_due"
+    ) {
       context.addIssue({
         code: "custom",
-        message: "Stripe orders cannot be awaiting cash collection",
+        message: "Card payment orders cannot be awaiting cash collection",
       });
     }
   },

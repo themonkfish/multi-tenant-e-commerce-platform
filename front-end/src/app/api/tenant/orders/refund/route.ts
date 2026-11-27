@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createStripeRefund } from "@/lib/server/stripe-payments";
+import { createRazorpayRefund } from "@/lib/server/razorpay-payments";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
 import { getPlatformStore } from "@/lib/server/platform";
 import { getTenantPortalSession } from "@/lib/server/session";
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "order_not_found" }, { status: 404 });
   }
   if (
-    platformOrder.paymentMethod !== "stripe" ||
+    !["stripe", "razorpay"].includes(platformOrder.paymentMethod) ||
     platformOrder.paymentStatus !== "paid" ||
     !platformOrder.paymentIntentId
   ) {
@@ -63,10 +64,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const refund = await createStripeRefund({
-      order: platformOrder,
-      paymentIntentId: platformOrder.paymentIntentId,
-    });
+    const refund =
+      platformOrder.paymentMethod === "razorpay"
+        ? await createRazorpayRefund({
+            order: platformOrder,
+            paymentIntentId: platformOrder.paymentIntentId,
+          })
+        : await createStripeRefund({
+            order: platformOrder,
+            paymentIntentId: platformOrder.paymentIntentId,
+          });
     await store.appendAuditEvent({
       id: randomUUID(),
       actorId: session.userId,
