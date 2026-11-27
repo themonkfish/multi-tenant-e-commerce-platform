@@ -500,6 +500,23 @@
     "testConnection": "Test connection",
     "removeStorage": "Remove storage"
   },
+  "TenantRazorpay": {
+    "title": "Razorpay payment settings",
+    "description": "Configure tenant Razorpay credentials for INR checkout and refunds.",
+    "keyId": "Razorpay Key ID",
+    "keySecret": "Razorpay Key Secret",
+    "webhookSecret": "Razorpay webhook secret",
+    "keepCurrentHint": "Leave blank to keep the current secret",
+    "save": "Save Razorpay settings",
+    "saving": "Saving...",
+    "remove": "Remove Razorpay settings",
+    "configured": "Razorpay credentials are configured and stored encrypted.",
+    "settingsSaved": "Razorpay settings saved.",
+    "settingsRemoved": "Razorpay settings removed.",
+    "saveFailed": "Razorpay settings could not be saved.",
+    "removeFailed": "Razorpay settings could not be removed.",
+    "requestUnavailable": "Could not reach the Razorpay settings API."
+  },
   "TenantLogistics": {
     "title": "Logistics provider",
     "description": "Configure carrier credentials for shipment creation and cancellation.",

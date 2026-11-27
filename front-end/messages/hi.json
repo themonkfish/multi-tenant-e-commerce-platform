@@ -501,6 +501,23 @@
     "testConnection": "कनेक्शन टेस्ट करें",
     "removeStorage": "स्टोरेज हटाएँ"
   },
+  "TenantRazorpay": {
+    "title": "Razorpay भुगतान सेटिंग",
+    "description": "INR चेकआउट और रिफंड के लिए tenant Razorpay क्रेडेंशियल कॉन्फ़िगर करें।",
+    "keyId": "Razorpay Key ID",
+    "keySecret": "Razorpay Key Secret",
+    "webhookSecret": "Razorpay webhook secret",
+    "keepCurrentHint": "वर्तमान secret रखने के लिए खाली छोड़ें",
+    "save": "Razorpay सेटिंग सेव करें",
+    "saving": "सेव हो रहा है...",
+    "remove": "Razorpay सेटिंग हटाएँ",
+    "configured": "Razorpay क्रेडेंशियल कॉन्फ़िगर हैं और एन्क्रिप्टेड हैं।",
+    "settingsSaved": "Razorpay सेटिंग सेव हो गईं।",
+    "settingsRemoved": "Razorpay सेटिंग हट गईं।",
+    "saveFailed": "Razorpay सेटिंग सेव नहीं हो सकीं।",
+    "removeFailed": "Razorpay सेटिंग हटाई नहीं जा सकी।",
+    "requestUnavailable": "Razorpay सेटिंग API उपलब्ध नहीं है।"
+  },
   "TenantLogistics": {
     "title": "लॉजिस्टिक्स प्रदाता",
     "description": "शिपमेंट बनाने और रद्द करने के लिए वाहक क्रेडेंशियल कॉन्फ़िगर करें।",

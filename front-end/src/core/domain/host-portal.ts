@@ -251,6 +251,12 @@ export const TenantStoreSettingsSchema = z
       .object({
         stripe: z.boolean().default(true),
         razorpay: z.boolean().default(false),
+        razorpayConfig: z
+          .object({
+            keyId: z.string().trim().min(1).max(80),
+            credentialsRef: z.string().min(1),
+          })
+          .optional(),
         cashOnDelivery: z.boolean().default(false),
       })
       .default({ stripe: true, razorpay: false, cashOnDelivery: false }),

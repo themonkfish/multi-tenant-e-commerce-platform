@@ -501,6 +501,23 @@
     "testConnection": "Tester la connexion",
     "removeStorage": "Supprimer le stockage"
   },
+  "TenantRazorpay": {
+    "title": "Paramètres de paiement Razorpay",
+    "description": "Configurez les identifiants Razorpay du tenant pour les paiements INR et les remboursements.",
+    "keyId": "ID de clé Razorpay",
+    "keySecret": "Secret de clé Razorpay",
+    "webhookSecret": "Secret webhook Razorpay",
+    "keepCurrentHint": "Laissez vide pour conserver le secret actuel",
+    "save": "Enregistrer Razorpay",
+    "saving": "Enregistrement...",
+    "remove": "Supprimer les paramètres Razorpay",
+    "configured": "Les identifiants Razorpay sont configurés et chiffrés.",
+    "settingsSaved": "Paramètres Razorpay enregistrés.",
+    "settingsRemoved": "Paramètres Razorpay supprimés.",
+    "saveFailed": "Impossible d’enregistrer les paramètres Razorpay.",
+    "removeFailed": "Impossible de supprimer les paramètres Razorpay.",
+    "requestUnavailable": "Impossible de contacter l’API des paramètres Razorpay."
+  },
   "TenantLogistics": {
     "title": "Fournisseur logistique",
     "description": "Configurez les identifiants du transporteur pour créer et annuler les expéditions.",

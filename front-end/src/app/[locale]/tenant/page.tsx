@@ -8,6 +8,7 @@ import { TenantRestConnectionForm } from "@/features/tenant-auth/tenant-rest-con
 import { TenantDatabaseProviderForm } from "@/features/tenant-auth/tenant-database-provider-form";
 import { TenantStorageProviderForm } from "@/features/tenant-auth/tenant-storage-provider-form";
 import { TenantLogisticsProviderForm } from "@/features/tenant-auth/tenant-logistics-provider-form";
+import { TenantRazorpaySettingsForm } from "@/features/tenant-auth/tenant-razorpay-settings-form";
 import { TenantDataExport } from "@/features/tenant-auth/tenant-data-export";
 import {
   TenantDatabaseConnectionViewSchema,
@@ -406,6 +407,18 @@ export default async function TenantDashboardPage({
         <div>
           <TenantLogisticsProviderForm
             initialConnection={logisticsConnection}
+          />
+        </div>
+        <div>
+          <TenantRazorpaySettingsForm
+            initialConnection={
+              settings.payments.razorpayConfig
+                ? {
+                    keyId: settings.payments.razorpayConfig.keyId,
+                    credentialsConfigured: true,
+                  }
+                : null
+            }
           />
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-5">

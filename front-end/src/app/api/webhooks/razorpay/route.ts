@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getPlatformStore } from "@/lib/server/platform";
+import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 import { createTenantCatalogAdapter } from "@/adapters/data/rest/tenant-catalog";
 import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
 import { createTenantOrderAdapter } from "@/adapters/data/rest/tenant-orders";
@@ -85,11 +85,69 @@ export async function POST(request: Request) {
   if (Buffer.byteLength(payload, "utf8") > 1_048_576) {
     return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
   }
+  let body: unknown;
+  try {
+    body = JSON.parse(payload);
+  } catch {
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  }
+  const parsed = RazorpayWebhookSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "invalid_razorpay_event" },
+      { status: 400 },
+    );
+  }
+  const preliminaryNotes =
+    parsed.data.payload.payment?.entity.notes ??
+    parsed.data.payload.order?.entity.notes ??
+    parsed.data.payload.refund?.entity.notes;
+  const preliminaryTenantId =
+    typeof preliminaryNotes?.tenantId === "string"
+      ? preliminaryNotes.tenantId
+      : "";
+  let tenantWebhookSecret: string | undefined;
+  if (preliminaryTenantId) {
+    const parsedTenant = z.uuid().safeParse(preliminaryTenantId);
+    if (parsedTenant.success) {
+      const store = getPlatformStore();
+      const hosts = await store.listHosts();
+      for (const host of hosts) {
+        const tenants = await store.listTenantsForHost(host.id);
+        if (!tenants.some((tenant) => tenant.id === parsedTenant.data)) continue;
+        const settings =
+          typeof store.getTenantStoreSettings === "function"
+            ? await store.getTenantStoreSettings(
+                parsedTenant.data,
+                host.id,
+                "",
+              )
+            : null;
+        if (!settings) break;
+        const config = settings.payments.razorpayConfig;
+        if (config) {
+          try {
+            const secret = await getSecretVault().getSecret(
+              config.credentialsRef,
+            );
+            const parsedSecret = JSON.parse(secret) as {
+              webhookSecret?: string;
+            };
+            tenantWebhookSecret = parsedSecret.webhookSecret;
+          } catch {
+            tenantWebhookSecret = undefined;
+          }
+        }
+        break;
+      }
+    }
+  }
   try {
     if (
       !verifyRazorpayWebhookSignature(
         payload,
         request.headers.get("x-razorpay-signature"),
+        tenantWebhookSecret,
       )
     ) {
       recordObservabilityMetric("razorpay.webhook.invalid_signature");
@@ -103,19 +161,6 @@ export async function POST(request: Request) {
       );
     }
     throw error;
-  }
-  let body: unknown;
-  try {
-    body = JSON.parse(payload);
-  } catch {
-    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
-  }
-  const parsed = RazorpayWebhookSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "invalid_razorpay_event" },
-      { status: 400 },
-    );
   }
   if (parsed.data.event === "refund.processed") {
     const refund = parsed.data.payload.refund?.entity;

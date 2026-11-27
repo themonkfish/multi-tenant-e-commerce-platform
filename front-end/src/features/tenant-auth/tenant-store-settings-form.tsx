@@ -168,6 +168,9 @@ export function TenantStoreSettingsForm({
       payments: {
         stripe: form.get("paymentStripe") === "on",
         razorpay: form.get("paymentRazorpay") === "on",
+        ...(settings.payments.razorpayConfig
+          ? { razorpayConfig: settings.payments.razorpayConfig }
+          : {}),
         cashOnDelivery: form.get("paymentCashOnDelivery") === "on",
       },
       discounts,

@@ -35,6 +35,7 @@ export function getRazorpayConfiguration(): {
   ) {
     throw new RazorpayPaymentConfigurationError();
   }
+
   return {
     keyId: env.RAZORPAY_KEY_ID,
     keySecret: env.RAZORPAY_KEY_SECRET,
@@ -43,9 +44,30 @@ export function getRazorpayConfiguration(): {
   };
 }
 
+export function getRazorpayConfigurationFromCredentials(credentials: {
+  keyId: string;
+  keySecret: string;
+  webhookSecret: string;
+}): {
+  keyId: string;
+  keySecret: string;
+  webhookSecret: string;
+  mode: "test" | "live";
+} {
+  return {
+    ...credentials,
+    mode: credentials.keyId.startsWith("rzp_live_") ? "live" : "test",
+  };
+}
+
 export async function createRazorpayCheckoutOrder(input: {
   order: CustomerOrder;
   storeName: string;
+  credentials?: {
+    keyId: string;
+    keySecret: string;
+    webhookSecret: string;
+  };
 }): Promise<RazorpayCheckoutOrder> {
   if (input.order.paymentStatus !== "pending") {
     throw new Error("Only unpaid orders can start a Razorpay checkout");
@@ -56,7 +78,9 @@ export async function createRazorpayCheckoutOrder(input: {
   if (input.order.currency !== "INR" || input.order.total < 100) {
     throw new Error("Razorpay Checkout requires a positive INR order amount");
   }
-  const config = getRazorpayConfiguration();
+  const config = input.credentials
+    ? getRazorpayConfigurationFromCredentials(input.credentials)
+    : getRazorpayConfiguration();
   const response = await fetch(`${RAZORPAY_API}/v1/orders`, {
     method: "POST",
     headers: {
@@ -121,9 +145,11 @@ export function verifyRazorpayPaymentSignature(input: {
 export function verifyRazorpayWebhookSignature(
   payload: string,
   signature: string | null,
+  webhookSecretOverride?: string,
 ): boolean {
   if (!signature) return false;
-  const { webhookSecret } = getRazorpayConfiguration();
+  const webhookSecret =
+    webhookSecretOverride ?? getRazorpayConfiguration().webhookSecret;
   const expected = createHmac("sha256", webhookSecret)
     .update(payload)
     .digest("hex");

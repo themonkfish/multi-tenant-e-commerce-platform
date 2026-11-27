@@ -20,7 +20,7 @@ import type { Product } from "@/core/ports/data";
 import type { InventoryReservationItem } from "@/core/ports/data";
 import { canAccessPermission } from "@/core/tenancy/scope";
 import { createRateLimitKey, isSameOrigin } from "@/lib/server/http";
-import { getPlatformStore } from "@/lib/server/platform";
+import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 import { getCustomerSession } from "@/lib/server/session";
 import { syncCustomerOrderToTenant } from "@/lib/server/customer-order-sync";
 import {
@@ -903,9 +903,41 @@ export async function POST(request: Request) {
   }
   if (parsed.data.paymentMethod === "razorpay") {
     try {
+      const razorpayConfig = checkoutSettings.payments.razorpayConfig;
+      let razorpayCredentials:
+        | { keyId: string; keySecret: string; webhookSecret: string }
+        | undefined;
+      if (razorpayConfig) {
+        try {
+          const secret = await getSecretVault().getSecret(
+            razorpayConfig.credentialsRef,
+          );
+          const parsedSecret = JSON.parse(secret) as {
+            keyId?: string;
+            keySecret?: string;
+            webhookSecret?: string;
+          };
+          if (
+            parsedSecret.keyId &&
+            parsedSecret.keySecret &&
+            parsedSecret.webhookSecret
+          ) {
+            razorpayCredentials = {
+              keyId: parsedSecret.keyId,
+              keySecret: parsedSecret.keySecret,
+              webhookSecret: parsedSecret.webhookSecret,
+            };
+          }
+        } catch {
+          razorpayCredentials = undefined;
+        }
+      }
       const checkout = await createRazorpayCheckoutOrder({
         order: prepared.order,
         storeName: checkoutSettings.branding.name,
+        ...(razorpayCredentials
+          ? { credentials: razorpayCredentials }
+          : {}),
       });
       const savedOrder = await store.saveCustomerOrderPaymentSession({
         tenantId: order.tenantId,

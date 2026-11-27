@@ -570,6 +570,9 @@ Status snapshot as of 2026-11-23:
       implemented for INR orders, with test/live key configuration. Signed
       refund webhooks reconcile full refunds, inventory and discount cleanup,
       Tenant cancellation snapshots, and replay-safe payment state.
+- [x] Tenant Owners can store Razorpay Key ID and encrypted Key/Webhook secrets,
+      replace or remove credentials, and use tenant-scoped checkout/webhook
+      configuration through the Tenant dashboard.
 - [x] Add India-only Cash on Delivery with required Indian delivery address,
       Tenant REST order delivery, authorized collection confirmation, and
       audit logging.
