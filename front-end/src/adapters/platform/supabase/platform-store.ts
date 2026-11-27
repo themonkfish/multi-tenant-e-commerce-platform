@@ -2048,7 +2048,10 @@ export class SupabasePlatformStore implements PlatformStore {
         p_tenant_id: input.tenantId,
         p_host_id: input.hostId,
         p_config: config,
-        p_secret_ref: config.credentialsRef,
+        p_secret_ref:
+          config.type === "gdrive"
+            ? config.oauthTokenRef
+            : config.credentialsRef,
         p_updated_at: input.updatedAt,
         p_actor_id: input.auditEvent.actorId,
         p_audit_id: input.auditEvent.id,

@@ -46,6 +46,14 @@ function storageView(config: TenantStorageProviderConfig | null) {
       credentialsConfigured: true,
     });
   }
+  if (config.type === "gdrive") {
+    return TenantStorageConnectionViewSchema.parse({
+      type: "gdrive",
+      folderId: config.folderId,
+      accountEmail: config.accountEmail,
+      credentialsConfigured: true,
+    });
+  }
   return TenantStorageConnectionViewSchema.parse({
     type: "s3",
     endpoint: config.endpoint,
@@ -102,6 +110,12 @@ export async function PUT(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "invalid_input", details: parsed.error.flatten().fieldErrors },
+      { status: 400 },
+    );
+  }
+  if (parsed.data.type === "gdrive") {
+    return NextResponse.json(
+      { error: "google_drive_oauth_required" },
       { status: 400 },
     );
   }
@@ -219,7 +233,11 @@ export async function PUT(request: Request) {
                   : "tenant-s3-storage-credentials",
         value: suppliedCredentials,
       })
-    : existing?.credentialsRef;
+    : existing
+      ? existing.type === "gdrive"
+        ? existing.oauthTokenRef
+        : existing.credentialsRef
+      : undefined;
   if (!credentialsRef) {
     return NextResponse.json(
       { error: "storage_credentials_required" },
@@ -296,10 +314,16 @@ export async function PUT(request: Request) {
   if (
     suppliedCredentials &&
     existing &&
-    existing.credentialsRef !== credentialsRef
+    (existing.type === "gdrive"
+      ? existing.oauthTokenRef
+      : existing.credentialsRef) !== credentialsRef
   ) {
     try {
-      await vault.deleteSecret(existing.credentialsRef);
+      await vault.deleteSecret(
+        existing.type === "gdrive"
+          ? existing.oauthTokenRef
+          : existing.credentialsRef,
+      );
     } catch {
       credentialCleanupWarning = true;
     }
@@ -367,7 +391,11 @@ export async function DELETE(request: Request) {
   }
   let credentialCleanupWarning = false;
   try {
-    await getSecretVault().deleteSecret(existing.credentialsRef);
+    await getSecretVault().deleteSecret(
+      existing.type === "gdrive"
+        ? existing.oauthTokenRef
+        : existing.credentialsRef,
+    );
   } catch {
     credentialCleanupWarning = true;
   }

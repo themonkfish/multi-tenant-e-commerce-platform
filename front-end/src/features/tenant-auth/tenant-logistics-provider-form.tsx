@@ -17,7 +17,7 @@ export function TenantLogisticsProviderForm({
   const t = useTranslations("TenantLogistics");
   const [connection, setConnection] = useState(initialConnection);
   const [provider, setProvider] = useState<"shiprocket" | "bluedart">(
-    initialConnection?.type ?? "bluedart",
+    initialConnection?.type === "shiprocket" ? "shiprocket" : "bluedart",
   );
   const [apiEmail, setApiEmail] = useState(
     initialConnection?.type === "shiprocket"

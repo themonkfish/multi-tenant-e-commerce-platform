@@ -113,6 +113,13 @@ export default async function TenantDashboardPage({
             cloudName: storageProvider.cloudName,
             credentialsConfigured: true,
           })
+      : storageProvider.type === "gdrive"
+        ? TenantStorageConnectionViewSchema.parse({
+            type: "gdrive",
+            folderId: storageProvider.folderId,
+            accountEmail: storageProvider.accountEmail,
+            credentialsConfigured: true,
+          })
         : TenantStorageConnectionViewSchema.parse({
             type: "s3",
             endpoint: storageProvider.endpoint,

@@ -5,6 +5,7 @@ import { TenantSupabaseStorageAdapter } from "./supabase/tenant-supabase-storage
 import { TenantGcsStorageAdapter } from "./gcs/tenant-gcs-storage";
 import { TenantAzureStorageAdapter } from "./azure/tenant-azure-storage";
 import { TenantCloudinaryStorageAdapter } from "./cloudinary/tenant-cloudinary-storage";
+import { TenantGoogleDriveStorageAdapter } from "./gdrive/tenant-gdrive-storage";
 import { getPlatformStore, getSecretVault } from "@/lib/server/platform";
 
 const S3CredentialsSchema = z
@@ -37,6 +38,13 @@ const CloudinaryStorageCredentialsSchema = z
     apiSecret: z.string().min(1),
   })
   .strict();
+const GoogleDriveCredentialsSchema = z
+  .object({
+    accessToken: z.string().min(1),
+    refreshToken: z.string().min(1),
+    expiresAt: z.number().int().positive(),
+  })
+  .strict();
 
 export async function createTenantStorageAdapter(
   tenantId: string,
@@ -47,6 +55,7 @@ export async function createTenantStorageAdapter(
   | TenantGcsStorageAdapter
   | TenantAzureStorageAdapter
   | TenantCloudinaryStorageAdapter
+  | TenantGoogleDriveStorageAdapter
 > {
   const store = getPlatformStore();
   const [hosts, tenants, config] = await Promise.all([
@@ -69,9 +78,9 @@ export async function createTenantStorageAdapter(
   if (!config) {
     throw new Error("Tenant storage provider is not configured");
   }
-  const secret = JSON.parse(
-    await getSecretVault().getSecret(config.credentialsRef),
-  );
+  const secretRef =
+    config.type === "gdrive" ? config.oauthTokenRef : config.credentialsRef;
+  const secret = JSON.parse(await getSecretVault().getSecret(secretRef));
   if (config.type === "supabase") {
     const credentials = SupabaseStorageCredentialsSchema.parse(secret);
     return new TenantSupabaseStorageAdapter(config, tenantId, credentials);
@@ -90,6 +99,10 @@ export async function createTenantStorageAdapter(
   if (config.type === "cloudinary") {
     const credentials = CloudinaryStorageCredentialsSchema.parse(secret);
     return new TenantCloudinaryStorageAdapter(config, tenantId, credentials);
+  }
+  if (config.type === "gdrive") {
+    const credentials = GoogleDriveCredentialsSchema.parse(secret);
+    return new TenantGoogleDriveStorageAdapter(config, tenantId, credentials);
   }
   const credentials = S3CredentialsSchema.parse(secret);
   return new TenantS3StorageAdapter(config, tenantId, credentials);

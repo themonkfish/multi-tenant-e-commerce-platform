@@ -647,6 +647,10 @@ Status snapshot as of 2026-11-23:
       Supabase Storage is implemented alongside S3-compatible storage. GCS,
       Azure, and Cloudinary are now implemented. OAuth-backed providers and
       custom storage remain future work.
+      Google Drive OAuth authorization, encrypted refresh/access-token storage,
+      tenant-scoped folder configuration, server-proxy upload, deletion, and
+      health-check support are implemented. Callback and provider credential
+      tests cover signed-state authorization and tenant isolation.
       Google Cloud Storage is implemented with encrypted service-account
       credentials, tenant-scoped server-proxy uploads, public URL generation,
       deletion, and bucket health checks.

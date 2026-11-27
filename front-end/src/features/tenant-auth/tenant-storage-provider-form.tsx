@@ -18,7 +18,7 @@ export function TenantStorageProviderForm({
   const t = useTranslations("TenantStorage");
   const [connection, setConnection] = useState(initialConnection);
   const [provider, setProvider] = useState<
-    "s3" | "supabase" | "gcs" | "azure" | "cloudinary"
+    "s3" | "supabase" | "gcs" | "azure" | "cloudinary" | "gdrive"
   >(
     initialConnection?.type === "supabase"
       ? "supabase"
@@ -28,7 +28,9 @@ export function TenantStorageProviderForm({
           ? "azure"
           : initialConnection?.type === "cloudinary"
             ? "cloudinary"
-            : "s3",
+            : initialConnection?.type === "gdrive"
+              ? "gdrive"
+              : "s3",
   );
   const [endpoint, setEndpoint] = useState(
     initialConnection?.type === "s3" ? (initialConnection.endpoint ?? "") : "",
@@ -80,6 +82,16 @@ export function TenantStorageProviderForm({
   );
   const [cloudinaryApiKey, setCloudinaryApiKey] = useState("");
   const [cloudinaryApiSecret, setCloudinaryApiSecret] = useState("");
+  const [gdriveFolderId, setGdriveFolderId] = useState(
+    initialConnection?.type === "gdrive"
+      ? initialConnection.folderId
+      : "",
+  );
+  const [gdriveAccountEmail, setGdriveAccountEmail] = useState(
+    initialConnection?.type === "gdrive"
+      ? initialConnection.accountEmail
+      : "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -89,6 +101,20 @@ export function TenantStorageProviderForm({
     setError("");
     setNotice("");
     try {
+      if (provider === "gdrive") {
+        if (!gdriveFolderId.trim() || !gdriveAccountEmail.trim()) {
+          setError(t("googleDriveFieldsRequired"));
+          return;
+        }
+        const params = new URLSearchParams({
+          folderId: gdriveFolderId.trim(),
+          accountEmail: gdriveAccountEmail.trim(),
+        });
+        window.location.assign(
+          `/api/tenant/storage/oauth/google-drive/start?${params.toString()}`,
+        );
+        return;
+      }
       const body =
         provider === "supabase"
           ? {
@@ -278,10 +304,15 @@ export function TenantStorageProviderForm({
                   ? t("configuredCloudinary", {
                       cloudName: connection.cloudName,
                     })
-                  : t("configuredSupabaseBucket", {
-                      bucket: connection.bucket,
-                      projectUrl: connection.projectUrl,
-                    })}
+                  : connection.type === "gdrive"
+                    ? t("configuredGdrive", {
+                        folderId: connection.folderId,
+                        accountEmail: connection.accountEmail,
+                      })
+                    : t("configuredSupabaseBucket", {
+                        bucket: connection.bucket,
+                        projectUrl: connection.projectUrl,
+                      })}
         </p>
       )}
       <p className="text-sm text-slate-600">{t("publicAccessHelp")}</p>
@@ -301,7 +332,9 @@ export function TenantStorageProviderForm({
                     ? "azure"
                     : event.target.value === "cloudinary"
                       ? "cloudinary"
-                      : "s3",
+                      : event.target.value === "gdrive"
+                        ? "gdrive"
+                        : "s3",
             )
           }
         >
@@ -310,6 +343,7 @@ export function TenantStorageProviderForm({
           <option value="gcs">{t("providerGcs")}</option>
           <option value="azure">{t("providerAzure")}</option>
           <option value="cloudinary">{t("providerCloudinary")}</option>
+          <option value="gdrive">{t("providerGdrive")}</option>
         </select>
       </label>
       {provider === "supabase" ? (
@@ -415,6 +449,28 @@ export function TenantStorageProviderForm({
               placeholder="tenant-cloud"
               type="text"
               value={cloudinaryCloudName}
+            />
+          </label>
+        </div>
+      ) : provider === "gdrive" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("gdriveFolderIdLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setGdriveFolderId(event.target.value)}
+              value={gdriveFolderId}
+            />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            {t("gdriveAccountEmailLabel")}
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
+              disabled={busy}
+              onChange={(event) => setGdriveAccountEmail(event.target.value)}
+              type="email"
+              value={gdriveAccountEmail}
             />
           </label>
         </div>

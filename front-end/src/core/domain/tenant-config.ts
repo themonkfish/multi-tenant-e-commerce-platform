@@ -304,6 +304,12 @@ export const TenantStorageProviderConfigSchema = z.discriminatedUnion("type", [
     bucket: S3BucketNameSchema,
     credentialsRef: SecretRefSchema,
   }),
+  z.object({
+    type: z.literal("gdrive"),
+    folderId: z.string().trim().min(1).max(512),
+    oauthTokenRef: SecretRefSchema,
+    accountEmail: z.email(),
+  }),
 ]);
 
 export const TenantLogisticsProviderConfigSchema = z.discriminatedUnion("type", [
@@ -354,6 +360,12 @@ export const TenantLogisticsConnectionViewSchema = z.discriminatedUnion("type", 
     baseUrl: z.url({ protocol: /^https$/ }),
     customerCode: z.string().trim().min(1).max(80),
     loginId: z.string().trim().min(1).max(80),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("gdrive"),
+    folderId: z.string().trim().min(1).max(512),
+    accountEmail: z.email(),
     credentialsConfigured: z.boolean(),
   }),
 ]);
@@ -464,6 +476,11 @@ export const TenantStorageConnectionInputSchema = z.discriminatedUnion("type", [
       });
     }
   }),
+  z.object({
+    type: z.literal("gdrive"),
+    folderId: z.string().trim().min(1).max(512),
+    accountEmail: z.email(),
+  }),
 ]);
 
 export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
@@ -493,6 +510,12 @@ export const TenantStorageConnectionViewSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("cloudinary"),
     cloudName: z.string(),
+    credentialsConfigured: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("gdrive"),
+    folderId: z.string(),
+    accountEmail: z.email(),
     credentialsConfigured: z.boolean(),
   }),
 ]);

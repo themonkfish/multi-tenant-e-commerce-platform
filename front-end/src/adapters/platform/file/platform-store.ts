@@ -1849,7 +1849,10 @@ export class FilePlatformStore implements PlatformStore {
       );
       const secret = state.secrets.find(
         (candidate) =>
-          candidate.ref === config.credentialsRef &&
+          candidate.ref ===
+            (config.type === "gdrive"
+              ? config.oauthTokenRef
+              : config.credentialsRef) &&
           candidate.tenantId === input.tenantId,
       );
       if (!tenant || !host || !secret) return null;
